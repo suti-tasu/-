@@ -1,6 +1,7 @@
 import pkg from 'boardgame.io/dist/cjs/server.js';
 const { Server, Origins } = pkg;
 import { Splendor } from './Game.js';
+import { Ito } from './ItoGame.js';
 import serve from 'koa-static';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -9,7 +10,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const server = Server({
-  games: [Splendor],
+  games: [Splendor, Ito],
   origins: [Origins.ANY],
 });
 
