@@ -15,7 +15,8 @@ export function ItoBoard({ G, ctx, moves, events, playerID, matchData }) {
     try {
       const server = window.location.protocol + "//" + window.location.hostname + (window.location.port ? ":" + window.location.port : "");
       const lobbyClient = new LobbyClient({ server });
-      const { matchID: newMatchID } = await lobbyClient.createMatch("ito", { numPlayers: Object.keys(G.players).length });
+      const setupData = { themeMode: G.themeMode, customThemes: G.customThemes };
+      const { matchID: newMatchID } = await lobbyClient.createMatch("ito", { numPlayers: Object.keys(G.players).length, setupData });
       moves.proposeRematch(newMatchID);
     } catch(e) {
       alert("再戦部屋の作成に失敗しました: " + e.message);

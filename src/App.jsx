@@ -204,14 +204,21 @@ const App = () => {
   if (playerID !== null && credentials !== null) {
     return (
       <div style={{ padding: '10px' }}>
-        <div style={{ background: '#e3f2fd', padding: '10px', borderRadius: '5px', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            招待URL: <input type="text" readOnly value={window.location.href} style={{ width: '300px', padding: '5px' }} onClick={e => e.target.select()} />
-            <span style={{ fontSize: '0.8em', marginLeft: '10px', color: '#555' }}>このURLを友達に送って参加してもらってください</span>
+        <div style={{ background: '#e3f2fd', padding: '15px', borderRadius: '8px', marginBottom: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <span style={{ fontWeight: 'bold', width: '90px' }}>部屋コード:</span>
+              <input type="text" readOnly value={matchID} style={{ width: '150px', padding: '5px', fontWeight: 'bold', fontSize: '1.1em', background: '#fff', border: '1px solid #ccc', borderRadius: '4px' }} onClick={e => e.target.select()} />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <span style={{ fontWeight: 'bold', width: '90px' }}>招待URL:</span>
+              <input type="text" readOnly value={window.location.href} style={{ width: '300px', padding: '5px', background: '#fff', border: '1px solid #ccc', borderRadius: '4px' }} onClick={e => e.target.select()} />
+            </div>
+            <div style={{ fontSize: '0.85em', color: '#555' }}>友達にURLを送るか、部屋コードを伝えてください</div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
             <div>あなたの名前: <strong>{playerName}</strong></div>
-            <button onClick={leaveMatch} style={{ background: '#f44336', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '3px', cursor: 'pointer' }}>退出・リセット</button>
+            <button onClick={leaveMatch} style={{ background: '#f44336', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>退出・リセット</button>
           </div>
         </div>
         <ErrorBoundary>
@@ -337,7 +344,7 @@ const App = () => {
             </div>
           </>
         ) : (
-          <button onClick={joinExistingMatch} style={{ width: '100%', padding: '15px', fontSize: '1.2em', cursor: 'pointer', background: '#4CAF50', color: 'white', border: 'none', borderRadius: '5px' }}>
+          <button onClick={() => joinExistingMatch()} style={{ width: '100%', padding: '15px', fontSize: '1.2em', cursor: 'pointer', background: '#4CAF50', color: 'white', border: 'none', borderRadius: '5px' }}>
             部屋に参加する
           </button>
         )}
