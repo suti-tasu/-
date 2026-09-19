@@ -233,9 +233,7 @@ export const Splendor = {
       } else {
         events.endTurn();
       }
-    }
-  },
-
+    },
     proposeRematch: ({ G }, nextMatchId) => {
       G.nextMatchId = nextMatchId;
     }
