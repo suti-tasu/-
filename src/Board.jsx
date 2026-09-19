@@ -235,7 +235,7 @@ export function SplendorBoard({ G, ctx, moves, events, playerID, matchData }) {
         ) : (
           <div style={{ marginTop: '40px', display: 'flex', gap: '20px' }}>
             <button onClick={handleRematchCreate} style={{ padding: '15px 30px', fontSize: '1.2em', cursor: 'pointer', background: '#4caf50', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
-              同じメンバーで再戦する
+              再戦する
             </button>
             <button 
               onClick={() => {
@@ -245,7 +245,7 @@ export function SplendorBoard({ G, ctx, moves, events, playerID, matchData }) {
               }}
               style={{ padding: '15px 30px', fontSize: '1.2em', cursor: 'pointer', background: '#3f51b5', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}
             >
-              トップ画面に戻る
+              ポータルサイトに戻る
             </button>
           </div>
         )}

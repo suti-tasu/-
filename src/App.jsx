@@ -58,6 +58,7 @@ const App = () => {
   const [customThemes, setCustomThemes] = useState([]);
   const [newTheme, setNewTheme] = useState('');
   const [showThemeManager, setShowThemeManager] = useState(false);
+  const [themeMode, setThemeMode] = useState('random');
 
   useEffect(() => {
     try {
@@ -119,7 +120,7 @@ const App = () => {
     setError('');
     try {
       const matchConfig = { numPlayers };
-      if (gameType === 'ito') matchConfig.setupData = { customThemes };
+      if (gameType === 'ito') matchConfig.setupData = { customThemes, themeMode };
       const { matchID: newMatchID } = await lobbyClient.createMatch(gameType, matchConfig);
       const { playerID: newPlayerID, playerCredentials } = await lobbyClient.joinMatch(gameType, newMatchID, {
         playerName: playerName
@@ -218,6 +219,22 @@ const App = () => {
                 <button onClick={() => setGameType('ito')} style={{ flex: 1, padding: '15px', background: gameType === 'ito' ? '#ff9800' : '#e0e0e0', color: gameType === 'ito' ? 'white' : 'black', border: 'none', borderRadius: '5px', fontSize: '1.1em', cursor: 'pointer', fontWeight: 'bold' }}>🧵 ITO</button>
               </div>
             </div>
+
+            {gameType === 'ito' && (
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ display: 'block', marginBottom: '5px' }}>お題の出題方法</label>
+                <div style={{ display: 'flex', gap: '15px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                    <input type="radio" name="themeMode" value="random" checked={themeMode === 'random'} onChange={() => setThemeMode('random')} style={{ marginRight: '5px' }} />
+                    自動出題 (ランダム)
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                    <input type="radio" name="themeMode" value="manual" checked={themeMode === 'manual'} onChange={() => setThemeMode('manual')} style={{ marginRight: '5px' }} />
+                    手動入力 (みんなで決める)
+                  </label>
+                </div>
+              </div>
+            )}
 
             <div style={{ marginBottom: '20px' }}>
               <label style={{ display: 'block', marginBottom: '5px' }}>プレイ人数</label>

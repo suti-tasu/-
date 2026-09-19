@@ -1,19 +1,13 @@
 const themes = [
-  "無人島に持っていきたいもの",
-  "人気の食べ物",
-  "こわいもの",
-  "なりたい職業",
-  "強そうな動物",
-  "テンションが上がること",
-  "おにぎりの具の人気",
-  "言われて嬉しい言葉",
-  "かっこいい必殺技",
-  "歴史上の人物の強さ",
-  "一家に一台欲しいもの",
-  "デートで行きたい場所",
-  "小学生が好きなもの",
-  "重いもの",
-  "透明になったらやりたいこと"
+  "無人島に持っていきたいもの", "人気の食べ物", "こわいもの", "なりたい職業", "強そうな動物",
+  "テンションが上がること", "おにぎりの具の人気", "言われて嬉しい言葉", "かっこいい必殺技", "歴史上の人物の強さ",
+  "一家に一台欲しいもの", "デートで行きたい場所", "小学生が好きなもの", "重いもの", "透明になったらやりたいこと",
+  "100万円あったら買いたいもの", "もらって困るプレゼント", "一生に一度は経験したいこと", "ストレス解消法", "美味しいと思うお菓子の味",
+  "生まれ変わったらなりたいもの", "休日によくやること", "絶対に笑ってしまうこと", "学生時代の思い出", "好きなスポーツ",
+  "宝くじが当たったら", "お弁当に入っていると嬉しいおかず", "朝起きて一番にすること", "寝る前にすること", "カラオケでよく歌う曲",
+  "行ってみたい国", "タイムマシンで行きたい時代", "無人島に持っていきたくないもの", "好きな映画のジャンル", "好きな言葉",
+  "ペットにしたい動物", "超能力が使えるなら", "子供の頃の夢", "好きな給食のメニュー", "一番痛かった思い出",
+  "好きなボードゲーム", "好きなテレビ番組", "休日の理想の過ごし方", "好きな寿司のネタ", "一番欲しいドラえもんの道具"
 ];
 
 const getInitialState = (ctx, random, setupData) => {
@@ -29,10 +23,17 @@ const getInitialState = (ctx, random, setupData) => {
   }
 
   const customThemes = setupData?.customThemes || [];
+  const themeMode = setupData?.themeMode || 'random';
   const allThemes = [...themes, ...customThemes];
+  
+  let initialTheme = null;
+  if (themeMode === 'random') {
+    initialTheme = allThemes[random.Die(allThemes.length) - 1];
+  }
 
   return {
-    theme: allThemes[random.Die(allThemes.length) - 1],
+    theme: initialTheme,
+    themeMode,
     players,
     playedCards: [],
     discardedCards: [],
@@ -55,8 +56,11 @@ export const Ito = {
   },
 
   moves: {
+    setTheme: ({ G }, themeString) => {
+      if (!G.theme) G.theme = themeString;
+    },
     playCard: ({ G, ctx }, playerID, card) => {
-      if (G.gameState !== 'playing') return;
+      if (G.gameState !== 'playing' || !G.theme) return;
       
       const player = G.players[playerID];
       if (!player.hand.includes(card)) return;
@@ -117,8 +121,12 @@ export const Ito = {
         G.players[pid].hand = hand;
       });
 
-      const allThemes = [...themes, ...(G.customThemes || [])];
-      G.theme = allThemes[random.Die(allThemes.length) - 1];
+      if (G.themeMode === 'random') {
+        const allThemes = [...themes, ...(G.customThemes || [])];
+        G.theme = allThemes[random.Die(allThemes.length) - 1];
+      } else {
+        G.theme = null;
+      }
       G.playedCards = [];
       G.discardedCards = [];
       G.gameState = 'playing';

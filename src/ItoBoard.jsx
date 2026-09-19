@@ -2,6 +2,7 @@ import React from "react";
 import { LobbyClient } from "boardgame.io/client";
 
 export function ItoBoard({ G, ctx, moves, events, playerID, matchData }) {
+  const [manualTheme, setManualTheme] = React.useState("");
   const isSpectator = playerID === null;
 
   const getPlayerName = (id) => {
@@ -64,7 +65,23 @@ export function ItoBoard({ G, ctx, moves, events, playerID, matchData }) {
         <div style={{ textAlign: "right" }}>
           <div style={{ fontSize: "1.2em", fontWeight: "bold", color: "#d32f2f" }}>お題</div>
           <div style={{ fontSize: "1.5em", fontWeight: "bold", background: "#fff9c4", padding: "10px 20px", borderRadius: "5px", border: "2px solid #fbc02d" }}>
-            {G.theme}
+            {G.theme ? G.theme : (
+              <div style={{ display: "flex", gap: "5px" }}>
+                <input 
+                  type="text" 
+                  value={manualTheme} 
+                  onChange={e => setManualTheme(e.target.value)} 
+                  placeholder="お題を入力..." 
+                  style={{ padding: "5px", fontSize: "0.8em", width: "200px" }} 
+                />
+                <button 
+                  onClick={() => moves.setTheme(manualTheme)} 
+                  style={{ padding: "5px 10px", background: "#4caf50", color: "white", border: "none", borderRadius: "3px", cursor: "pointer" }}
+                >
+                  決定
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -158,8 +175,12 @@ export function ItoBoard({ G, ctx, moves, events, playerID, matchData }) {
                 </div>
               ) : (
                 <div style={{ display: "flex", gap: "20px" }}>
-                  <button onClick={handleRematchCreate} style={{ padding: "15px 30px", fontSize: "1.2em", cursor: "pointer", background: "#4caf50", color: "white", border: "none", borderRadius: "8px", fontWeight: "bold" }}>同じメンバーで再戦</button>
-                  <button onClick={() => window.location.href = "/"} style={{ padding: "15px 30px", fontSize: "1.2em", cursor: "pointer", background: "#333", color: "white", border: "none", borderRadius: "8px", fontWeight: "bold" }}>トップへ戻る</button>
+                  <button onClick={handleRematchCreate} style={{ padding: "15px 30px", fontSize: "1.2em", cursor: "pointer", background: "#4caf50", color: "white", border: "none", borderRadius: "8px", fontWeight: "bold" }}>再戦する</button>
+                  <button onClick={() => {
+                    const mID = new URLSearchParams(window.location.search).get('match');
+                    if (mID) window.localStorage.removeItem('ito_match_' + mID);
+                    window.location.href = "/";
+                  }} style={{ padding: "15px 30px", fontSize: "1.2em", cursor: "pointer", background: "#333", color: "white", border: "none", borderRadius: "8px", fontWeight: "bold" }}>ポータルサイトに戻る</button>
                 </div>
               )}
             </div>
