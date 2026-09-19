@@ -256,72 +256,82 @@ export function SplendorBoard({ G, ctx, moves, events, playerID, matchData }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', fontFamily: 'sans-serif' }}>
       
-      {!isMyTurn && (
-        <div style={{ background: '#f44336', color: 'white', padding: '10px', textAlign: 'center', fontWeight: 'bold', fontSize: '1.2em' }}>
-          相手のターンです（現在: {getPlayerName(activePlayerId)} の手番）
-        </div>
-      )}
-
-      {isDiscardStage && !isMyTurn && (
-        <div style={{ background: '#ff9800', color: 'white', padding: '10px', textAlign: 'center', fontWeight: 'bold' }}>
-          {getPlayerName(activePlayerId)} がトークンを捨てています...
-        </div>
-      )}
-
-      {isMyDiscard && (
-        <div style={{ background: '#f8d7da', color: '#721c24', padding: '15px', borderRadius: '5px', border: '1px solid #f5c6cb', fontWeight: 'bold' }}>
-          トークンが10枚を超えています。（現在: {getTotalTokens(myPlayer)}枚）<br/>
-          手元に残るトークンが10枚になるように、自分の手持ちトークンをクリックして返却してください。
-          <div style={{ marginTop: '10px' }}>
-            返却予定: {discardTokens.map((c, i) => <span key={i} style={{ display: 'inline-block', width: '20px', height: '20px', background: cssColors[c], borderRadius: '50%', border: '1px solid #000', margin: '0 2px' }}></span>)}
-            {getTotalTokens(myPlayer) - discardTokens.length === 10 && (
-               <button onClick={confirmDiscard} style={{ marginLeft: '15px', padding: '5px 15px', cursor: 'pointer', background: '#dc3545', color: 'white', border: 'none', borderRadius: '3px' }}>確定</button>
-            )}
-            <button onClick={() => setDiscardTokens([])} style={{ marginLeft: '10px', padding: '5px 15px', cursor: 'pointer' }}>リセット</button>
+      {/* Action Banners Area (Fixed Height to prevent layout shifts) */}
+      <div style={{ minHeight: '120px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+        
+        {!isMyTurn && (
+          <div style={{ background: '#f44336', color: 'white', padding: '10px', textAlign: 'center', fontWeight: 'bold', fontSize: '1.2em', borderRadius: '5px', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+            相手のターンです（現在: {getPlayerName(activePlayerId)} の手番）
           </div>
-        </div>
-      )}
+        )}
 
-      {!isDiscardStage && pendingTokens.length > 0 && isMyTurn && (
-        <div style={{ background: '#d4edda', color: '#155724', padding: '15px', borderRadius: '5px', border: '1px solid #c3e6cb', display: 'flex', alignItems: 'center', gap: '15px' }}>
-          <strong>選択中のトークン:</strong>
-          {pendingTokens.map((c, i) => <span key={i} style={{ display: 'inline-block', width: '30px', height: '30px', background: cssColors[c], borderRadius: '50%', border: '1px solid #000' }}></span>)}
-          
-          {(pendingTokens.length === 3 || (pendingTokens.length === 2 && pendingTokens[0] === pendingTokens[1])) && (
-            <button onClick={confirmTokens} style={{ padding: '8px 20px', cursor: 'pointer', background: '#28a745', color: 'white', border: 'none', borderRadius: '4px', fontWeight: 'bold' }}>このトークンを取る</button>
-          )}
-          <button onClick={() => setPendingTokens([])} style={{ padding: '8px 20px', cursor: 'pointer' }}>キャンセル</button>
-        </div>
-      )}
+        {isDiscardStage && !isMyTurn && (
+          <div style={{ background: '#ff9800', color: 'white', padding: '10px', textAlign: 'center', fontWeight: 'bold', borderRadius: '5px', marginTop: '10px' }}>
+            {getPlayerName(activePlayerId)} がトークンを捨てています...
+          </div>
+        )}
 
-      {!isDiscardStage && selectedCard && isMyTurn && (
-        <div style={{ background: '#e2e3e5', color: '#383d41', padding: '15px', borderRadius: '5px', border: '1px solid #d6d8db', display: 'flex', alignItems: 'center', gap: '15px' }}>
-          <strong>カード選択中:</strong>
-          {(() => {
-            const card = selectedCard.source === 'board' ? G.board[selectedCard.level][selectedCard.index] : myPlayer.reserved[selectedCard.index];
-            const afford = canAffordCard(myPlayer, card);
-            return (
-              <>
-                {afford ? (
-                  <button onClick={() => {
-                    selectedCard.source === 'board' ? moves.buyCard(selectedCard.level, selectedCard.index) : moves.buyReservedCard(selectedCard.index);
-                    setSelectedCard(null);
-                  }} style={{ padding: '8px 20px', cursor: 'pointer', background: '#007bff', color: 'white', border: 'none', borderRadius: '4px', fontWeight: 'bold' }}>購入する</button>
-                ) : <span style={{ color: 'red' }}>コストが足りません</span>}
+        {isMyTurn && !isDiscardStage && pendingTokens.length === 0 && !selectedCard && (
+          <div style={{ background: '#e3f2fd', color: '#1565c0', padding: '15px', textAlign: 'center', fontWeight: 'bold', fontSize: '1.2em', borderRadius: '5px', border: '1px solid #bbdefb', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+            ✨ あなたのターンです。トークンを取るか、カードを選択してください。
+          </div>
+        )}
 
-                {selectedCard.source === 'board' && (
-                  <button onClick={() => {
-                    if (myPlayer.reserved.length >= 3) { alert("予約上限(3枚)です"); return; }
-                    moves.reserveCard(selectedCard.level, selectedCard.index);
-                    setSelectedCard(null);
-                  }} style={{ padding: '8px 20px', cursor: 'pointer', background: '#ffc107', color: 'black', border: 'none', borderRadius: '4px', fontWeight: 'bold' }}>予約する (黄金+1)</button>
-                )}
-              </>
-            );
-          })()}
-          <button onClick={() => setSelectedCard(null)} style={{ padding: '8px 20px', cursor: 'pointer' }}>キャンセル</button>
-        </div>
-      )}
+        {isMyDiscard && (
+          <div style={{ background: '#f8d7da', color: '#721c24', padding: '15px', borderRadius: '5px', border: '1px solid #f5c6cb', fontWeight: 'bold', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+            トークンが10枚を超えています。（現在: {getTotalTokens(myPlayer)}枚）<br/>
+            手元に残るトークンが10枚になるように、自分の手持ちトークンをクリックして返却してください。
+            <div style={{ marginTop: '10px' }}>
+              返却予定: {discardTokens.map((c, i) => <span key={i} style={{ display: 'inline-block', width: '20px', height: '20px', background: cssColors[c], borderRadius: '50%', border: '1px solid #000', margin: '0 2px' }}></span>)}
+              {getTotalTokens(myPlayer) - discardTokens.length === 10 && (
+                 <button onClick={confirmDiscard} style={{ marginLeft: '15px', padding: '5px 15px', cursor: 'pointer', background: '#dc3545', color: 'white', border: 'none', borderRadius: '3px' }}>確定</button>
+              )}
+              <button onClick={() => setDiscardTokens([])} style={{ marginLeft: '10px', padding: '5px 15px', cursor: 'pointer' }}>リセット</button>
+            </div>
+          </div>
+        )}
+
+        {!isDiscardStage && pendingTokens.length > 0 && isMyTurn && (
+          <div style={{ background: '#d4edda', color: '#155724', padding: '15px', borderRadius: '5px', border: '1px solid #c3e6cb', display: 'flex', alignItems: 'center', gap: '15px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+            <strong>選択中のトークン:</strong>
+            {pendingTokens.map((c, i) => <span key={i} style={{ display: 'inline-block', width: '30px', height: '30px', background: cssColors[c], borderRadius: '50%', border: '1px solid #000' }}></span>)}
+            
+            {(pendingTokens.length === 3 || (pendingTokens.length === 2 && pendingTokens[0] === pendingTokens[1])) && (
+              <button onClick={confirmTokens} style={{ padding: '8px 20px', cursor: 'pointer', background: '#28a745', color: 'white', border: 'none', borderRadius: '4px', fontWeight: 'bold' }}>このトークンを取る</button>
+            )}
+            <button onClick={() => setPendingTokens([])} style={{ padding: '8px 20px', cursor: 'pointer' }}>キャンセル</button>
+          </div>
+        )}
+
+        {!isDiscardStage && selectedCard && isMyTurn && (
+          <div style={{ background: '#e2e3e5', color: '#383d41', padding: '15px', borderRadius: '5px', border: '1px solid #d6d8db', display: 'flex', alignItems: 'center', gap: '15px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+            <strong>カード選択中:</strong>
+            {(() => {
+              const card = selectedCard.source === 'board' ? G.board[selectedCard.level][selectedCard.index] : myPlayer.reserved[selectedCard.index];
+              const afford = canAffordCard(myPlayer, card);
+              return (
+                <>
+                  {afford ? (
+                    <button onClick={() => {
+                      selectedCard.source === 'board' ? moves.buyCard(selectedCard.level, selectedCard.index) : moves.buyReservedCard(selectedCard.index);
+                      setSelectedCard(null);
+                    }} style={{ padding: '8px 20px', cursor: 'pointer', background: '#007bff', color: 'white', border: 'none', borderRadius: '4px', fontWeight: 'bold' }}>購入する</button>
+                  ) : <span style={{ color: 'red' }}>コストが足りません</span>}
+
+                  {selectedCard.source === 'board' && (
+                    <button onClick={() => {
+                      if (myPlayer.reserved.length >= 3) { alert("予約上限(3枚)です"); return; }
+                      moves.reserveCard(selectedCard.level, selectedCard.index);
+                      setSelectedCard(null);
+                    }} style={{ padding: '8px 20px', cursor: 'pointer', background: '#ffc107', color: 'black', border: 'none', borderRadius: '4px', fontWeight: 'bold' }}>予約する (黄金+1)</button>
+                  )}
+                </>
+              );
+            })()}
+            <button onClick={() => setSelectedCard(null)} style={{ padding: '8px 20px', cursor: 'pointer' }}>キャンセル</button>
+          </div>
+        )}
+      </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
         <button onClick={() => setShowRules(true)} style={{ background: '#3f51b5', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1em', display: 'flex', alignItems: 'center', gap: '5px', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
