@@ -29,6 +29,7 @@ const getInitialState = (ctx, random, setupData) => {
     theme: null,
     themeMode,
     submittedThemes: [],
+    usedThemes: [],
     players,
     playedCards: [],
     discardedCards: [],
@@ -58,12 +59,16 @@ export const Ito = {
     },
     startGame: ({ G, random }) => {
       if (G.gameState !== 'lobby') return;
-      if (G.themeMode === 'manual' && G.submittedThemes.length > 0) {
-        G.theme = G.submittedThemes[random.Die(G.submittedThemes.length) - 1];
-      } else {
-        const allThemes = [...themes, ...G.customThemes];
-        G.theme = allThemes[random.Die(allThemes.length) - 1];
-      }
+      let pool = (G.themeMode === 'manual' && G.submittedThemes.length > 0) 
+        ? G.submittedThemes 
+        : [...themes, ...G.customThemes];
+      
+      let available = pool.filter(t => !G.usedThemes.includes(t));
+      if (available.length === 0) available = pool; // Fallback if all are used
+      
+      const picked = available[random.Die(available.length) - 1];
+      G.theme = picked;
+      G.usedThemes.push(picked);
       G.gameState = 'playing';
     },
     playCard: ({ G, ctx }, playerID, card) => {
@@ -128,12 +133,16 @@ export const Ito = {
         G.players[pid].hand = hand;
       });
 
-      if (G.themeMode === 'manual' && G.submittedThemes.length > 0) {
-        G.theme = G.submittedThemes[random.Die(G.submittedThemes.length) - 1];
-      } else {
-        const allThemes = [...themes, ...(G.customThemes || [])];
-        G.theme = allThemes[random.Die(allThemes.length) - 1];
-      }
+      let pool = (G.themeMode === 'manual' && G.submittedThemes.length > 0) 
+        ? G.submittedThemes 
+        : [...themes, ...(G.customThemes || [])];
+      
+      let available = pool.filter(t => !G.usedThemes.includes(t));
+      if (available.length === 0) available = pool;
+      
+      const picked = available[random.Die(available.length) - 1];
+      G.theme = picked;
+      G.usedThemes.push(picked);
       G.playedCards = [];
       G.discardedCards = [];
       G.gameState = 'playing';

@@ -90,7 +90,9 @@ export function ItoBoard({ G, ctx, moves, events, playerID, matchData }) {
             </div>
             <div style={{ textAlign: "left", display: "flex", flexDirection: "column", gap: "5px", maxHeight: "200px", overflowY: "auto" }}>
               {G.submittedThemes.map((t, i) => (
-                <div key={i} style={{ background: "white", padding: "8px", borderRadius: "5px", border: "1px solid #ccc" }}>{t}</div>
+                <div key={i} style={{ background: "#333", padding: "8px", borderRadius: "5px", border: "1px solid #222", textAlign: "center" }}>
+                  <span style={{ color: "white", fontWeight: "bold", letterSpacing: "2px" }}>? ? ? (秘密のお題)</span>
+                </div>
               ))}
               {G.submittedThemes.length === 0 && <div style={{ color: "#888", textAlign: "center" }}>まだお題がありません。自由に提案してください！</div>}
             </div>
@@ -222,7 +224,21 @@ export function ItoBoard({ G, ctx, moves, events, playerID, matchData }) {
           )}
 
           {(G.gameState === "game_over" || G.gameState === "game_clear") && (
-            <div style={{ marginTop: "40px" }}>
+            <div style={{ marginTop: "30px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+              {G.themeMode === 'manual' && G.submittedThemes.length > 0 && (
+                <div style={{ background: "rgba(255,255,255,0.15)", padding: "20px", borderRadius: "10px", width: "100%", maxWidth: "500px", marginBottom: "30px" }}>
+                  <h3 style={{ margin: "0 0 15px 0", color: "#fff", textAlign: "center" }}>みんなが提出したお題一覧</h3>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "5px", maxHeight: "200px", overflowY: "auto" }}>
+                    {G.submittedThemes.map((t, i) => (
+                      <div key={i} style={{ background: "rgba(255,255,255,0.9)", color: "#333", padding: "8px", borderRadius: "5px", fontSize: "1.1em", display: "flex", justifyContent: "space-between" }}>
+                        <span>{t}</span>
+                        {G.theme === t && <span style={{ color: "#d32f2f", fontWeight: "bold" }}>出題済み✨</span>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {G.nextMatchId ? (
                 <div style={{ background: "rgba(76, 175, 80, 0.9)", padding: "20px", borderRadius: "10px", textAlign: "center" }}>
                   <h3>ホストが再戦の準備をしました！</h3>

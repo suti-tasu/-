@@ -6,6 +6,8 @@ import { Splendor } from './Game';
 import { SplendorBoard } from './Board';
 import { Ito } from './ItoGame';
 import { ItoBoard } from './ItoBoard';
+import { Haa } from './HaaGame';
+import HaaBoard from './HaaBoard';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -42,6 +44,13 @@ const SplendorClient = Client({
 const ItoClient = Client({
   game: Ito,
   board: ItoBoard,
+  multiplayer: SocketIO({ server }),
+  debug: false
+});
+
+const HaaClient = Client({
+  game: Haa,
+  board: HaaBoard,
   multiplayer: SocketIO({ server }),
   debug: false
 });
@@ -224,6 +233,8 @@ const App = () => {
         <ErrorBoundary>
           {gameType === 'ito' ? (
             <ItoClient matchID={matchID} playerID={playerID} credentials={credentials} />
+          ) : gameType === 'haa' ? (
+            <HaaClient matchID={matchID} playerID={playerID} credentials={credentials} />
           ) : (
             <SplendorClient matchID={matchID} playerID={playerID} credentials={credentials} />
           )}
@@ -256,8 +267,9 @@ const App = () => {
             <div style={{ marginBottom: '20px' }}>
               <label style={{ display: 'block', marginBottom: '5px' }}>遊ぶゲーム</label>
               <div style={{ display: 'flex', gap: '10px' }}>
-                <button onClick={() => setGameType('splendor')} style={{ flex: 1, padding: '15px', background: gameType === 'splendor' ? '#2196F3' : '#e0e0e0', color: gameType === 'splendor' ? 'white' : 'black', border: 'none', borderRadius: '5px', fontSize: '1.1em', cursor: 'pointer', fontWeight: 'bold' }}>💎 宝石の煌き</button>
-                <button onClick={() => setGameType('ito')} style={{ flex: 1, padding: '15px', background: gameType === 'ito' ? '#ff9800' : '#e0e0e0', color: gameType === 'ito' ? 'white' : 'black', border: 'none', borderRadius: '5px', fontSize: '1.1em', cursor: 'pointer', fontWeight: 'bold' }}>🧵 ITO</button>
+                <button onClick={() => setGameType('splendor')} style={{ flex: 1, padding: '10px', background: gameType === 'splendor' ? '#2196F3' : '#e0e0e0', color: gameType === 'splendor' ? 'white' : 'black', border: 'none', borderRadius: '5px', fontSize: '1.1em', cursor: 'pointer', fontWeight: 'bold' }}>💎 宝石の煌き</button>
+                <button onClick={() => setGameType('ito')} style={{ flex: 1, padding: '10px', background: gameType === 'ito' ? '#ff9800' : '#e0e0e0', color: gameType === 'ito' ? 'white' : 'black', border: 'none', borderRadius: '5px', fontSize: '1.1em', cursor: 'pointer', fontWeight: 'bold' }}>🧵 ITO</button>
+                <button onClick={() => setGameType('haa')} style={{ flex: 1, padding: '10px', background: gameType === 'haa' ? '#e91e63' : '#e0e0e0', color: gameType === 'haa' ? 'white' : 'black', border: 'none', borderRadius: '5px', fontSize: '1.1em', cursor: 'pointer', fontWeight: 'bold' }}>🗣️ はぁって言うゲーム</button>
               </div>
             </div>
 
@@ -280,7 +292,7 @@ const App = () => {
             <div style={{ marginBottom: '20px' }}>
               <label style={{ display: 'block', marginBottom: '5px' }}>プレイ人数</label>
               <select value={numPlayers} onChange={e => setNumPlayers(Number(e.target.value))} style={{ width: '100%', padding: '10px', fontSize: '1.2em' }}>
-                {gameType === 'ito' 
+                {(gameType === 'ito' || gameType === 'haa')
                   ? [2,3,4,5,6,7,8].map(n => <option key={n} value={n}>{n}人</option>) 
                   : [2,3,4].map(n => <option key={n} value={n}>{n}人</option>)}
               </select>
