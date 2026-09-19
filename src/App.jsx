@@ -165,6 +165,7 @@ const App = () => {
     if(matchID) localStorage.removeItem(gameType + '_match_' + matchID);
     setPlayerID(null);
     setCredentials(null);
+    window.location.href = '/';
   };
 
   if (playerID !== null && credentials !== null) {
