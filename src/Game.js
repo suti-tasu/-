@@ -88,6 +88,11 @@ export const Splendor = {
       first: ({ ctx, random }) => random.Die(ctx.numPlayers) - 1,
       next: ({ ctx }) => (ctx.playOrderPos + 1) % ctx.numPlayers,
     },
+    onBegin: ({ G, ctx }) => {
+      if (ctx.turn === 1) {
+        G.startPlayer = ctx.currentPlayer;
+      }
+    },
     onEnd: ({ G, ctx }) => {
       // 貴族のチェック
       const player = G.players[ctx.currentPlayer];
@@ -110,6 +115,23 @@ export const Splendor = {
       // 15点チェック
       if (player.score >= 15) {
         G.isLastRound = true;
+      }
+      
+      // ゲーム終了判定 (全員が同じ回数ターンを終えたタイミング)
+      if (G.isLastRound && (ctx.turn % ctx.numPlayers === 0)) {
+        const scores = Object.keys(G.players).map(pId => ({
+          id: pId,
+          score: G.players[pId].score,
+          devCards: G.players[pId].cards.length
+        }));
+        
+        scores.sort((a, b) => {
+          if (b.score !== a.score) return b.score - a.score;
+          return a.devCards - b.devCards; // Tiebreaker: fewest development cards
+        });
+        
+        G.isGameOver = true;
+        G.winner = scores[0].id;
       }
     },
     stages: {
@@ -214,20 +236,8 @@ export const Splendor = {
     }
   },
 
-  endIf: ({ G, ctx }) => {
-    if (G.isLastRound && (ctx.playOrderPos === ctx.numPlayers - 1)) {
-      const scores = Object.keys(G.players).map(pId => ({
-        id: pId,
-        score: G.players[pId].score,
-        devCards: G.players[pId].cards.length
-      }));
-      
-      scores.sort((a, b) => {
-        if (b.score !== a.score) return b.score - a.score;
-        return a.devCards - b.devCards; // Tiebreaker: fewest development cards
-      });
-      
-      return { winner: scores[0].id };
+    proposeRematch: ({ G }, nextMatchId) => {
+      G.nextMatchId = nextMatchId;
     }
   }
 };

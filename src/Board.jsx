@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { LobbyClient } from 'boardgame.io/client';
 import { canAffordCard, getBonuses, getTotalTokens } from './Game';
 
 const colorsList = ['white', 'blue', 'green', 'red', 'black', 'gold'];
@@ -186,28 +187,68 @@ export function SplendorBoard({ G, ctx, moves, events, playerID, matchData }) {
     );
   }
 
-  if (ctx.gameover) {
+  if (G.isGameOver) {
+    const server = window.location.protocol + '//' + window.location.hostname + (window.location.port ? ':' + window.location.port : '');
+    const lobbyClient = new LobbyClient({ server });
+
+    const handleRematchCreate = async () => {
+      try {
+        const { matchID: newMatchID } = await lobbyClient.createMatch('splendor', { numPlayers: Object.keys(G.players).length });
+        moves.proposeRematch(newMatchID);
+      } catch(e) {
+        alert('再戦部屋の作成に失敗しました: ' + e.message);
+      }
+    };
+
+    const handleRematchJoin = async () => {
+      try {
+        const myName = getPlayerName(playerID);
+        const { playerID: newPlayerID, playerCredentials } = await lobbyClient.joinMatch('splendor', G.nextMatchId, {
+          playerName: myName
+        });
+        const oldMatchID = new URLSearchParams(window.location.search).get('match');
+        if (oldMatchID) window.localStorage.removeItem('splendor_match_' + oldMatchID);
+        window.localStorage.setItem('splendor_match_' + G.nextMatchId, JSON.stringify({ pID: newPlayerID, creds: playerCredentials, pName: myName }));
+        window.location.href = '/?match=' + G.nextMatchId;
+      } catch(e) {
+        alert('参加に失敗しました: ' + e.message);
+      }
+    };
+
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'rgba(0,0,0,0.8)', color: 'white' }}>
-        <h1 style={{ fontSize: '4em', color: '#FFD700' }}>Game Over</h1>
-        <h2 style={{ fontSize: '2.5em' }}>{getPlayerName(ctx.gameover.winner)} 勝利！</h2>
-        <div style={{ fontSize: '1.5em', marginTop: '20px' }}>
+        <h1 style={{ fontSize: '4em', color: '#FFD700', margin: '0 0 20px 0' }}>Game Over</h1>
+        <h2 style={{ fontSize: '2.5em', margin: '0 0 20px 0' }}>{getPlayerName(G.winner)} 勝利！</h2>
+        <div style={{ fontSize: '1.5em', marginTop: '20px', background: 'rgba(255,255,255,0.1)', padding: '20px', borderRadius: '10px' }}>
           {Object.keys(G.players).map(pid => (
             <div key={pid} style={{ margin: '10px 0' }}>{getPlayerName(pid)}: {G.players[pid].score} 点 (カード: {G.players[pid].cards.length}枚)</div>
           ))}
         </div>
-        <div style={{ marginTop: '40px' }}>
-          <button 
-            onClick={() => {
-              const mID = new URLSearchParams(window.location.search).get('match');
-              if (mID) window.localStorage.removeItem('splendor_match_' + mID);
-              window.location.href = '/';
-            }}
-            style={{ padding: '15px 30px', fontSize: '1.2em', cursor: 'pointer', background: '#3f51b5', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}
-          >
-            トップ画面に戻って新しい部屋を作る
-          </button>
-        </div>
+        
+        {G.nextMatchId ? (
+          <div style={{ marginTop: '30px', background: 'rgba(76, 175, 80, 0.9)', color: 'white', padding: '20px', borderRadius: '10px', textAlign: 'center' }}>
+            <h3 style={{ marginTop: 0 }}>ホストが再戦の準備をしました！</h3>
+            <button onClick={handleRematchJoin} style={{ padding: '15px 30px', fontSize: '1.2em', cursor: 'pointer', background: '#fff', color: '#2e7d32', border: 'none', borderRadius: '8px', fontWeight: 'bold' }}>
+              新しい部屋に移動する
+            </button>
+          </div>
+        ) : (
+          <div style={{ marginTop: '40px', display: 'flex', gap: '20px' }}>
+            <button onClick={handleRematchCreate} style={{ padding: '15px 30px', fontSize: '1.2em', cursor: 'pointer', background: '#4caf50', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
+              同じメンバーで再戦する
+            </button>
+            <button 
+              onClick={() => {
+                const mID = new URLSearchParams(window.location.search).get('match');
+                if (mID) window.localStorage.removeItem('splendor_match_' + mID);
+                window.location.href = '/';
+              }}
+              style={{ padding: '15px 30px', fontSize: '1.2em', cursor: 'pointer', background: '#3f51b5', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}
+            >
+              トップ画面に戻る
+            </button>
+          </div>
+        )}
       </div>
     );
   }
@@ -289,14 +330,14 @@ export function SplendorBoard({ G, ctx, moves, events, playerID, matchData }) {
         {G.isLastRound && <div style={{ color: 'red', fontWeight: 'bold', fontSize: '1.2em', background: '#ffebee', padding: '5px 10px', borderRadius: '5px' }}>🚨 最終ラウンド 🚨</div>}
       </div>
 
-      <div style={{ display: 'flex', gap: '20px', opacity: isMyTurn ? 1 : 0.6, pointerEvents: isMyTurn ? 'auto' : 'none' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', opacity: isMyTurn ? 1 : 0.6, pointerEvents: isMyTurn ? 'auto' : 'none' }}>
         {/* Board Area */}
-        <div style={{ flex: 2, background: '#f5f5f5', padding: '15px', borderRadius: '10px' }}>
+        <div style={{ flex: 2, minWidth: '550px', background: '#f5f5f5', padding: '15px', borderRadius: '10px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
             <h2 style={{ margin: 0 }}>共有ボード</h2>
           </div>
 
-          <div style={{ display: 'flex', gap: '40px', marginBottom: '20px' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '30px', marginBottom: '20px' }}>
             <div>
               <h3>銀行のトークン</h3>
               <div style={{ display: 'flex', gap: '15px' }}>
@@ -340,7 +381,7 @@ export function SplendorBoard({ G, ctx, moves, events, playerID, matchData }) {
         </div>
 
         {/* Players Area */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '15px' }}>
+        <div style={{ flex: 1, minWidth: '280px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
           {Object.keys(G.players).map(pid => {
             const isCurrentTurn = pid === activePlayerId;
             const isMe = pid === playerID;
@@ -355,6 +396,7 @@ export function SplendorBoard({ G, ctx, moves, events, playerID, matchData }) {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '5px' }}>
                   <h3 style={{ margin: 0, fontSize: '1.1em', color: isMe ? '#1565c0' : '#333' }}>
                     {getPlayerName(pid)} {isMe && "(あなた)"} {isCurrentTurn && "✨手番"}
+                    {G.startPlayer === pid && <span style={{ fontSize: '0.8em', marginLeft: '8px', background: '#ff9800', color: 'white', padding: '2px 6px', borderRadius: '4px' }}>🚩1番手</span>}
                     <span style={{ color: 'red', fontSize: '0.8em', marginLeft: '5px' }}>{status}</span>
                   </h3>
                   <div style={{ fontSize: '1.2em', fontWeight: 'bold', color: '#d32f2f' }}>得点: {p.score}</div>
@@ -367,7 +409,7 @@ export function SplendorBoard({ G, ctx, moves, events, playerID, matchData }) {
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   {/* Tokens Row */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px', minHeight: '24px' }}>
                     <span style={{ fontSize: '0.8em', fontWeight: 'bold', whiteSpace: 'nowrap' }}>手持ち({getTotalTokens(p)}):</span>
                     <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                       {colorsList.map(c => {
@@ -383,7 +425,7 @@ export function SplendorBoard({ G, ctx, moves, events, playerID, matchData }) {
                   </div>
 
                   {/* Bonuses Row */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px', minHeight: '22px' }}>
                     <span style={{ fontSize: '0.8em', fontWeight: 'bold', whiteSpace: 'nowrap' }}>割引:</span>
                     <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                       {baseColors.map(c => pBonuses[c] > 0 && (
@@ -396,27 +438,29 @@ export function SplendorBoard({ G, ctx, moves, events, playerID, matchData }) {
                 </div>
 
                 {/* Reserved Cards */}
-                {p.reserved.length > 0 && (
-                  <div style={{ marginTop: '8px', padding: '6px', background: isMe ? '#ffe0b2' : '#ddd', borderRadius: '5px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <strong style={{ fontSize: '0.9em' }}>予約({p.reserved.length}):</strong>
-                    <div style={{ display: 'flex', gap: '5px' }}>
-                      {p.reserved.map((card, idx) => {
-                        if (!isMe) {
-                          return <div key={idx} style={{ width: '30px', height: '42px', background: '#455a64', borderRadius: '3px', border: '1px solid #263238' }}></div>;
-                        }
-                        const afford = canAffordCard(myPlayer, card);
-                        const isSelected = selectedCard?.source === 'reserved' && selectedCard.index === idx;
-                        return (
-                          <div key={idx} style={{ position: 'relative', width: '46px', height: '63px' }}>
-                            <div style={{ position: 'absolute', top: 0, left: 0, transform: 'scale(0.35)', transformOrigin: 'top left' }}>
-                              <CardView card={card} affordable={isMyTurn && afford} isSelected={isSelected} onClick={() => { if(isMyTurn) handleCardClick(null, idx, 'reserved'); }} />
-                            </div>
+                <div style={{ marginTop: '8px', padding: '6px', background: isMe ? '#ffe0b2' : '#ddd', borderRadius: '5px', display: 'flex', alignItems: 'center', gap: '10px', minHeight: isMe ? '111px' : '68px', boxSizing: 'border-box' }}>
+                  <strong style={{ fontSize: '0.9em' }}>予約({p.reserved.length}):</strong>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+                    {[0, 1, 2].map(idx => {
+                      const card = p.reserved[idx];
+                      if (!card) {
+                        return <div key={`empty-${idx}`} style={{ width: isMe ? '71px' : '40px', height: isMe ? '99px' : '56px', border: '2px dashed #999', borderRadius: '3px', background: 'rgba(255,255,255,0.4)', boxSizing: 'border-box' }}></div>;
+                      }
+                      if (!isMe) {
+                        return <div key={idx} style={{ width: '40px', height: '56px', background: '#455a64', borderRadius: '3px', border: '1px solid #263238' }}></div>;
+                      }
+                      const afford = canAffordCard(myPlayer, card);
+                      const isSelected = selectedCard?.source === 'reserved' && selectedCard.index === idx;
+                      return (
+                        <div key={idx} style={{ position: 'relative', width: '71px', height: '99px' }}>
+                          <div style={{ position: 'absolute', top: 0, left: 0, transform: 'scale(0.55)', transformOrigin: 'top left' }}>
+                            <CardView card={card} affordable={isMyTurn && afford} isSelected={isSelected} onClick={() => { if(isMyTurn) handleCardClick(null, idx, 'reserved'); }} />
                           </div>
-                        );
-                      })}
-                    </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                )}
+                </div>
               </div>
             );
           })}
