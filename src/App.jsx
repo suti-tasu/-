@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Client } from 'boardgame.io/react';
 import { SocketIO } from 'boardgame.io/multiplayer';
 import { LobbyClient } from 'boardgame.io/client';
@@ -23,12 +23,28 @@ const App = () => {
   const [numPlayers, setNumPlayers] = useState(2);
   const [error, setError] = useState('');
   
-  // URLからmatchIDを取得
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const mID = params.get('match');
-    if (mID) setMatchID(mID);
+    if (mID) {
+      setMatchID(mID);
+      const saved = localStorage.getItem('splendor_match_' + mID);
+      if (saved) {
+        try {
+          const { pID, creds, pName } = JSON.parse(saved);
+          if (pID && creds) {
+            setPlayerID(pID);
+            setCredentials(creds);
+            setPlayerName(pName || '');
+          }
+        } catch(e) {}
+      }
+    }
   }, []);
+
+  const saveCredentials = (mID, pID, creds, pName) => {
+    localStorage.setItem('splendor_match_' + mID, JSON.stringify({ pID, creds, pName }));
+  };
 
   const createAndJoinMatch = async () => {
     if (!playerName) return setError('名前を入力してください');
@@ -43,6 +59,7 @@ const App = () => {
       setMatchID(newMatchID);
       setPlayerID(newPlayerID);
       setCredentials(playerCredentials);
+      saveCredentials(newMatchID, newPlayerID, playerCredentials, playerName);
     } catch (e) {
       setError('部屋の作成に失敗しました: ' + e.message);
     }
@@ -67,9 +84,16 @@ const App = () => {
 
       setPlayerID(newPlayerID);
       setCredentials(playerCredentials);
+      saveCredentials(matchID, newPlayerID, playerCredentials, playerName);
     } catch (e) {
       setError('参加に失敗しました: ' + e.message);
     }
+  };
+
+  const leaveMatch = () => {
+    if(matchID) localStorage.removeItem('splendor_match_' + matchID);
+    setPlayerID(null);
+    setCredentials(null);
   };
 
   if (playerID !== null && credentials !== null) {
@@ -80,7 +104,10 @@ const App = () => {
             招待URL: <input type="text" readOnly value={window.location.href} style={{ width: '300px', padding: '5px' }} onClick={e => e.target.select()} />
             <span style={{ fontSize: '0.8em', marginLeft: '10px', color: '#555' }}>このURLを友達に送って参加してもらってください</span>
           </div>
-          <div>あなたの名前: <strong>{playerName}</strong></div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+            <div>あなたの名前: <strong>{playerName}</strong></div>
+            <button onClick={leaveMatch} style={{ background: '#f44336', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '3px', cursor: 'pointer' }}>退出・リセット</button>
+          </div>
         </div>
         <SplendorClient matchID={matchID} playerID={playerID} credentials={credentials} />
       </div>
