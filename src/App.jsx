@@ -59,6 +59,7 @@ const App = () => {
   const [newTheme, setNewTheme] = useState('');
   const [showThemeManager, setShowThemeManager] = useState(false);
   const [themeMode, setThemeMode] = useState('random');
+  const [joinCode, setJoinCode] = useState('');
 
   useEffect(() => {
     try {
@@ -136,29 +137,49 @@ const App = () => {
     }
   };
 
-  const joinExistingMatch = async () => {
+  const joinExistingMatch = async (tGameType = gameType, tMatchID = matchID) => {
     if (!playerName) return setError('名前を入力してください');
     setError('');
     try {
       // 誰が空いているか探してJoinする（簡略化のため0から順に試す）
-      const match = await lobbyClient.getMatch(gameType, matchID);
+      const match = await lobbyClient.getMatch(tGameType, tMatchID);
       const availablePlayer = match.players.find(p => !p.name);
       
       if (!availablePlayer) {
         return setError('部屋が満員です');
       }
 
-      const { playerID: newPlayerID, playerCredentials } = await lobbyClient.joinMatch(gameType, matchID, {
+      const { playerID: newPlayerID, playerCredentials } = await lobbyClient.joinMatch(tGameType, tMatchID, {
         playerID: availablePlayer.id.toString(),
         playerName: playerName
       });
 
+      window.history.pushState({}, '', '?game=' + tGameType + '&match=' + tMatchID);
+      setGameType(tGameType);
+      setMatchID(tMatchID);
       setPlayerID(newPlayerID);
       setCredentials(playerCredentials);
-      saveCredentials(gameType, matchID, newPlayerID, playerCredentials, playerName);
+      saveCredentials(tGameType, tMatchID, newPlayerID, playerCredentials, playerName);
     } catch (e) {
       setError('参加に失敗しました: ' + e.message);
     }
+  };
+
+  const handleJoinByCode = () => {
+    if (!joinCode.trim()) return;
+    let code = joinCode.trim();
+    let g = gameType;
+    let m = code;
+    try {
+      if (code.includes('?')) {
+        const url = new URL(code.startsWith('http') ? code : 'http://localhost/' + code);
+        const urlG = url.searchParams.get('game');
+        const urlM = url.searchParams.get('match');
+        if (urlG) g = urlG;
+        if (urlM) m = urlM;
+      }
+    } catch(e) {}
+    joinExistingMatch(g, m);
   };
 
   const leaveMatch = () => {
@@ -286,6 +307,22 @@ const App = () => {
                 )}
               </div>
             )}
+            
+            <div style={{ marginTop: '30px', borderTop: '2px dashed #ccc', paddingTop: '20px' }}>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>または、コードで既存の部屋に参加する</label>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <input 
+                  type="text" 
+                  value={joinCode}
+                  onChange={(e) => setJoinCode(e.target.value)}
+                  placeholder="部屋コード または 招待URL"
+                  style={{ flex: 1, padding: '10px', fontSize: '1em', boxSizing: 'border-box' }}
+                />
+                <button onClick={handleJoinByCode} style={{ padding: '10px 20px', fontSize: '1.1em', cursor: 'pointer', background: '#2196F3', color: 'white', border: 'none', borderRadius: '5px' }}>
+                  参加
+                </button>
+              </div>
+            </div>
           </>
         ) : (
           <button onClick={joinExistingMatch} style={{ width: '100%', padding: '15px', fontSize: '1.2em', cursor: 'pointer', background: '#4CAF50', color: 'white', border: 'none', borderRadius: '5px' }}>
