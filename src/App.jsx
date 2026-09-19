@@ -5,6 +5,28 @@ import { LobbyClient } from 'boardgame.io/client';
 import { Splendor } from './Game';
 import { SplendorBoard } from './Board';
 
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: '20px', background: 'white', color: 'red' }}>
+          <h2>画面エラーが発生しました</h2>
+          <pre>{this.state.error.toString()}</pre>
+          <button onClick={() => { window.localStorage.clear(); window.location.href = '/'; }}>リセットしてトップに戻る</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 const server = window.location.protocol + '//' + window.location.hostname + (window.location.port ? ':' + window.location.port : '');
 const lobbyClient = new LobbyClient({ server });
 
@@ -22,6 +44,14 @@ const App = () => {
   const [playerName, setPlayerName] = useState('');
   const [numPlayers, setNumPlayers] = useState(2);
   const [error, setError] = useState('');
+  
+  // Renderのサーバーがスリープするのを防ぐための定期通信 (Keep-Alive)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetch(server + '/games/splendor').catch(() => {});
+    }, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
   
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -109,7 +139,9 @@ const App = () => {
             <button onClick={leaveMatch} style={{ background: '#f44336', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '3px', cursor: 'pointer' }}>退出・リセット</button>
           </div>
         </div>
-        <SplendorClient matchID={matchID} playerID={playerID} credentials={credentials} />
+        <ErrorBoundary>
+          <SplendorClient matchID={matchID} playerID={playerID} credentials={credentials} />
+        </ErrorBoundary>
       </div>
     );
   }

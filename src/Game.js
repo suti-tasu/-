@@ -1,4 +1,4 @@
-﻿import { deck1, deck2, deck3 } from './data/cards.js';
+import { deck1, deck2, deck3 } from './data/cards.js';
 import { nobles as allNobles } from './data/nobles.js';
 
 export const getBonuses = (player) => {
@@ -85,7 +85,7 @@ export const Splendor = {
 
   turn: {
     order: {
-      first: ({ ctx, random }) => random.D6() % ctx.numPlayers,
+      first: ({ ctx, random }) => random.Die(ctx.numPlayers) - 1,
       next: ({ ctx }) => (ctx.playOrderPos + 1) % ctx.numPlayers,
     },
     onEnd: ({ G, ctx }) => {

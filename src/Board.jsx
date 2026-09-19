@@ -73,6 +73,7 @@ export function SplendorBoard({ G, ctx, moves, events, playerID, matchData }) {
   const [pendingTokens, setPendingTokens] = useState([]);
   const [selectedCard, setSelectedCard] = useState(null);
   const [discardTokens, setDiscardTokens] = useState([]);
+  const [showRules, setShowRules] = useState(false);
 
   const getPlayerName = (pid) => {
     if (!matchData) return 'Player ' + pid;
@@ -118,6 +119,12 @@ export function SplendorBoard({ G, ctx, moves, events, playerID, matchData }) {
 
   const confirmTokens = () => {
     if (!isMyTurn) return;
+    const futureTotal = getTotalTokens(myPlayer) + pendingTokens.length;
+    if (futureTotal > 10) {
+      if (!window.confirm(`【警告】取得後のトークンが ${futureTotal} 枚になり、10枚を超えます！\n\nルールにより、取得した直後に余分なトークンを捨てる（返却する）必要がありますが、よろしいですか？`)) {
+        return;
+      }
+    }
     moves.takeTokens(pendingTokens);
     setPendingTokens([]);
   };
@@ -188,6 +195,18 @@ export function SplendorBoard({ G, ctx, moves, events, playerID, matchData }) {
           {Object.keys(G.players).map(pid => (
             <div key={pid} style={{ margin: '10px 0' }}>{getPlayerName(pid)}: {G.players[pid].score} 点 (カード: {G.players[pid].cards.length}枚)</div>
           ))}
+        </div>
+        <div style={{ marginTop: '40px' }}>
+          <button 
+            onClick={() => {
+              const mID = new URLSearchParams(window.location.search).get('match');
+              if (mID) window.localStorage.removeItem('splendor_match_' + mID);
+              window.location.href = '/';
+            }}
+            style={{ padding: '15px 30px', fontSize: '1.2em', cursor: 'pointer', background: '#3f51b5', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}
+          >
+            トップ画面に戻って新しい部屋を作る
+          </button>
         </div>
       </div>
     );
@@ -263,12 +282,18 @@ export function SplendorBoard({ G, ctx, moves, events, playerID, matchData }) {
         </div>
       )}
 
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+        <button onClick={() => setShowRules(true)} style={{ background: '#3f51b5', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1em', display: 'flex', alignItems: 'center', gap: '5px', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+          <span>📖</span> ルールブックを開く
+        </button>
+        {G.isLastRound && <div style={{ color: 'red', fontWeight: 'bold', fontSize: '1.2em', background: '#ffebee', padding: '5px 10px', borderRadius: '5px' }}>🚨 最終ラウンド 🚨</div>}
+      </div>
+
       <div style={{ display: 'flex', gap: '20px', opacity: isMyTurn ? 1 : 0.6, pointerEvents: isMyTurn ? 'auto' : 'none' }}>
         {/* Board Area */}
         <div style={{ flex: 2, background: '#f5f5f5', padding: '15px', borderRadius: '10px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <h2>共有ボード</h2>
-            {G.isLastRound && <div style={{ color: 'red', fontWeight: 'bold', fontSize: '1.2em' }}>[最終ラウンド]</div>}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+            <h2 style={{ margin: 0 }}>共有ボード</h2>
           </div>
 
           <div style={{ display: 'flex', gap: '40px', marginBottom: '20px' }}>
@@ -342,14 +367,14 @@ export function SplendorBoard({ G, ctx, moves, events, playerID, matchData }) {
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   {/* Tokens Row */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '0.9em', fontWeight: 'bold', width: '75px' }}>トークン({getTotalTokens(p)}):</span>
-                    <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <span style={{ fontSize: '0.8em', fontWeight: 'bold', whiteSpace: 'nowrap' }}>手持ち({getTotalTokens(p)}):</span>
+                    <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                       {colorsList.map(c => {
                         let displayCount = p.tokens[c];
                         if (isMe && isMyDiscard) displayCount -= discardTokens.filter(d => d === c).length;
                         return displayCount > 0 ? (
-                          <div key={c} onClick={() => isMe && handlePlayerTokenClick(c)} style={{ width: '24px', height: '24px', borderRadius: '50%', background: cssColors[c], display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: isMyDiscard && isMe ? 'pointer' : 'default', border: '1px solid #333', fontWeight: 'bold', fontSize: '0.85em', color: 'white', textShadow: '1px 1px 2px black' }}>
+                          <div key={c} onClick={() => isMe && handlePlayerTokenClick(c)} style={{ width: '22px', height: '22px', borderRadius: '50%', background: cssColors[c], display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: isMyDiscard && isMe ? 'pointer' : 'default', border: '1px solid #333', fontWeight: 'bold', fontSize: '0.8em', color: 'white', textShadow: '1px 1px 2px black' }}>
                             {displayCount}
                           </div>
                         ) : null;
@@ -358,11 +383,11 @@ export function SplendorBoard({ G, ctx, moves, events, playerID, matchData }) {
                   </div>
 
                   {/* Bonuses Row */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '0.9em', fontWeight: 'bold', width: '75px' }}>ボーナス:</span>
-                    <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <span style={{ fontSize: '0.8em', fontWeight: 'bold', whiteSpace: 'nowrap' }}>割引:</span>
+                    <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                       {baseColors.map(c => pBonuses[c] > 0 && (
-                        <div key={c} style={{ width: '22px', height: '22px', borderRadius: '4px', background: cssColors[c], display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #555', fontSize: '0.85em', fontWeight: 'bold', color: 'white', textShadow: '1px 1px 2px black' }}>
+                        <div key={c} style={{ width: '20px', height: '20px', borderRadius: '4px', background: cssColors[c], display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #555', fontSize: '0.8em', fontWeight: 'bold', color: 'white', textShadow: '1px 1px 2px black' }}>
                           {pBonuses[c]}
                         </div>
                       ))}
@@ -397,6 +422,38 @@ export function SplendorBoard({ G, ctx, moves, events, playerID, matchData }) {
           })}
         </div>
       </div>
+
+      {/* Rules Modal */}
+      {showRules && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: 'white', padding: '30px', borderRadius: '10px', maxWidth: '600px', width: '90%', maxHeight: '80vh', overflowY: 'auto', fontFamily: 'sans-serif' }}>
+            <h2 style={{ borderBottom: '2px solid #ccc', paddingBottom: '10px', marginTop: 0 }}>宝石の煌き (Splendor) ルール</h2>
+            
+            <h3 style={{ color: '#d32f2f' }}>🏆 勝利条件</h3>
+            <p>誰かが<strong>15点</strong>に到達したら、そのラウンドの最後まで（全員が同じターン数になるまで）プレイし、一番得点が高い人が勝利です。同点の場合は、購入したカードの枚数が少ない方が勝ちます。</p>
+
+            <h3 style={{ color: '#1976d2' }}>🎮 自分の手番でできること（どれか1つ）</h3>
+            <ol style={{ lineHeight: '1.6' }}>
+              <li><strong>違う色の宝石を3枚取る</strong></li>
+              <li><strong>同じ色の宝石を2枚取る</strong>（※その色が銀行に4枚以上ある場合のみ）</li>
+              <li><strong>カードを予約する</strong>（場札か山札から1枚確保し、<strong>黄金トークンを1枚もらう</strong>。予約は最大3枚まで）</li>
+              <li><strong>カードを購入する</strong>（必要なコストを支払い、カードを獲得する）</li>
+            </ol>
+
+            <h3 style={{ color: '#388e3c' }}>⚠️ その他のルール</h3>
+            <ul style={{ lineHeight: '1.6' }}>
+              <li><strong>10枚制限:</strong> ターン終了時にトークンを11枚以上持っている場合は、10枚になるように返却しなければなりません。</li>
+              <li><strong>割引ボーナス:</strong> 購入したカードの右上に書かれた宝石は、次からの購入時にその色のコストを1つ分減らしてくれます（永久ボーナス）。</li>
+              <li><strong>黄金トークン:</strong> 予約した時だけもらえるジョーカーです。どの色の代わりとしても使えます。</li>
+              <li><strong>貴族の訪問:</strong> 自分の持っているカードの「割引ボーナス」が貴族タイルの条件を満たすと、ターン終了時に自動で貴族が訪問し、得点（3点）を獲得できます。</li>
+            </ul>
+
+            <button onClick={() => setShowRules(false)} style={{ marginTop: '20px', padding: '10px 20px', background: '#2196F3', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', width: '100%', fontSize: '1.1em', fontWeight: 'bold' }}>
+              閉じる
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
