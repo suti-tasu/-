@@ -141,25 +141,37 @@ const App = () => {
     if (!playerName) return setError('名前を入力してください');
     setError('');
     try {
-      // 誰が空いているか探してJoinする（簡略化のため0から順に試す）
-      const match = await lobbyClient.getMatch(tGameType, tMatchID);
+      let match;
+      let finalGameType = tGameType;
+      try {
+        match = await lobbyClient.getMatch(tGameType, tMatchID);
+      } catch (e) {
+        const other = tGameType === 'splendor' ? 'ito' : 'splendor';
+        try {
+          match = await lobbyClient.getMatch(other, tMatchID);
+          finalGameType = other;
+        } catch (e2) {
+          return setError('部屋が見つかりません');
+        }
+      }
+      
       const availablePlayer = match.players.find(p => !p.name);
       
       if (!availablePlayer) {
         return setError('部屋が満員です');
       }
 
-      const { playerID: newPlayerID, playerCredentials } = await lobbyClient.joinMatch(tGameType, tMatchID, {
+      const { playerID: newPlayerID, playerCredentials } = await lobbyClient.joinMatch(finalGameType, tMatchID, {
         playerID: availablePlayer.id.toString(),
         playerName: playerName
       });
 
-      window.history.pushState({}, '', '?game=' + tGameType + '&match=' + tMatchID);
-      setGameType(tGameType);
+      window.history.pushState({}, '', '?game=' + finalGameType + '&match=' + tMatchID);
+      setGameType(finalGameType);
       setMatchID(tMatchID);
       setPlayerID(newPlayerID);
       setCredentials(playerCredentials);
-      saveCredentials(tGameType, tMatchID, newPlayerID, playerCredentials, playerName);
+      saveCredentials(finalGameType, tMatchID, newPlayerID, playerCredentials, playerName);
     } catch (e) {
       setError('参加に失敗しました: ' + e.message);
     }

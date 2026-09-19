@@ -24,25 +24,20 @@ const getInitialState = (ctx, random, setupData) => {
 
   const customThemes = setupData?.customThemes || [];
   const themeMode = setupData?.themeMode || 'random';
-  const allThemes = [...themes, ...customThemes];
-  
-  let initialTheme = null;
-  if (themeMode === 'random') {
-    initialTheme = allThemes[random.Die(allThemes.length) - 1];
-  }
 
   return {
-    theme: initialTheme,
+    theme: null,
     themeMode,
+    submittedThemes: [],
     players,
     playedCards: [],
     discardedCards: [],
     lives: 3,
     round: 1,
     deck,
-    gameState: 'playing', // 'playing', 'round_clear', 'game_over', 'game_clear'
+    gameState: 'lobby', // Starts in lobby to collect themes
     nextMatchId: null,
-    customThemes, // Save them in state so nextRound can use them
+    customThemes,
   };
 };
 
@@ -56,8 +51,20 @@ export const Ito = {
   },
 
   moves: {
-    setTheme: ({ G }, themeString) => {
-      if (!G.theme) G.theme = themeString;
+    submitTheme: ({ G }, themeString) => {
+      if (themeString.trim()) {
+        G.submittedThemes.push(themeString.trim());
+      }
+    },
+    startGame: ({ G, random }) => {
+      if (G.gameState !== 'lobby') return;
+      if (G.themeMode === 'manual' && G.submittedThemes.length > 0) {
+        G.theme = G.submittedThemes[random.Die(G.submittedThemes.length) - 1];
+      } else {
+        const allThemes = [...themes, ...G.customThemes];
+        G.theme = allThemes[random.Die(allThemes.length) - 1];
+      }
+      G.gameState = 'playing';
     },
     playCard: ({ G, ctx }, playerID, card) => {
       if (G.gameState !== 'playing' || !G.theme) return;
@@ -121,11 +128,11 @@ export const Ito = {
         G.players[pid].hand = hand;
       });
 
-      if (G.themeMode === 'random') {
+      if (G.themeMode === 'manual' && G.submittedThemes.length > 0) {
+        G.theme = G.submittedThemes[random.Die(G.submittedThemes.length) - 1];
+      } else {
         const allThemes = [...themes, ...(G.customThemes || [])];
         G.theme = allThemes[random.Die(allThemes.length) - 1];
-      } else {
-        G.theme = null;
       }
       G.playedCards = [];
       G.discardedCards = [];

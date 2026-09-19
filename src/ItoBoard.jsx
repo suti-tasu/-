@@ -52,6 +52,60 @@ export function ItoBoard({ G, ctx, moves, events, playerID, matchData }) {
     </div>
   );
 
+  if (G.gameState === 'lobby') {
+    return (
+      <div style={{ padding: "20px", fontFamily: "sans-serif", maxWidth: "600px", margin: "0 auto", textAlign: "center" }}>
+        <h2>ITO 待機ルーム</h2>
+        <p>全員が揃ったら開始してください。</p>
+        
+        <div style={{ background: "#f5f5f5", padding: "15px", borderRadius: "10px", margin: "20px 0" }}>
+          <h3 style={{ marginTop: 0 }}>参加者 ({Object.keys(G.players).length}人)</h3>
+          <div style={{ display: "flex", gap: "10px", justifyContent: "center", flexWrap: "wrap" }}>
+            {Object.keys(G.players).map(pid => (
+              <div key={pid} style={{ background: "#e0f7fa", padding: "5px 15px", borderRadius: "20px", fontWeight: "bold", border: "1px solid #b2ebf2" }}>
+                {getPlayerName(pid)}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {G.themeMode === 'manual' && (
+          <div style={{ background: "#fff9c4", padding: "15px", borderRadius: "10px", margin: "20px 0", border: "2px solid #fbc02d" }}>
+            <h3 style={{ marginTop: 0 }}>みんなでお題を出し合おう！</h3>
+            <div style={{ display: "flex", gap: "5px", justifyContent: "center", marginBottom: "15px" }}>
+              <input 
+                type="text" 
+                value={manualTheme} 
+                onChange={e => setManualTheme(e.target.value)} 
+                placeholder="やりたいお題を入力..." 
+                style={{ padding: "10px", fontSize: "1em", width: "70%", borderRadius: "5px", border: "1px solid #ccc" }} 
+              />
+              <button 
+                onClick={() => { if(manualTheme) { moves.submitTheme(manualTheme); setManualTheme(''); } }} 
+                style={{ padding: "10px 20px", background: "#4caf50", color: "white", border: "none", borderRadius: "5px", cursor: "pointer", fontWeight: "bold" }}
+              >
+                追加
+              </button>
+            </div>
+            <div style={{ textAlign: "left", display: "flex", flexDirection: "column", gap: "5px", maxHeight: "200px", overflowY: "auto" }}>
+              {G.submittedThemes.map((t, i) => (
+                <div key={i} style={{ background: "white", padding: "8px", borderRadius: "5px", border: "1px solid #ccc" }}>{t}</div>
+              ))}
+              {G.submittedThemes.length === 0 && <div style={{ color: "#888", textAlign: "center" }}>まだお題がありません。自由に提案してください！</div>}
+            </div>
+          </div>
+        )}
+
+        <button 
+          onClick={() => moves.startGame()} 
+          style={{ padding: "15px 40px", fontSize: "1.5em", background: "#f44336", color: "white", border: "none", borderRadius: "10px", cursor: "pointer", fontWeight: "bold", boxShadow: "0 4px 6px rgba(0,0,0,0.2)", width: "100%", marginTop: "10px" }}
+        >
+          ゲームを開始する！
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div style={{ padding: "20px", fontFamily: "sans-serif", maxWidth: "800px", margin: "0 auto" }}>
       {/* Header Info */}
