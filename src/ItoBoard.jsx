@@ -113,7 +113,7 @@ export function ItoBoard({ G, ctx, moves, events, playerID, matchData }) {
         <div style={{ background: "#fff", padding: "20px", borderRadius: "10px", boxShadow: "0 4px 10px rgba(0,0,0,0.1)" }}>
           <h3 style={{ margin: "0 0 15px 0" }}>あなたの手札</h3>
           <div style={{ display: "flex", gap: "15px" }}>
-            {G.players[playerID].hand.sort((a,b)=>a-b).map(c => (
+            {[...G.players[playerID].hand].sort((a,b)=>a-b).map(c => (
               <div key={c} onClick={() => moves.playCard(playerID, c)} style={{ transition: "transform 0.1s", cursor: "pointer" }}>
                 {renderCard(c)}
               </div>
