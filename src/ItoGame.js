@@ -16,7 +16,7 @@ const themes = [
   "透明になったらやりたいこと"
 ];
 
-const getInitialState = (ctx, random) => {
+const getInitialState = (ctx, random, setupData) => {
   let deck = [];
   for (let i = 1; i <= 100; i++) deck.push(i);
   deck = random.Shuffle(deck);
@@ -28,8 +28,11 @@ const getInitialState = (ctx, random) => {
     };
   }
 
+  const customThemes = setupData?.customThemes || [];
+  const allThemes = [...themes, ...customThemes];
+
   return {
-    theme: themes[random.Die(themes.length) - 1],
+    theme: allThemes[random.Die(allThemes.length) - 1],
     players,
     playedCards: [],
     discardedCards: [],
@@ -38,13 +41,14 @@ const getInitialState = (ctx, random) => {
     deck,
     gameState: 'playing', // 'playing', 'round_clear', 'game_over', 'game_clear'
     nextMatchId: null,
+    customThemes, // Save them in state so nextRound can use them
   };
 };
 
 export const Ito = {
   name: 'ito',
   
-  setup: ({ ctx, random }) => getInitialState(ctx, random),
+  setup: ({ ctx, random }, setupData) => getInitialState(ctx, random, setupData),
 
   turn: {
     activePlayers: { all: 'play' },
@@ -113,7 +117,8 @@ export const Ito = {
         G.players[pid].hand = hand;
       });
 
-      G.theme = themes[random.Die(themes.length) - 1];
+      const allThemes = [...themes, ...(G.customThemes || [])];
+      G.theme = allThemes[random.Die(allThemes.length) - 1];
       G.playedCards = [];
       G.discardedCards = [];
       G.gameState = 'playing';

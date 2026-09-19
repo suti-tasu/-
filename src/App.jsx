@@ -54,6 +54,31 @@ const App = () => {
   const [playerName, setPlayerName] = useState('');
   const [numPlayers, setNumPlayers] = useState(2);
   const [error, setError] = useState('');
+
+  const [customThemes, setCustomThemes] = useState([]);
+  const [newTheme, setNewTheme] = useState('');
+  const [showThemeManager, setShowThemeManager] = useState(false);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('ito_custom_themes');
+      if (stored) setCustomThemes(JSON.parse(stored));
+    } catch(e) {}
+  }, []);
+
+  const handleAddTheme = () => {
+    if (!newTheme.trim()) return;
+    const updated = [...customThemes, newTheme.trim()];
+    setCustomThemes(updated);
+    localStorage.setItem('ito_custom_themes', JSON.stringify(updated));
+    setNewTheme('');
+  };
+
+  const handleRemoveTheme = (index) => {
+    const updated = customThemes.filter((_, i) => i !== index);
+    setCustomThemes(updated);
+    localStorage.setItem('ito_custom_themes', JSON.stringify(updated));
+  };
   
   // Renderのサーバーがスリープするのを防ぐための定期通信 (Keep-Alive)
   useEffect(() => {
@@ -93,7 +118,9 @@ const App = () => {
     if (!playerName) return setError('名前を入力してください');
     setError('');
     try {
-      const { matchID: newMatchID } = await lobbyClient.createMatch(gameType, { numPlayers });
+      const matchConfig = { numPlayers };
+      if (gameType === 'ito') matchConfig.setupData = { customThemes };
+      const { matchID: newMatchID } = await lobbyClient.createMatch(gameType, matchConfig);
       const { playerID: newPlayerID, playerCredentials } = await lobbyClient.joinMatch(gameType, newMatchID, {
         playerName: playerName
       });
@@ -203,6 +230,44 @@ const App = () => {
             <button onClick={createAndJoinMatch} style={{ width: '100%', padding: '15px', fontSize: '1.2em', cursor: 'pointer', background: '#4CAF50', color: 'white', border: 'none', borderRadius: '5px' }}>
               部屋を作成する
             </button>
+
+            {gameType === 'ito' && (
+              <div style={{ marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '20px' }}>
+                <button onClick={() => setShowThemeManager(!showThemeManager)} style={{ width: '100%', padding: '10px', fontSize: '1em', cursor: 'pointer', background: '#f5f5f5', color: '#333', border: '1px solid #ccc', borderRadius: '5px' }}>
+                  {showThemeManager ? '▲ お題の管理を閉じる' : '▼ オリジナルのお題を管理する'}
+                </button>
+                
+                {showThemeManager && (
+                  <div style={{ marginTop: '15px', background: '#fafafa', padding: '15px', borderRadius: '5px', border: '1px solid #ddd' }}>
+                    <h4 style={{ margin: '0 0 10px 0' }}>追加されたオリジナルお題 ({customThemes.length})</h4>
+                    
+                    <div style={{ display: 'flex', gap: '5px', marginBottom: '10px' }}>
+                      <input 
+                        type="text" 
+                        value={newTheme} 
+                        onChange={e => setNewTheme(e.target.value)} 
+                        placeholder="新しいお題を入力" 
+                        style={{ flex: 1, padding: '8px', boxSizing: 'border-box' }}
+                      />
+                      <button onClick={handleAddTheme} style={{ padding: '8px 15px', background: '#2196F3', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer' }}>追加</button>
+                    </div>
+
+                    {customThemes.length === 0 ? (
+                      <div style={{ fontSize: '0.9em', color: '#888' }}>追加されたお題はありません。</div>
+                    ) : (
+                      <ul style={{ listStyle: 'none', padding: 0, margin: 0, maxHeight: '150px', overflowY: 'auto' }}>
+                        {customThemes.map((t, idx) => (
+                          <li key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: '1px solid #eee' }}>
+                            <span style={{ fontSize: '0.9em' }}>{t}</span>
+                            <button onClick={() => handleRemoveTheme(idx)} style={{ background: '#f44336', color: 'white', border: 'none', padding: '3px 8px', borderRadius: '3px', cursor: 'pointer', fontSize: '0.8em' }}>削除</button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </>
         ) : (
           <button onClick={joinExistingMatch} style={{ width: '100%', padding: '15px', fontSize: '1.2em', cursor: 'pointer', background: '#4CAF50', color: 'white', border: 'none', borderRadius: '5px' }}>
