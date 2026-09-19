@@ -38,6 +38,8 @@ export function ItoBoard({ G, ctx, moves, events, playerID, matchData }) {
     }
   };
 
+  const [showRules, setShowRules] = React.useState(false);
+
   const renderCard = (num, color = "#fff", isHidden = false) => (
     <div style={{
       width: "60px", height: "85px", borderRadius: "8px",
@@ -53,10 +55,45 @@ export function ItoBoard({ G, ctx, moves, events, playerID, matchData }) {
     </div>
   );
 
+  const rulesModal = showRules && (
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, textAlign: 'left' }}>
+      <div style={{ background: 'white', padding: '30px', borderRadius: '10px', maxWidth: '600px', width: '90%', maxHeight: '80vh', overflowY: 'auto', fontFamily: 'sans-serif', color: '#333' }}>
+        <h2 style={{ borderBottom: '2px solid #ccc', paddingBottom: '10px', marginTop: 0 }}>ITO (イトー) ルール</h2>
+        
+        <h3 style={{ color: '#d32f2f' }}>🏆 勝利条件</h3>
+        <p>全3ラウンドを全員で協力してクリアすること！誰かが順番を間違えてカードを出した時、まだ出されていないカードの中にそれより小さい数字があると、その人数分だけライフが減ります。ライフが0になるとゲームオーバーです。</p>
+
+        <h3 style={{ color: '#1976d2' }}>🎮 ゲームの流れ</h3>
+        <ol style={{ lineHeight: '1.6' }}>
+          <li>全員に秘密の「数字カード（1〜100）」が配られます。（1R目は1枚、2R目は2枚…）</li>
+          <li>ランダムなお題（例：「人気の食べ物」）が発表されます。</li>
+          <li>自分の数字の大きさを、<strong>お題に沿った言葉</strong>で表現して皆に伝えます。<br/>※数字を直接言うのはNG！</li>
+          <li>話し合いながら、「数字が小さいと思う人」から順番にカードを出していきます。</li>
+        </ol>
+
+        <h3 style={{ color: '#388e3c' }}>⚠️ ポイント</h3>
+        <ul style={{ lineHeight: '1.6' }}>
+          <li>誰がいつカードを出しても構いません。「私のが一番小さそう！」と思った人から出してください。</li>
+          <li>他の人の表現を聞いて、自分の数字がどのあたりに位置するかを推理するのがコツです！</li>
+        </ul>
+
+        <button onClick={() => setShowRules(false)} style={{ marginTop: '20px', padding: '10px 20px', background: '#2196F3', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', width: '100%', fontSize: '1.1em', fontWeight: 'bold' }}>
+          閉じる
+        </button>
+      </div>
+    </div>
+  );
+
   if (G.gameState === 'lobby') {
     return (
       <div style={{ padding: "20px", fontFamily: "sans-serif", maxWidth: "600px", margin: "0 auto", textAlign: "center" }}>
-        <h2>ITO 待機ルーム</h2>
+        {rulesModal}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h2>ITO 待機ルーム</h2>
+          <button onClick={() => setShowRules(true)} style={{ background: '#3f51b5', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9em', display: 'flex', alignItems: 'center', gap: '5px', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+            <span>📖</span> ルールブックを開く
+          </button>
+        </div>
         <p>全員が揃ったら開始してください。</p>
         
         <div style={{ background: "#f5f5f5", padding: "15px", borderRadius: "10px", margin: "20px 0" }}>
@@ -111,6 +148,15 @@ export function ItoBoard({ G, ctx, moves, events, playerID, matchData }) {
 
   return (
     <div style={{ padding: "20px", fontFamily: "sans-serif", maxWidth: "800px", margin: "0 auto" }}>
+      {rulesModal}
+      
+      {/* Top Bar with Rules Button */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
+        <button onClick={() => setShowRules(true)} style={{ background: '#3f51b5', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9em', display: 'flex', alignItems: 'center', gap: '5px', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+          <span>📖</span> ルールブックを開く
+        </button>
+      </div>
+
       {/* Header Info */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#f5f5f5", padding: "15px", borderRadius: "10px", marginBottom: "20px" }}>
         <div>

@@ -150,18 +150,31 @@ const App = () => {
     if (!playerName) return setError('名前を入力してください');
     setError('');
     try {
-      let match;
+      let match = null;
       let finalGameType = tGameType;
+      const allGames = ['splendor', 'ito', 'haa'];
+
       try {
         match = await lobbyClient.getMatch(tGameType, tMatchID);
       } catch (e) {
-        const other = tGameType === 'splendor' ? 'ito' : 'splendor';
-        try {
-          match = await lobbyClient.getMatch(other, tMatchID);
-          finalGameType = other;
-        } catch (e2) {
-          return setError('部屋が見つかりません');
+        for (const g of allGames) {
+          if (g === tGameType) continue;
+          try {
+            match = await lobbyClient.getMatch(g, tMatchID);
+            if (match) {
+              finalGameType = g;
+              break;
+            }
+          } catch (e2) {}
         }
+      }
+
+      if (!match) {
+        return setError('部屋が見つかりません');
+      }
+
+      if (match.gameName) {
+        finalGameType = match.gameName;
       }
       
       const availablePlayer = match.players.find(p => !p.name);

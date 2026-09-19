@@ -23,62 +23,84 @@ export const haaThemes = [
 
 const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 
-const getInitialState = (ctx) => {
+const getInitialState = (ctx, setupData) => {
   const players = {};
   for (let i = 0; i < ctx.numPlayers; i++) {
     players[i.toString()] = { isReady: false, score: 0 };
   }
   
   return {
-    gameState: 'lobby', // 'lobby', 'voting', 'results'
+    gameState: 'lobby', // 'lobby', 'voting', 'results', 'final_results'
     players,
+    maxRounds: setupData?.maxRounds || 3,
+    currentRound: 0,
     theme: null,
-    assignments: {}, // { '0': 'A', '1': 'C' }
-    votes: {}, // { '0': { '1': 'A', '2': 'B' } }
+    assignments: {},
+    votes: {},
     nextMatchId: null,
     usedThemes: [],
     results: null
   };
 };
 
+function setupRound(G, random, ctx) {
+  let availableThemes = haaThemes.filter(t => !G.usedThemes.includes(t.word));
+  if (availableThemes.length === 0) {
+    G.usedThemes = [];
+    availableThemes = haaThemes;
+  }
+  
+  const pickedTheme = availableThemes[random.Die(availableThemes.length) - 1];
+  G.usedThemes.push(pickedTheme.word);
+  
+  G.theme = {
+    word: pickedTheme.word,
+    situations: pickedTheme.situations.map((text, i) => ({ letter: LETTERS[i], text }))
+  };
+  
+  let shuffledLetters = random.Shuffle(LETTERS);
+  G.assignments = {};
+  G.votes = {};
+  for (let i = 0; i < ctx.numPlayers; i++) {
+    const pid = i.toString();
+    G.assignments[pid] = shuffledLetters[i];
+    G.players[pid].isReady = false;
+    G.votes[pid] = {}; 
+  }
+  
+  G.results = null;
+  G.gameState = 'voting';
+}
+
 export const Haa = {
   name: 'haa',
   
-  setup: ({ ctx }) => getInitialState(ctx),
+  setup: ({ ctx }, setupData) => getInitialState(ctx, setupData),
 
   turn: {
     activePlayers: { all: 'play' }
   },
 
   moves: {
+    setMaxRounds: ({ G }, rounds) => {
+      if (G.gameState === 'lobby') G.maxRounds = Math.max(1, rounds);
+    },
     startGame: ({ G, random, ctx }) => {
-      if (G.gameState !== 'lobby' && G.gameState !== 'results') return;
-      
-      let availableThemes = haaThemes.filter(t => !G.usedThemes.includes(t.word));
-      if (availableThemes.length === 0) availableThemes = haaThemes; // Fallback
-      
-      const pickedTheme = availableThemes[random.Die(availableThemes.length) - 1];
-      G.usedThemes.push(pickedTheme.word);
-      
-      // format situations
-      G.theme = {
-        word: pickedTheme.word,
-        situations: pickedTheme.situations.map((text, i) => ({ letter: LETTERS[i], text }))
-      };
-      
-      // Assign unique letters to players
-      let shuffledLetters = random.Shuffle(LETTERS);
-      G.assignments = {};
-      G.votes = {};
-      for (let i = 0; i < ctx.numPlayers; i++) {
-        const pid = i.toString();
-        G.assignments[pid] = shuffledLetters[i];
-        G.players[pid].isReady = false;
-        G.votes[pid] = {}; // Initialize empty votes
+      if (G.gameState !== 'lobby') return;
+      G.currentRound = 1;
+      setupRound(G, random, ctx);
+    },
+    nextRound: ({ G, random, ctx }) => {
+      if (G.gameState !== 'results') return;
+      if (G.currentRound < G.maxRounds) {
+        G.currentRound += 1;
+        setupRound(G, random, ctx);
       }
-      
-      G.results = null;
-      G.gameState = 'voting';
+    },
+    showFinalResults: ({ G }) => {
+      if (G.gameState === 'results' && G.currentRound >= G.maxRounds) {
+        G.gameState = 'final_results';
+      }
     },
 
     setVote: ({ G }, targetID, letter) => {

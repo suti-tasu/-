@@ -13,8 +13,8 @@ export default function HaaBoard({ G, ctx, moves, playerID, matchData }) {
     try {
       const server = window.location.protocol + "//" + window.location.hostname + (window.location.port ? ":" + window.location.port : "");
       const lobbyClient = new LobbyClient({ server });
-      // Haa doesn't have setupData right now, just numPlayers
-      const { matchID: newMatchID } = await lobbyClient.createMatch("haa", { numPlayers: Object.keys(G.players).length });
+      const setupData = { maxRounds: G.maxRounds };
+      const { matchID: newMatchID } = await lobbyClient.createMatch("haa", { numPlayers: Object.keys(G.players).length, setupData });
       moves.proposeRematch(newMatchID);
     } catch(e) {
       alert("再戦部屋の作成に失敗しました: " + e.message);
@@ -25,10 +25,50 @@ export default function HaaBoard({ G, ctx, moves, playerID, matchData }) {
     window.location.href = `/?game=haa&match=${G.nextMatchId}`;
   };
 
+  const [showRules, setShowRules] = React.useState(false);
+
+  const rulesModal = showRules && (
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, textAlign: 'left' }}>
+      <div style={{ background: 'white', padding: '30px', borderRadius: '10px', maxWidth: '600px', width: '90%', maxHeight: '80vh', overflowY: 'auto', fontFamily: 'sans-serif', color: '#333' }}>
+        <h2 style={{ borderBottom: '2px solid #ccc', paddingBottom: '10px', marginTop: 0 }}>はぁって言うゲーム ルール</h2>
+        
+        <h3 style={{ color: '#d32f2f' }}>🏆 勝利条件</h3>
+        <p>指定したラウンド数をプレイし、最終的な累計スコアが一番高い人の勝利です！</p>
+
+        <h3 style={{ color: '#1976d2' }}>🎮 ゲームの流れ</h3>
+        <ol style={{ lineHeight: '1.6' }}>
+          <li>ランダムにお題（例：「はぁ」）が発表され、各プレイヤーにシチュエーション（A〜H）がこっそり割り当てられます。</li>
+          <li>順番に、割り当てられたシチュエーションを<strong>声と表情だけ</strong>で演技します。</li>
+          <li>他の人は、その人がA〜Hのどれを演じているか予想して投票します。</li>
+          <li>全員の投票が終わると結果発表です！</li>
+        </ol>
+
+        <h3 style={{ color: '#ff9800' }}>💯 得点の仕組み</h3>
+        <ul style={{ lineHeight: '1.6' }}>
+          <li><strong>当てたポイント:</strong> 他の人の演技を1つ正解するごとに +1点</li>
+          <li><strong>当ててもらったポイント:</strong> 自分の演技を誰かが正解してくれるごとに +1点（たくさん当ててもらうほど高得点！）</li>
+        </ul>
+
+        <h3 style={{ color: '#388e3c' }}>⚠️ 注意事項</h3>
+        <p><strong>身振り手振りは禁止です！</strong> 首から上だけの表情と声のトーンだけで表現してください。</p>
+
+        <button onClick={() => setShowRules(false)} style={{ marginTop: '20px', padding: '10px 20px', background: '#2196F3', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', width: '100%', fontSize: '1.1em', fontWeight: 'bold' }}>
+          閉じる
+        </button>
+      </div>
+    </div>
+  );
+
   if (G.gameState === 'lobby') {
     return (
       <div style={{ padding: "20px", fontFamily: "sans-serif", maxWidth: "600px", margin: "0 auto", textAlign: "center" }}>
-        <h2>はぁって言うゲーム - 待機ルーム</h2>
+        {rulesModal}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h2>はぁって言うゲーム - 待機ルーム</h2>
+          <button onClick={() => setShowRules(true)} style={{ background: '#3f51b5', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9em', display: 'flex', alignItems: 'center', gap: '5px', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+            <span>📖</span> ルールブックを開く
+          </button>
+        </div>
         <p>Discordなどで通話をつなぎ、全員が揃ったら開始してください。</p>
         
         <div style={{ background: "#f5f5f5", padding: "15px", borderRadius: "10px", margin: "20px 0" }}>
@@ -39,6 +79,15 @@ export default function HaaBoard({ G, ctx, moves, playerID, matchData }) {
                 {getPlayerName(pid)}
               </div>
             ))}
+          </div>
+        </div>
+
+        <div style={{ background: "#fff9c4", padding: "15px", borderRadius: "10px", margin: "20px 0", border: "2px solid #fbc02d" }}>
+          <h3 style={{ margin: "0 0 10px 0" }}>遊ぶラウンド数</h3>
+          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "20px" }}>
+            <button onClick={() => moves.setMaxRounds(Math.max(1, G.maxRounds - 1))} style={{ padding: "5px 20px", fontSize: "1.5em", cursor: "pointer", borderRadius: "5px", border: "1px solid #ccc" }}>-</button>
+            <span style={{ fontSize: "1.8em", fontWeight: "bold", minWidth: "60px" }}>{G.maxRounds} 回</span>
+            <button onClick={() => moves.setMaxRounds(G.maxRounds + 1)} style={{ padding: "5px 20px", fontSize: "1.5em", cursor: "pointer", borderRadius: "5px", border: "1px solid #ccc" }}>+</button>
           </div>
         </div>
 
@@ -54,12 +103,21 @@ export default function HaaBoard({ G, ctx, moves, playerID, matchData }) {
 
   return (
     <div style={{ padding: "20px", fontFamily: "sans-serif", maxWidth: "800px", margin: "0 auto" }}>
+      {rulesModal}
+      
+      {/* Top Bar with Rules Button */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
+        <button onClick={() => setShowRules(true)} style={{ background: '#3f51b5', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9em', display: 'flex', alignItems: 'center', gap: '5px', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+          <span>📖</span> ルールブックを開く
+        </button>
+      </div>
+
       {/* Header Info */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#f5f5f5", padding: "15px", borderRadius: "10px", marginBottom: "20px" }}>
         <div>
-          <h2 style={{ margin: 0, color: "#333" }}>はぁって言うゲーム</h2>
+          <h2 style={{ margin: 0, color: "#333" }}>はぁって言うゲーム <span style={{ fontSize: "0.6em", color: "#666" }}>- ラウンド {G.currentRound} / {G.maxRounds}</span></h2>
           <div style={{ fontSize: "1.2em", marginTop: "10px" }}>
-            お題: <span style={{ fontSize: "1.5em", fontWeight: "bold", color: "#d32f2f" }}>{G.theme.word}</span>
+            お題: <span style={{ fontSize: "1.5em", fontWeight: "bold", color: "#d32f2f" }}>{G.theme?.word}</span>
           </div>
         </div>
       </div>
@@ -161,15 +219,46 @@ export default function HaaBoard({ G, ctx, moves, playerID, matchData }) {
               ))}
             </div>
 
-            {G.nextMatchId ? (
-              <div style={{ background: "rgba(76, 175, 80, 0.1)", padding: "20px", borderRadius: "10px", textAlign: "center", border: "2px solid #4caf50", width: "100%" }}>
-                <h3>ホストが次のゲームを準備しました！</h3>
-                <button onClick={handleRematchJoin} style={{ padding: "15px 30px", fontSize: "1.2em", cursor: "pointer", background: "#4caf50", color: "white", border: "none", borderRadius: "8px", fontWeight: "bold" }}>新しい部屋に移動する</button>
-              </div>
+            {G.currentRound < G.maxRounds ? (
+              <button onClick={() => moves.nextRound()} style={{ padding: "15px 40px", fontSize: "1.2em", cursor: "pointer", background: "#ff9800", color: "white", border: "none", borderRadius: "8px", fontWeight: "bold" }}>
+                次のラウンドへ ({G.currentRound + 1} / {G.maxRounds})
+              </button>
             ) : (
-              <button onClick={() => moves.startGame()} style={{ padding: "15px 40px", fontSize: "1.2em", cursor: "pointer", background: "#ff9800", color: "white", border: "none", borderRadius: "8px", fontWeight: "bold" }}>次のテーマで遊ぶ（再戦）</button>
+              <button onClick={() => moves.showFinalResults()} style={{ padding: "15px 40px", fontSize: "1.2em", cursor: "pointer", background: "#e91e63", color: "white", border: "none", borderRadius: "8px", fontWeight: "bold" }}>
+                最終結果発表へ！
+              </button>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Final Results Section */}
+      {G.gameState === 'final_results' && (
+        <div style={{ background: "#fff", padding: "20px", borderRadius: "10px", border: "1px solid #ccc", textAlign: "center" }}>
+          <h2 style={{ color: "#d32f2f", fontSize: "2em" }}>最終結果発表！</h2>
+          <p>全 {G.maxRounds} ラウンドが終了しました。</p>
+          
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px", margin: "30px 0" }}>
+            {Object.keys(G.players)
+              .map(id => ({ id, score: G.players[id].score }))
+              .sort((a, b) => b.score - a.score)
+              .map((p, idx) => (
+                <div key={p.id} style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "15px", fontSize: "1.5em", background: idx === 0 ? "#fff9c4" : "#f5f5f5", padding: "15px", borderRadius: "10px", border: idx === 0 ? "2px solid #fbc02d" : "1px solid #eee", fontWeight: idx === 0 ? "bold" : "normal" }}>
+                  <div style={{ width: "50px", color: idx === 0 ? "#fbc02d" : "#888" }}>{idx + 1}位</div>
+                  <div style={{ width: "200px", textAlign: "left" }}>{getPlayerName(p.id)}</div>
+                  <div style={{ color: "#d32f2f", fontWeight: "bold" }}>{p.score} pt</div>
+                </div>
+              ))}
+          </div>
+
+          {G.nextMatchId ? (
+            <div style={{ background: "rgba(76, 175, 80, 0.1)", padding: "20px", borderRadius: "10px", textAlign: "center", border: "2px solid #4caf50", width: "100%" }}>
+              <h3>ホストが再戦の準備をしました！</h3>
+              <button onClick={handleRematchJoin} style={{ padding: "15px 30px", fontSize: "1.2em", cursor: "pointer", background: "#4caf50", color: "white", border: "none", borderRadius: "8px", fontWeight: "bold" }}>新しい部屋に移動する</button>
+            </div>
+          ) : (
+            <button onClick={handleRematchCreate} style={{ padding: "15px 40px", fontSize: "1.2em", cursor: "pointer", background: "#4caf50", color: "white", border: "none", borderRadius: "8px", fontWeight: "bold" }}>もう一度最初から遊ぶ（再戦）</button>
+          )}
         </div>
       )}
 
