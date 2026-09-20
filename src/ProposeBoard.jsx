@@ -12,10 +12,10 @@ export default function ProposeBoard({ G, ctx, moves, playerID, matchData }) {
   const dragInfo = useRef({ id: null, startX: 0, startY: 0, initialCardX: 0, initialCardY: 0 });
 
   useEffect(() => {
-    if (G.gameState === 'thinking' && !G.proposals[playerID]) {
+    if (G.gameState === 'thinking') {
       setCurrentSentence([]);
     }
-  }, [G.gameState, G.proposals, playerID]);
+  }, [G.gameState]);
 
   const getPlayerName = (id) => {
     const p = matchData?.find(m => m.id === parseInt(id));
