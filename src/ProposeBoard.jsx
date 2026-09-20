@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { LobbyClient } from 'boardgame.io/client';
 import { BASIC_CARDS } from './ProposeGame';
 
@@ -10,6 +10,12 @@ export default function ProposeBoard({ G, ctx, moves, playerID, matchData }) {
   const [showRules, setShowRules] = useState(false);
   
   const dragInfo = useRef({ id: null, startX: 0, startY: 0, initialCardX: 0, initialCardY: 0 });
+
+  useEffect(() => {
+    if (G.gameState === 'thinking' && !G.proposals[playerID]) {
+      setCurrentSentence([]);
+    }
+  }, [G.gameState, G.proposals, playerID]);
 
   const getPlayerName = (id) => {
     const p = matchData?.find(m => m.id === parseInt(id));

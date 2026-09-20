@@ -147,7 +147,11 @@ const App = () => {
     if (!playerName) return setError('名前を入力してください');
     setError('');
     try {
-      const matchConfig = { numPlayers };
+      let finalNumPlayers = numPlayers;
+      if (gameType === 'propose' && finalNumPlayers < 3) finalNumPlayers = 3;
+      if (gameType === 'splendor' && finalNumPlayers > 4) finalNumPlayers = 4;
+      
+      const matchConfig = { numPlayers: finalNumPlayers };
       if (gameType === 'ito') matchConfig.setupData = { customThemes, themeMode };
       const { matchID: newMatchID } = await lobbyClient.createMatch(gameType, matchConfig);
       const { playerID: newPlayerID, playerCredentials } = await lobbyClient.joinMatch(gameType, newMatchID, {
