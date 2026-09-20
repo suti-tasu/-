@@ -90,15 +90,9 @@ export const Propose = {
       if (G.gameState !== 'thinking' || playerID === G.targetPlayer) return;
       G.proposals[playerID] = sentenceArray;
       
-      // Check if all proposers have submitted
-      let allSubmitted = true;
-      for (let i = 0; i < ctx.numPlayers; i++) {
-        const pid = i.toString();
-        if (pid !== G.targetPlayer && !G.proposals[pid]) {
-          allSubmitted = false;
-          break;
-        }
-      }
+      // Check if all active proposers have submitted
+      const proposers = Object.keys(G.players).filter(pid => pid !== G.targetPlayer);
+      const allSubmitted = proposers.every(pid => G.proposals[pid] && G.proposals[pid].length > 0);
       
       if (allSubmitted) {
         G.gameState = 'presenting';

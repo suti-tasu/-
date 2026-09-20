@@ -232,6 +232,9 @@ export default function ProposeBoard({ G, ctx, moves, playerID, matchData }) {
     );
   }
 
+  const proposers = Object.keys(G.players).filter(pid => pid !== G.targetPlayer);
+  const submittedCount = proposers.filter(pid => G.proposals && G.proposals[pid]).length;
+
   return (
     <div style={{ padding: "20px", fontFamily: "sans-serif", maxWidth: "900px", margin: "0 auto", overflowX: "hidden", color: "#333" }}>
       {rulesModal}
@@ -259,6 +262,9 @@ export default function ProposeBoard({ G, ctx, moves, playerID, matchData }) {
             <div style={{ textAlign: "center", padding: "40px 0" }}>
               <h2 style={{ color: "#e91e63" }}>あなたは親です！</h2>
               <p style={{ fontSize: "1.2em", color: "#333" }}>みんなからの最高のプロポーズを楽しみに待ちましょう。</p>
+              <div style={{ marginTop: "20px", fontSize: "1.5em", fontWeight: "bold", color: "#2196f3" }}>
+                現在の提出状況: {submittedCount} / {proposers.length} 人
+              </div>
             </div>
           ) : isSpectator ? (
             <p style={{ color: "#333" }}>観戦モードです。プレイヤーの思考を待っています。</p>
@@ -270,7 +276,10 @@ export default function ProposeBoard({ G, ctx, moves, playerID, matchData }) {
 
               {G.proposals[playerID] ? (
                 <div style={{ textAlign: "center", padding: "20px", background: "#e8f5e9", borderRadius: "10px", color: "#2e7d32", fontWeight: "bold", fontSize: "1.2em" }}>
-                  プロポーズ完成！他の人を待っています...
+                  プロポーズ完成！他の人を待っています...<br/>
+                  <span style={{ display: "inline-block", marginTop: "10px", fontSize: "1.2em", color: "#1976d2" }}>
+                    提出状況: {submittedCount} / {proposers.length} 人
+                  </span>
                 </div>
               ) : (
                 <>
