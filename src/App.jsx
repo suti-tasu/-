@@ -134,6 +134,15 @@ const App = () => {
     localStorage.setItem(gType + '_match_' + mID, JSON.stringify({ pID, creds, pName }));
   };
 
+  const handleGameTypeChange = (type) => {
+    setGameType(type);
+    if (type === 'propose' && numPlayers < 3) {
+      setNumPlayers(3);
+    } else if (type === 'splendor' && numPlayers > 4) {
+      setNumPlayers(4);
+    }
+  };
+
   const createAndJoinMatch = async () => {
     if (!playerName) return setError('名前を入力してください');
     setError('');
@@ -291,10 +300,10 @@ const App = () => {
             <div style={{ marginBottom: '20px' }}>
               <label style={{ display: 'block', marginBottom: '5px' }}>遊ぶゲーム</label>
               <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                <button onClick={() => setGameType('splendor')} style={{ flex: 1, minWidth: '150px', padding: '10px', background: gameType === 'splendor' ? '#2196F3' : '#e0e0e0', color: gameType === 'splendor' ? 'white' : 'black', border: 'none', borderRadius: '5px', fontSize: '1.1em', cursor: 'pointer', fontWeight: 'bold' }}>💎 宝石の煌き</button>
-                <button onClick={() => setGameType('ito')} style={{ flex: 1, minWidth: '150px', padding: '10px', background: gameType === 'ito' ? '#ff9800' : '#e0e0e0', color: gameType === 'ito' ? 'white' : 'black', border: 'none', borderRadius: '5px', fontSize: '1.1em', cursor: 'pointer', fontWeight: 'bold' }}>🧵 ITO</button>
-                <button onClick={() => setGameType('haa')} style={{ flex: 1, minWidth: '150px', padding: '10px', background: gameType === 'haa' ? '#e91e63' : '#e0e0e0', color: gameType === 'haa' ? 'white' : 'black', border: 'none', borderRadius: '5px', fontSize: '1.1em', cursor: 'pointer', fontWeight: 'bold' }}>🗣️ はぁって言うゲーム</button>
-                <button onClick={() => setGameType('propose')} style={{ flex: 1, minWidth: '150px', padding: '10px', background: gameType === 'propose' ? '#9c27b0' : '#e0e0e0', color: gameType === 'propose' ? 'white' : 'black', border: 'none', borderRadius: '5px', fontSize: '1.1em', cursor: 'pointer', fontWeight: 'bold' }}>💍 プロポーズを君に</button>
+                <button onClick={() => handleGameTypeChange('splendor')} style={{ flex: 1, minWidth: '150px', padding: '10px', background: gameType === 'splendor' ? '#2196F3' : '#e0e0e0', color: gameType === 'splendor' ? 'white' : 'black', border: 'none', borderRadius: '5px', fontSize: '1.1em', cursor: 'pointer', fontWeight: 'bold' }}>💎 宝石の煌き</button>
+                <button onClick={() => handleGameTypeChange('ito')} style={{ flex: 1, minWidth: '150px', padding: '10px', background: gameType === 'ito' ? '#ff9800' : '#e0e0e0', color: gameType === 'ito' ? 'white' : 'black', border: 'none', borderRadius: '5px', fontSize: '1.1em', cursor: 'pointer', fontWeight: 'bold' }}>🧵 ITO</button>
+                <button onClick={() => handleGameTypeChange('haa')} style={{ flex: 1, minWidth: '150px', padding: '10px', background: gameType === 'haa' ? '#e91e63' : '#e0e0e0', color: gameType === 'haa' ? 'white' : 'black', border: 'none', borderRadius: '5px', fontSize: '1.1em', cursor: 'pointer', fontWeight: 'bold' }}>🗣️ はぁって言うゲーム</button>
+                <button onClick={() => handleGameTypeChange('propose')} style={{ flex: 1, minWidth: '150px', padding: '10px', background: gameType === 'propose' ? '#9c27b0' : '#e0e0e0', color: gameType === 'propose' ? 'white' : 'black', border: 'none', borderRadius: '5px', fontSize: '1.1em', cursor: 'pointer', fontWeight: 'bold' }}>💍 プロポーズを君に</button>
               </div>
             </div>
 
@@ -320,7 +329,7 @@ const App = () => {
                 {(gameType === 'ito' || gameType === 'haa')
                   ? [2,3,4,5,6,7,8].map(n => <option key={n} value={n}>{n}人</option>) 
                   : gameType === 'propose'
-                  ? [2,3,4,5,6].map(n => <option key={n} value={n}>{n}人</option>)
+                  ? [3,4,5,6,7,8].map(n => <option key={n} value={n}>{n}人</option>)
                   : [2,3,4].map(n => <option key={n} value={n}>{n}人</option>)}
               </select>
             </div>

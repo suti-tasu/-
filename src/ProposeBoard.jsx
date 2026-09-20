@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { LobbyClient } from 'boardgame.io/client';
 import { BASIC_CARDS } from './ProposeGame';
 
@@ -6,7 +6,10 @@ export default function ProposeBoard({ G, ctx, moves, playerID, matchData }) {
   const isSpectator = playerID === null;
   const isTarget = playerID === G.targetPlayer;
   const [currentSentence, setCurrentSentence] = useState([]);
+  const [highestZ, setHighestZ] = useState(1);
   const [showRules, setShowRules] = useState(false);
+  
+  const dragInfo = useRef({ id: null, startX: 0, startY: 0, initialCardX: 0, initialCardY: 0 });
 
   const getPlayerName = (id) => {
     const p = matchData?.find(m => m.id === parseInt(id));
@@ -30,19 +33,25 @@ export default function ProposeBoard({ G, ctx, moves, playerID, matchData }) {
   };
 
   const addWord = (word, isBasic, originalCardIndex) => {
-    setCurrentSentence([...currentSentence, { text: word, id: Math.random().toString(), isBasic, cardIndex: originalCardIndex, offset: 0 }]);
+    const newZ = highestZ + 1;
+    setHighestZ(newZ);
+    // 少しずつずらして初期配置
+    const spawnX = 20 + ((currentSentence.length * 30) % 300);
+    const spawnY = 20 + ((currentSentence.length * 20) % 150);
+    
+    setCurrentSentence([...currentSentence, { 
+      text: word, 
+      id: Math.random().toString(), 
+      isBasic, 
+      cardIndex: originalCardIndex, 
+      x: spawnX, 
+      y: spawnY, 
+      zIndex: newZ 
+    }]);
   };
 
-  const removeWord = (index) => {
-    const newSentence = [...currentSentence];
-    newSentence.splice(index, 1);
-    setCurrentSentence(newSentence);
-  };
-
-  const updateOffset = (index, value) => {
-    const newSentence = [...currentSentence];
-    newSentence[index].offset = Number(value);
-    setCurrentSentence(newSentence);
+  const removeWord = (id) => {
+    setCurrentSentence(prev => prev.filter(c => c.id !== id));
   };
 
   const submitMyProposal = () => {
@@ -53,38 +62,90 @@ export default function ProposeBoard({ G, ctx, moves, playerID, matchData }) {
     moves.submitProposal(playerID, currentSentence);
   };
 
-  const renderSentence = (sentenceArray, isInteractive = false) => {
-    if (!sentenceArray || sentenceArray.length === 0) return <span style={{ color: "#999" }}>下のカードをクリックして言葉を並べてください...</span>;
+  const handlePointerDown = (e, card) => {
+    e.target.setPointerCapture(e.pointerId);
+    const newZ = highestZ + 1;
+    setHighestZ(newZ);
+    
+    dragInfo.current = {
+      id: card.id,
+      startX: e.clientX,
+      startY: e.clientY,
+      initialCardX: card.x,
+      initialCardY: card.y
+    };
+    
+    setCurrentSentence(prev => prev.map(c => c.id === card.id ? { ...c, zIndex: newZ } : c));
+  };
+
+  const handlePointerMove = (e) => {
+    if (dragInfo.current.id) {
+      const dx = e.clientX - dragInfo.current.startX;
+      const dy = e.clientY - dragInfo.current.startY;
+      setCurrentSentence(prev => prev.map(c => {
+        if (c.id === dragInfo.current.id) {
+          return { ...c, x: dragInfo.current.initialCardX + dx, y: dragInfo.current.initialCardY + dy };
+        }
+        return c;
+      }));
+    }
+  };
+
+  const handlePointerUp = (e) => {
+    if (dragInfo.current.id) {
+      e.target.releasePointerCapture(e.pointerId);
+      dragInfo.current.id = null;
+    }
+  };
+
+  const renderCanvas = (sentenceArray, isInteractive = false) => {
     return (
-      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", minHeight: "60px", padding: "10px 0", gap: "2px" }}>
-        {sentenceArray.map((wordObj, i) => (
-          <div key={wordObj.id} style={{ display: "flex", flexDirection: "column", alignItems: "center", marginLeft: wordObj.offset ? `${wordObj.offset}px` : "0px", zIndex: i, position: "relative" }}>
-            <div 
-              onClick={() => isInteractive && removeWord(i)} 
-              style={{ background: wordObj.isBasic ? "#fff" : "#ffeb3b", border: "2px solid #ccc", padding: "10px 15px", borderRadius: "5px", cursor: isInteractive ? "pointer" : "default", fontWeight: "bold", fontSize: "1.4em", boxShadow: "2px 2px 5px rgba(0,0,0,0.2)", whiteSpace: "nowrap", color: "#333" }}
-            >
-              {wordObj.text}
-              {isInteractive && <span style={{ fontSize: "0.6em", color: "#888", verticalAlign: "top", marginLeft: "5px" }}>✖</span>}
+      <div style={{ width: "100%", overflowX: "auto", background: "#fdf8e3", borderRadius: "8px", border: isInteractive ? "2px dashed #e91e63" : "2px solid #ffcc80", marginBottom: "20px" }}>
+        <div style={{ position: "relative", width: "600px", height: "300px", background: "url('data:image/svg+xml;utf8,<svg width=\"20\" height=\"20\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"2\" cy=\"2\" r=\"1\" fill=\"%23ddd\"/></svg>')", touchAction: "none" }}>
+          {(!sentenceArray || sentenceArray.length === 0) && isInteractive && (
+            <div style={{ position: "absolute", top: "40%", left: "0", right: "0", textAlign: "center", color: "#999", pointerEvents: "none", fontSize: "1.2em", fontWeight: "bold" }}>
+              下のカードをクリックして盤面に追加し、<br/>自由にドラッグして重ねてください
             </div>
-            {isInteractive && i > 0 && (
-              <div style={{ marginTop: "8px", display: "flex", gap: "5px", alignItems: "center", background: "#f5f5f5", padding: "4px 8px", borderRadius: "20px", border: "1px solid #ccc" }}>
-                <button 
-                  onClick={() => updateOffset(i, (wordObj.offset || 0) - 20)} 
-                  style={{ width: "35px", height: "35px", borderRadius: "50%", border: "none", background: "#e91e63", color: "white", fontWeight: "bold", cursor: "pointer", fontSize: "1.2em", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 4px rgba(0,0,0,0.2)" }}
+          )}
+          {sentenceArray && sentenceArray.map((card) => (
+            <div
+              key={card.id}
+              onPointerDown={isInteractive ? (e) => handlePointerDown(e, card) : undefined}
+              onPointerMove={isInteractive ? handlePointerMove : undefined}
+              onPointerUp={isInteractive ? handlePointerUp : undefined}
+              onPointerCancel={isInteractive ? handlePointerUp : undefined}
+              style={{
+                position: "absolute",
+                left: `${card.x}px`,
+                top: `${card.y}px`,
+                zIndex: card.zIndex,
+                background: card.isBasic ? "#fff" : "#ffeb3b",
+                border: "2px solid #ccc",
+                padding: "10px 15px",
+                borderRadius: "5px",
+                cursor: isInteractive ? "grab" : "default",
+                fontWeight: "bold",
+                fontSize: "1.4em",
+                boxShadow: "2px 2px 8px rgba(0,0,0,0.3)",
+                whiteSpace: "nowrap",
+                color: "#333",
+                userSelect: "none",
+                touchAction: "none"
+              }}
+            >
+              {card.text}
+              {isInteractive && (
+                <button
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => { e.stopPropagation(); removeWord(card.id); }}
+                  style={{ position: "absolute", top: "-12px", right: "-12px", background: "#f44336", color: "white", border: "none", borderRadius: "50%", width: "28px", height: "28px", fontSize: "14px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 4px rgba(0,0,0,0.3)", zIndex: 10 }}
                 >
-                  ◀
+                  ✖
                 </button>
-                <span style={{ fontSize: "0.8em", color: "#333", fontWeight: "bold", padding: "0 5px" }}>重ねる</span>
-                <button 
-                  onClick={() => updateOffset(i, Math.min(0, (wordObj.offset || 0) + 20))} 
-                  style={{ width: "35px", height: "35px", borderRadius: "50%", border: "none", background: "#2196f3", color: "white", fontWeight: "bold", cursor: "pointer", fontSize: "1.2em", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 4px rgba(0,0,0,0.2)" }}
-                >
-                  ▶
-                </button>
-              </div>
-            )}
-          </div>
-        ))}
+              )}
+            </div>
+          ))}
+        </div>
       </div>
     );
   };
@@ -106,10 +167,10 @@ export default function ProposeBoard({ G, ctx, moves, playerID, matchData }) {
         </ol>
 
         <h3 style={{ color: '#ff9800' }}>💡 テクニック：カードを重ねる！</h3>
-        <p>カードの下にある<strong>「重ねる ◀▶」ボタン</strong>を押すと、カードを左にスライドさせて<strong>前の言葉の一部を隠す</strong>ことができます。<br/>例：「結婚しよう」の「しよう」を隠して「結婚」＋「筋肉」＝「結婚筋肉」のような不思議な言葉を作るのがこのゲームの醍醐味です！</p>
+        <p>手札から盤面にカードを出し、<strong>自由にドラッグして重ねる</strong>ことができます。<br/>例：「結婚しよう」の「しよう」の上に「筋肉」カードを被せて「結婚筋肉」のような不思議な言葉を作るのがこのゲームの醍醐味です！</p>
 
         <h3 style={{ color: '#388e3c' }}>⚠️ 注意事項</h3>
-        <p>配られたランダムな単語カードはすべて使い切らなくてもOKです。基本カードとランダムな手札カードはそれぞれ<strong>1回ずつしか使えません</strong>（文から取り外せば再び使えます）。自由な発想で愛を伝えましょう！</p>
+        <p>配られたランダムな単語カードはすべて使い切らなくてもOKです。基本カードとランダムな手札カードはそれぞれ<strong>1回ずつしか使えません</strong>（盤面から×ボタンで消せば再び使えます）。自由な発想で愛を伝えましょう！</p>
 
         <button onClick={() => setShowRules(false)} style={{ marginTop: '20px', padding: '10px 20px', background: '#2196F3', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', width: '100%', fontSize: '1.1em', fontWeight: 'bold' }}>
           閉じる
@@ -205,9 +266,7 @@ export default function ProposeBoard({ G, ctx, moves, playerID, matchData }) {
             <div>
               <h3 style={{ marginTop: 0, color: "#d32f2f" }}>愛の言葉を紡ごう</h3>
               
-              <div style={{ background: "#fdf8e3", minHeight: "80px", padding: "15px", borderRadius: "8px", border: "2px dashed #e91e63", marginBottom: "20px" }}>
-                {renderSentence(currentSentence, true)}
-              </div>
+              {renderCanvas(currentSentence, true)}
 
               {G.proposals[playerID] ? (
                 <div style={{ textAlign: "center", padding: "20px", background: "#e8f5e9", borderRadius: "10px", color: "#2e7d32", fontWeight: "bold", fontSize: "1.2em" }}>
@@ -232,12 +291,12 @@ export default function ProposeBoard({ G, ctx, moves, playerID, matchData }) {
                           if (isUsed) {
                             return (
                               <div key={i} style={{ background: "#e0e0e0", border: "1px dashed #aaa", padding: "8px 15px", borderRadius: "5px", color: "#999", fontSize: "1.1em", cursor: "not-allowed" }}>
-                                使用中
+                                盤面
                               </div>
                             );
                           }
                           return (
-                            <button key={i} onClick={() => addWord(w, false, i)} style={{ background: "#ffeb3b", border: "1px solid #fbc02d", padding: "8px 15px", borderRadius: "5px", cursor: "pointer", fontWeight: "bold", fontSize: "1.1em", color: "#333" }}>
+                            <button key={i} onClick={() => addWord(w, false, i)} style={{ background: "#ffeb3b", border: "1px solid #fbc02d", padding: "8px 15px", borderRadius: "5px", cursor: "pointer", fontWeight: "bold", fontSize: "1.1em", color: "#333", boxShadow: "0 2px 4px rgba(0,0,0,0.1)" }}>
                               {w}
                             </button>
                           );
@@ -254,12 +313,12 @@ export default function ProposeBoard({ G, ctx, moves, playerID, matchData }) {
                           if (isUsed) {
                             return (
                               <div key={cardIndex} style={{ width: "120px", height: "60px", background: "#e0e0e0", border: "1px dashed #aaa", borderRadius: "5px", color: "#999", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.9em" }}>
-                                使用中
+                                盤面
                               </div>
                             );
                           }
                           return (
-                            <div key={cardIndex} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2px", width: "120px", background: "#aaa", border: "2px solid #888", borderRadius: "5px", overflow: "hidden" }}>
+                            <div key={cardIndex} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2px", width: "120px", background: "#aaa", border: "2px solid #888", borderRadius: "5px", overflow: "hidden", boxShadow: "0 2px 4px rgba(0,0,0,0.1)" }}>
                               {cardWords.map((w, wIdx) => (
                                 <button key={wIdx} onClick={() => addWord(w, true, cardIndex)} style={{ background: "#fff", border: "none", padding: "5px 2px", cursor: "pointer", fontSize: "0.9em", color: "#333", fontWeight: "bold", margin: "1px" }}>
                                   {w}
@@ -288,16 +347,16 @@ export default function ProposeBoard({ G, ctx, moves, playerID, matchData }) {
               if (pid === G.targetPlayer) return null;
               const prop = G.proposals[pid];
               return (
-                <div key={pid} style={{ background: "#fdf8e3", padding: "20px", borderRadius: "10px", border: "2px solid #ffcc80", textAlign: "left", overflowX: "hidden" }}>
-                  <div style={{ fontWeight: "bold", color: "#d84315", marginBottom: "10px" }}>{getPlayerName(pid)} さんのプロポーズ</div>
-                  <div style={{ padding: "10px 0", overflow: "visible" }}>
-                    {prop ? renderSentence(prop, false) : "（未提出）"}
+                <div key={pid} style={{ background: "#fff", padding: "20px", borderRadius: "10px", border: "3px solid #ffcc80", textAlign: "left" }}>
+                  <div style={{ fontWeight: "bold", color: "#d84315", marginBottom: "10px", fontSize: "1.2em" }}>{getPlayerName(pid)} さんのプロポーズ</div>
+                  <div style={{ display: "flex", justifyContent: "center" }}>
+                    {prop ? renderCanvas(prop, false) : "（未提出）"}
                   </div>
                   {isTarget && (
                     <div style={{ marginTop: "15px", textAlign: "right" }}>
                       <button 
                         onClick={() => moves.acceptProposal(playerID, pid)}
-                        style={{ padding: "10px 20px", background: "#e91e63", color: "white", fontWeight: "bold", border: "none", borderRadius: "5px", cursor: "pointer" }}
+                        style={{ padding: "10px 20px", background: "#e91e63", color: "white", fontWeight: "bold", border: "none", borderRadius: "5px", cursor: "pointer", fontSize: "1.2em", boxShadow: "0 4px 6px rgba(0,0,0,0.2)" }}
                       >
                         💍 このプロポーズを受ける！
                       </button>
@@ -324,7 +383,7 @@ export default function ProposeBoard({ G, ctx, moves, playerID, matchData }) {
           </div>
           
           <div style={{ margin: "20px 0", display: "flex", justifyContent: "center", padding: "20px", background: "#fdf8e3", borderRadius: "10px", border: "2px solid #ffcc80", overflow: "visible" }}>
-            {renderSentence(G.proposals[G.roundWinner], false)}
+            {renderCanvas(G.proposals[G.roundWinner], false)}
           </div>
 
           <div style={{ marginTop: "30px" }}>
