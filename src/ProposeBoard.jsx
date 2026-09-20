@@ -29,7 +29,7 @@ export default function ProposeBoard({ G, ctx, moves, playerID, matchData }) {
   };
 
   const addWord = (word, isBasic) => {
-    setCurrentSentence([...currentSentence, { text: word, id: Math.random().toString(), isBasic }]);
+    setCurrentSentence([...currentSentence, { text: word, id: Math.random().toString(), isBasic, offset: 0 }]);
   };
 
   const removeWord = (index) => {
@@ -38,12 +38,44 @@ export default function ProposeBoard({ G, ctx, moves, playerID, matchData }) {
     setCurrentSentence(newSentence);
   };
 
+  const updateOffset = (index, value) => {
+    const newSentence = [...currentSentence];
+    newSentence[index].offset = Number(value);
+    setCurrentSentence(newSentence);
+  };
+
   const submitMyProposal = () => {
     if (currentSentence.length === 0) {
       alert("プロポーズの言葉を作ってください！");
       return;
     }
-    moves.submitProposal(playerID, currentSentence.map(w => w.text));
+    // Now passing the full array of objects to preserve offsets
+    moves.submitProposal(playerID, currentSentence);
+  };
+
+  const renderSentence = (sentenceArray, isInteractive = false) => {
+    if (!sentenceArray || sentenceArray.length === 0) return <span style={{ color: "#999" }}>下のカードをクリックして言葉を並べてください...</span>;
+    return (
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", minHeight: "60px", padding: "10px 0", gap: "2px" }}>
+        {sentenceArray.map((wordObj, i) => (
+          <div key={wordObj.id} style={{ display: "flex", flexDirection: "column", alignItems: "center", marginLeft: wordObj.offset ? `${wordObj.offset}px` : "0px", zIndex: i, position: "relative" }}>
+            <div 
+              onClick={() => isInteractive && removeWord(i)} 
+              style={{ background: wordObj.isBasic ? "#fff" : "#ffeb3b", border: "2px solid #ccc", padding: "10px 15px", borderRadius: "5px", cursor: isInteractive ? "pointer" : "default", fontWeight: "bold", fontSize: "1.4em", boxShadow: "2px 2px 5px rgba(0,0,0,0.2)", whiteSpace: "nowrap", color: "#333" }}
+            >
+              {wordObj.text}
+              {isInteractive && <span style={{ fontSize: "0.6em", color: "#888", verticalAlign: "top", marginLeft: "5px" }}>✖</span>}
+            </div>
+            {isInteractive && i > 0 && (
+              <div style={{ marginTop: "5px", display: "flex", flexDirection: "column", alignItems: "center", background: "rgba(255,255,255,0.8)", padding: "2px 5px", borderRadius: "4px" }}>
+                <span style={{ fontSize: "0.7em", color: "#e91e63", fontWeight: "bold" }}>重ねる ◀▶</span>
+                <input type="range" min="-120" max="0" value={wordObj.offset || 0} onChange={(e) => updateOffset(i, e.target.value)} style={{ width: "70px", cursor: "ew-resize" }} />
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    );
   };
 
   // Render Rules
@@ -62,6 +94,9 @@ export default function ProposeBoard({ G, ctx, moves, playerID, matchData }) {
           <li>全員が完成したら、順番に親に向けてプロポーズの言葉を読み上げます。</li>
           <li>親は、一番グッときた（または面白かった）プロポーズを1つ選びます。選ばれた人は指輪を1つ渡すことができます（指輪が減ります）。</li>
         </ol>
+
+        <h3 style={{ color: '#ff9800' }}>💡 テクニック：カードを重ねる！</h3>
+        <p>カードの下にある<strong>「重ねる ◀▶」スライダー</strong>を動かすと、カードを左にスライドさせて<strong>前の言葉の一部を隠す</strong>ことができます。<br/>例：「結婚しよう」の「しよう」を隠して「結婚」＋「筋肉」＝「結婚筋肉」のような不思議な言葉を作るのがこのゲームの醍醐味です！</p>
 
         <h3 style={{ color: '#388e3c' }}>⚠️ 注意事項</h3>
         <p>配られたランダムな単語カードはすべて使い切らなくてもOKです。自由な発想で愛を伝えましょう！</p>
@@ -87,7 +122,7 @@ export default function ProposeBoard({ G, ctx, moves, playerID, matchData }) {
         {rulesModal}
         {ruleButton}
         <h2>たった今考えたプロポーズの言葉を君に捧ぐよ</h2>
-        <p>全員が揃ったら開始してください。</p>
+        <p>全員が揃ったら開始してください。（※3人以上を推奨します）</p>
         
         <div style={{ background: "#f5f5f5", padding: "15px", borderRadius: "10px", margin: "20px 0" }}>
           <h3 style={{ marginTop: 0 }}>参加者 ({Object.keys(G.players).length}人)</h3>
@@ -111,7 +146,7 @@ export default function ProposeBoard({ G, ctx, moves, playerID, matchData }) {
   }
 
   return (
-    <div style={{ padding: "20px", fontFamily: "sans-serif", maxWidth: "900px", margin: "0 auto" }}>
+    <div style={{ padding: "20px", fontFamily: "sans-serif", maxWidth: "900px", margin: "0 auto", overflowX: "hidden" }}>
       {rulesModal}
       {ruleButton}
 
@@ -146,13 +181,8 @@ export default function ProposeBoard({ G, ctx, moves, playerID, matchData }) {
               <h3 style={{ marginTop: 0, color: "#d32f2f" }}>愛の言葉を紡ごう</h3>
               
               {/* Sentence Builder */}
-              <div style={{ background: "#fdf8e3", minHeight: "80px", padding: "15px", borderRadius: "8px", border: "2px dashed #e91e63", marginBottom: "20px", display: "flex", flexWrap: "wrap", gap: "10px", alignItems: "center" }}>
-                {currentSentence.length === 0 && <span style={{ color: "#999" }}>下のカードをクリックして言葉を並べてください...</span>}
-                {currentSentence.map((wordObj, i) => (
-                  <div key={wordObj.id} onClick={() => removeWord(i)} style={{ background: wordObj.isBasic ? "#fff" : "#ffeb3b", border: "1px solid #ccc", padding: "8px 15px", borderRadius: "5px", cursor: "pointer", fontWeight: "bold", fontSize: "1.2em", boxShadow: "0 2px 4px rgba(0,0,0,0.1)" }}>
-                    {wordObj.text} <span style={{ fontSize: "0.6em", color: "#888", verticalAlign: "top" }}>✖</span>
-                  </div>
-                ))}
+              <div style={{ background: "#fdf8e3", minHeight: "80px", padding: "15px", borderRadius: "8px", border: "2px dashed #e91e63", marginBottom: "20px" }}>
+                {renderSentence(currentSentence, true)}
               </div>
 
               {G.proposals[playerID] ? (
@@ -210,10 +240,10 @@ export default function ProposeBoard({ G, ctx, moves, playerID, matchData }) {
               if (pid === G.targetPlayer) return null;
               const prop = G.proposals[pid];
               return (
-                <div key={pid} style={{ background: "#fdf8e3", padding: "20px", borderRadius: "10px", border: "2px solid #ffcc80", textAlign: "left" }}>
+                <div key={pid} style={{ background: "#fdf8e3", padding: "20px", borderRadius: "10px", border: "2px solid #ffcc80", textAlign: "left", overflowX: "hidden" }}>
                   <div style={{ fontWeight: "bold", color: "#d84315", marginBottom: "10px" }}>{getPlayerName(pid)} さんのプロポーズ</div>
-                  <div style={{ fontSize: "1.5em", fontWeight: "bold", lineHeight: "1.5" }}>
-                    {prop ? prop.join("") : "（未提出）"}
+                  <div style={{ padding: "10px 0", overflow: "visible" }}>
+                    {prop ? renderSentence(prop, false) : "（未提出）"}
                   </div>
                   {isTarget && (
                     <div style={{ marginTop: "15px", textAlign: "right" }}>
@@ -245,8 +275,8 @@ export default function ProposeBoard({ G, ctx, moves, playerID, matchData }) {
             <span style={{ color: "#2196f3", fontWeight: "bold", fontSize: "1.2em" }}>{getPlayerName(G.roundWinner)}</span> さんのプロポーズを受け入れました！
           </div>
           
-          <div style={{ fontSize: "1.5em", fontWeight: "bold", margin: "20px 0", lineHeight: "1.5" }}>
-            「{G.proposals[G.roundWinner].join("")}」
+          <div style={{ margin: "20px 0", display: "flex", justifyContent: "center", padding: "20px", background: "#fdf8e3", borderRadius: "10px", border: "2px solid #ffcc80", overflow: "visible" }}>
+            {renderSentence(G.proposals[G.roundWinner], false)}
           </div>
 
           <div style={{ marginTop: "30px" }}>
