@@ -12,22 +12,33 @@ export const EXPANSION_STALKER = ["監視", "盗聴", "GPS", "逃がさない", 
 export const EXPANSION_GESU = ["お金", "パパ", "愛人", "浮気", "不倫", "慰謝料", "キャバクラ", "ホスト", "借金", "貢ぐ", "ATM", "札束", "1億円", "ヒモ", "養って", "都合のいい", "金づる", "財産", "遺産", "離婚", "ギャンブル", "パチンコ", "風俗", "援助交際", "クズ", "最低", "ゲス", "騙す", "嘘つき", "利用する"];
 
 const dealCards = (G, random, ctx) => {
+  // 使われた手札を取り除く
+  if (G.proposals) {
+    Object.keys(G.players).forEach(pid => {
+      if (G.proposals[pid]) {
+        const usedIndices = G.proposals[pid].filter(w => !w.isBasic).map(w => w.cardIndex);
+        usedIndices.forEach(idx => {
+          if (G.players[pid].hand) G.players[pid].hand[idx] = null;
+        });
+      }
+    });
+  }
+
   G.proposals = {};
   for (let i = 0; i < ctx.numPlayers; i++) {
     const pid = i.toString();
     G.proposals[pid] = null;
     
-    if (pid !== G.targetPlayer) {
-      let hand = [];
-      for (let j = 0; j < 6; j++) {
-        if (G.deck.length === 0) {
-          G.deck = random.Shuffle([...G.wordPool]);
-        }
-        hand.push(G.deck.pop());
+    // nullになった手札を削除して詰める
+    if (!G.players[pid].hand) G.players[pid].hand = [];
+    G.players[pid].hand = G.players[pid].hand.filter(c => c !== null);
+    
+    // 6枚になるまで山札から補充
+    while (G.players[pid].hand.length < 6) {
+      if (G.deck.length === 0) {
+        G.deck = random.Shuffle([...G.wordPool]);
       }
-      G.players[pid].hand = hand;
-    } else {
-      G.players[pid].hand = [];
+      G.players[pid].hand.push(G.deck.pop());
     }
   }
 };
