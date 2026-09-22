@@ -10,6 +10,8 @@ import { Haa } from './HaaGame';
 import HaaBoard from './HaaBoard';
 import { Propose } from './ProposeGame';
 import ProposeBoard from './ProposeBoard';
+import { HanninGame } from './HanninGame';
+import { HanninBoard } from './HanninBoard';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -53,6 +55,13 @@ const ItoClient = Client({
 const HaaClient = Client({
   game: Haa,
   board: HaaBoard,
+  multiplayer: SocketIO({ server }),
+  debug: false
+});
+
+const HanninClient = Client({
+  game: HanninGame,
+  board: HanninBoard,
   multiplayer: SocketIO({ server }),
   debug: false
 });
@@ -308,6 +317,7 @@ const App = () => {
                 <button onClick={() => handleGameTypeChange('ito')} style={{ flex: 1, minWidth: '150px', padding: '10px', background: gameType === 'ito' ? '#ff9800' : '#e0e0e0', color: gameType === 'ito' ? 'white' : 'black', border: 'none', borderRadius: '5px', fontSize: '1.1em', cursor: 'pointer', fontWeight: 'bold' }}>🧵 ITO</button>
                 <button onClick={() => handleGameTypeChange('haa')} style={{ flex: 1, minWidth: '150px', padding: '10px', background: gameType === 'haa' ? '#e91e63' : '#e0e0e0', color: gameType === 'haa' ? 'white' : 'black', border: 'none', borderRadius: '5px', fontSize: '1.1em', cursor: 'pointer', fontWeight: 'bold' }}>🗣️ はぁって言うゲーム</button>
                 <button onClick={() => handleGameTypeChange('propose')} style={{ flex: 1, minWidth: '150px', padding: '10px', background: gameType === 'propose' ? '#9c27b0' : '#e0e0e0', color: gameType === 'propose' ? 'white' : 'black', border: 'none', borderRadius: '5px', fontSize: '1.1em', cursor: 'pointer', fontWeight: 'bold' }}>💍 プロポーズを君に</button>
+                <button onClick={() => handleGameTypeChange('hannin')} style={{ flex: 1, minWidth: '150px', padding: '10px', background: gameType === 'hannin' ? '#000000' : '#e0e0e0', color: gameType === 'hannin' ? 'white' : 'black', border: 'none', borderRadius: '5px', fontSize: '1.1em', cursor: 'pointer', fontWeight: 'bold' }}>🕵️ 犯人は踊る</button>
               </div>
             </div>
 
@@ -332,8 +342,7 @@ const App = () => {
               <select value={numPlayers} onChange={e => setNumPlayers(Number(e.target.value))} style={{ width: '100%', padding: '10px', fontSize: '1.2em' }}>
                 {(gameType === 'ito' || gameType === 'haa')
                   ? [2,3,4,5,6,7,8].map(n => <option key={n} value={n}>{n}人</option>) 
-                  : gameType === 'propose'
-                  ? [3,4,5,6,7,8].map(n => <option key={n} value={n}>{n}人</option>)
+                  : (gameType === 'propose' || gameType === 'hannin') ? [3,4,5,6,7,8].map(n => <option key={n} value={n}>{n}人</option>)
                   : [2,3,4].map(n => <option key={n} value={n}>{n}人</option>)}
               </select>
             </div>
