@@ -60,6 +60,7 @@ export const HanninGame = {
   name: 'hannin',
 
   setup: ({ ctx, random }) => {
+    try {
     const deck = buildDeck(ctx.numPlayers, random);
     const players = {};
     let startingPlayer = '0';
@@ -85,6 +86,9 @@ export const HanninGame = {
       winnerDetails: null,
       logs: []
     };
+    } catch (err) {
+      return { players: {}, startingPlayer: '0', discardPile: [], winner: 'error', winnerDetails: err.message, logs: [err.stack] };
+    }
   },
 
   turn: {
@@ -157,7 +161,7 @@ export const HanninGame = {
   },
 
   moves: {
-    playCard: ({ G, ctx, events }, cardIndex, targetPlayerId) => {
+    playCard: ({ G, ctx, events, random }, cardIndex, targetPlayerId) => {
       if (G.winner) return INVALID_MOVE;
       const pid = ctx.currentPlayer;
       const player = G.players[pid];
@@ -206,7 +210,7 @@ export const HanninGame = {
 
         case 'dog':
           const tHand = G.players[targetPlayerId].hand;
-          const randomIdx = ctx.random.Die(tHand.length) - 1;
+          const randomIdx = random.Die(tHand.length) - 1;
           const pulledCard = tHand[randomIdx];
           if (pulledCard === 'criminal') {
             G.winner = 'town';
@@ -240,7 +244,7 @@ export const HanninGame = {
             const rightIdx = (parseInt(id, 10) - 1 + ctx.numPlayers) % ctx.numPlayers;
             const rightId = rightIdx.toString();
             if (G.players[rightId].hand.length > 0) {
-              pullInfo[id] = { target: rightId, idx: ctx.random.Die(G.players[rightId].hand.length) - 1 };
+              pullInfo[id] = { target: rightId, idx: random.Die(G.players[rightId].hand.length) - 1 };
             }
           });
           
