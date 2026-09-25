@@ -59,8 +59,8 @@ const buildDeck = (numPlayers, random) => {
 export const HanninGame = {
   name: 'hannin',
 
-  setup: (ctx) => {
-    const deck = buildDeck(ctx.numPlayers, ctx.random);
+  setup: ({ ctx, random }) => {
+    const deck = buildDeck(ctx.numPlayers, random);
     const players = {};
     let startingPlayer = '0';
 
