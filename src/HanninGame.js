@@ -1,4 +1,4 @@
-import { INVALID_MOVE } from 'boardgame.io/core';
+const INVALID_MOVE = 'INVALID_MOVE';
 
 export const CARD_TYPES = {
   CRIMINAL: { id: 'criminal', name: '犯人', desc: '手札がこの1枚の時のみ出せる。出したら勝ち。' },
