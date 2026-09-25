@@ -38,6 +38,8 @@ const MUST_CARDS = {
 };
 
 const buildDeck = (numPlayers, random) => {
+  if (numPlayers < 3) numPlayers = 3;
+  if (numPlayers > 8) numPlayers = 8;
   if (numPlayers >= 8) return random.Shuffle([...ALL_CARDS]);
   const must = [...MUST_CARDS[numPlayers]];
   let pool = [...ALL_CARDS];

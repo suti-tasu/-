@@ -145,7 +145,7 @@ const App = () => {
 
   const handleGameTypeChange = (type) => {
     setGameType(type);
-    if (type === 'propose' && numPlayers < 3) {
+    if ((type === 'propose' || type === 'hannin') && numPlayers < 3) {
       setNumPlayers(3);
     } else if (type === 'splendor' && numPlayers > 4) {
       setNumPlayers(4);
@@ -157,7 +157,7 @@ const App = () => {
     setError('');
     try {
       let finalNumPlayers = numPlayers;
-      if (gameType === 'propose' && finalNumPlayers < 3) finalNumPlayers = 3;
+      if ((gameType === 'propose' || gameType === 'hannin') && finalNumPlayers < 3) finalNumPlayers = 3;
       if (gameType === 'splendor' && finalNumPlayers > 4) finalNumPlayers = 4;
       
       const matchConfig = { numPlayers: finalNumPlayers };
