@@ -281,6 +281,8 @@ const App = () => {
             <HaaClient matchID={matchID} playerID={playerID} credentials={credentials} />
           ) : gameType === 'propose' ? (
             <ProposeClient matchID={matchID} playerID={playerID} credentials={credentials} />
+          ) : gameType === 'hannin' ? (
+            <HanninClient matchID={matchID} playerID={playerID} credentials={credentials} />
           ) : (
             <SplendorClient matchID={matchID} playerID={playerID} credentials={credentials} />
           )}
