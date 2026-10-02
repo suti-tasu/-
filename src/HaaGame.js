@@ -26,7 +26,7 @@ const LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 const getInitialState = (ctx, setupData) => {
   const players = {};
   for (let i = 0; i < ctx.numPlayers; i++) {
-    players[i.toString()] = { isReady: false, score: 0 };
+    players[i.toString()] = { isReady: false, score: 0, guessScore: 0, actedScore: 0 };
   }
   
   return {
@@ -148,9 +148,8 @@ export const Haa = {
             const actual = G.assignments[aID];
             if (guessed === actual) {
               // Voter gets 1 point
-              G.players[vID].score += 1;
-              // Actor gets 1 point
-              G.players[aID].score += 1;
+              G.players[vID].score += 1; G.players[vID].guessScore += 1; // Actor gets 1 point
+              G.players[aID].score += 1; G.players[aID].actedScore += 1;
               
               roundResults[aID].guessedBy.push(vID);
               roundResults[aID].pointsEarned += 1;

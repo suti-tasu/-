@@ -79,6 +79,7 @@ export const HanninGame = {
     }
 
     return {
+      gameState: 'lobby',
       players,
       startingPlayer,
       discardPile: [],
@@ -161,6 +162,7 @@ export const HanninGame = {
   },
 
   moves: {
+    startGame: ({ G }) => { G.gameState = 'playing'; },
     playCard: ({ G, ctx, events, random }, cardIndex, targetPlayerId) => {
       if (G.winner) return INVALID_MOVE;
       const pid = ctx.currentPlayer;

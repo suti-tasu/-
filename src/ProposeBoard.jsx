@@ -278,7 +278,7 @@ export default function ProposeBoard({ G, ctx, moves, playerID, matchData }) {
             <div>
               <h3 style={{ marginTop: 0, color: "#d32f2f" }}>愛の言葉を紡ごう</h3>
               
-              {renderCanvas(currentSentence, true)}
+              {renderCanvas(currentSentence, !G.proposals[playerID])}
 
               {G.proposals[playerID] ? (
                 <div style={{ textAlign: "center", padding: "20px", background: "#e8f5e9", borderRadius: "10px", color: "#2e7d32", fontWeight: "bold", fontSize: "1.2em" }}>

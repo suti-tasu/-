@@ -213,8 +213,9 @@ export default function HaaBoard({ G, ctx, moves, playerID, matchData }) {
             <h3 style={{ margin: "0 0 15px 0" }}>累計スコア</h3>
             <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", justifyContent: "center", marginBottom: "30px" }}>
               {Object.keys(G.players).map(pid => (
-                <div key={pid} style={{ background: "#333", color: "white", padding: "10px 20px", borderRadius: "20px", fontWeight: "bold" }}>
-                  {getPlayerName(pid)}: {G.players[pid].score} pt
+                <div key={pid} style={{ background: "#333", color: "white", padding: "10px 20px", borderRadius: "10px", fontWeight: "bold", textAlign: "center" }}>
+                  <div style={{ fontSize: "1.2em" }}>{getPlayerName(pid)}: {G.players[pid].score} pt</div>
+                  <div style={{ fontSize: "0.8em", color: "#ccc", marginTop: "5px" }}>当てた: {G.players[pid].guessScore || 0} / 当てられた: {G.players[pid].actedScore || 0}</div>
                 </div>
               ))}
             </div>
@@ -240,13 +241,16 @@ export default function HaaBoard({ G, ctx, moves, playerID, matchData }) {
           
           <div style={{ display: "flex", flexDirection: "column", gap: "10px", margin: "30px 0" }}>
             {Object.keys(G.players)
-              .map(id => ({ id, score: G.players[id].score }))
+              .map(id => ({ id, ...G.players[id] }))
               .sort((a, b) => b.score - a.score)
               .map((p, idx) => (
                 <div key={p.id} style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "15px", fontSize: "1.5em", background: idx === 0 ? "#fff9c4" : "#f5f5f5", padding: "15px", borderRadius: "10px", border: idx === 0 ? "2px solid #fbc02d" : "1px solid #eee", fontWeight: idx === 0 ? "bold" : "normal" }}>
                   <div style={{ width: "50px", color: idx === 0 ? "#fbc02d" : "#888" }}>{idx + 1}位</div>
-                  <div style={{ width: "200px", textAlign: "left" }}>{getPlayerName(p.id)}</div>
-                  <div style={{ color: "#d32f2f", fontWeight: "bold" }}>{p.score} pt</div>
+                  <div style={{ width: "150px", textAlign: "left" }}>{getPlayerName(p.id)}</div>
+                  <div style={{ width: "120px", textAlign: "right", fontSize: "0.8em", color: "#666", fontWeight: "normal", lineHeight: "1.2" }}>
+                    当てた: {p.guessScore || 0} <br/> 当てられた: {p.actedScore || 0}
+                  </div>
+                  <div style={{ width: "80px", textAlign: "right", color: "#d32f2f", fontWeight: "bold" }}>{p.score} pt</div>
                 </div>
               ))}
           </div>
