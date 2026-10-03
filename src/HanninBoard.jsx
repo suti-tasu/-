@@ -4,17 +4,53 @@ import { CARD_TYPES } from './HanninGame';
 export const HanninBoard = ({ G, ctx, moves, playerID, events, matchData }) => {
   const [selectedCardIdx, setSelectedCardIdx] = useState(null);
   const [targetModalOpen, setTargetModalOpen] = useState(false);
+  const [showRules, setShowRules] = useState(false);
 
   const getPlayerName = (id) => {
     const p = matchData?.find(m => m.id === parseInt(id));
     return p ? p.name : `Player ${id}`;
   };
 
+  const rulesModal = showRules && (
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, textAlign: 'left' }}>
+      <div style={{ background: 'white', padding: '30px', borderRadius: '10px', maxWidth: '600px', width: '90%', maxHeight: '80vh', overflowY: 'auto', fontFamily: 'sans-serif', color: '#333' }}>
+        <h2 style={{ borderBottom: '2px solid #ccc', paddingBottom: '10px', marginTop: 0 }}>犯人は踊る ルール</h2>
+        
+        <h3 style={{ color: '#d32f2f' }}>🏆 勝利条件</h3>
+        <p>「犯人」カードを持っている人を「探偵」や「いぬ」で当てるか、自分が「犯人」カードを最後まで持ち切って出すことができれば勝利です。</p>
+
+        <h3 style={{ color: '#1976d2' }}>🎮 ゲームの流れ</h3>
+        <ol style={{ lineHeight: '1.6' }}>
+          <li>全員に4枚ずつカードが配られます。</li>
+          <li>「第一発見者」を持っている人からゲームスタート。最初は必ず「第一発見者」を出します。</li>
+          <li>時計回りに順番に、手札から1枚ずつカードを出してその効果を発動します。</li>
+          <li>カードの中には、手札を交換したり回したりする効果のものがあります。「犯人」カードもどんどん移動します！</li>
+        </ol>
+
+        <h3 style={{ color: '#ff9800' }}>⚠️ 重要なカード</h3>
+        <ul style={{ lineHeight: '1.6' }}>
+          <li><strong>犯人:</strong> 手札がこの1枚だけになった時のみ出せます。出せれば逃げ切り勝利！</li>
+          <li><strong>探偵:</strong> 誰か1人を指名して「あなたが犯人ですね？」と聞けます。当たれば勝利！</li>
+          <li><strong>アリバイ:</strong> 探偵に当てられても、アリバイを『持っていれば』「違います」と嘘をつけます。</li>
+          <li><strong>たくらみ:</strong> 出すと犯人側の味方になります。犯人が勝てば一緒に勝利！</li>
+        </ul>
+
+        <button onClick={() => setShowRules(false)} style={{ marginTop: '20px', padding: '10px 20px', background: '#2196F3', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer', width: '100%', fontSize: '1.1em', fontWeight: 'bold' }}>
+          閉じる
+        </button>
+      </div>
+    </div>
+  );
+
   if (G.gameState === 'lobby') {
     return (
       <div style={{ padding: "20px", fontFamily: "sans-serif", maxWidth: "600px", margin: "0 auto", textAlign: "center" }}>
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+        {rulesModal}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h2>犯人は踊る - 待機ルーム</h2>
+          <button onClick={() => setShowRules(true)} style={{ background: '#3f51b5', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9em', display: 'flex', alignItems: 'center', gap: '5px', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+            <span>📖</span> ルールブックを開く
+          </button>
         </div>
         <p>Discordなどで通話をつなぎ、全員が揃ったら開始してください。</p>
         
@@ -105,14 +141,20 @@ export const HanninBoard = ({ G, ctx, moves, playerID, events, matchData }) => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', fontFamily: 'sans-serif', background: '#f5f5f5' }}>
+      {rulesModal}
       {/* HEADER */}
-      <div style={{ background: '#333', color: '#fff', padding: '10px 20px', display: 'flex', justifyContent: 'space-between' }}>
-        <div>犯人は踊る - プレイヤー {pid}</div>
+      <div style={{ background: '#333', color: '#fff', padding: '10px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+          <span>犯人は踊る - {getPlayerName(pid)}</span>
+          <button onClick={() => setShowRules(true)} style={{ background: '#4caf50', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8em', display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <span>📖</span> ルール
+          </button>
+        </div>
         <div>
           {isActivePlayer && !activeStage && <span style={{ color: '#ffeb3b', fontWeight: 'bold' }}>あなたのターンです</span>}
           {isTradeSelect && <span style={{ color: '#ffeb3b', fontWeight: 'bold' }}>取り引きするカードを選んでください</span>}
           {isInfoSelect && <span style={{ color: '#ffeb3b', fontWeight: 'bold' }}>左隣に渡すカードを選んでください</span>}
-          {!isActivePlayer && !activeStage && <span>プレイヤー {ctx.currentPlayer} のターンを待っています...</span>}
+          {!isActivePlayer && !activeStage && <span>{getPlayerName(ctx.currentPlayer)} のターンを待っています...</span>}
         </div>
       </div>
 

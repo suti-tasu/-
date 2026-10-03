@@ -94,7 +94,6 @@ export const HanninGame = {
 
   turn: {
     order: {
-      first: ({ G }) => parseInt(G.startingPlayer, 10),
       next: ({ ctx }) => (ctx.playOrderPos + 1) % ctx.numPlayers,
     },
     stages: {
@@ -134,7 +133,7 @@ export const HanninGame = {
             const pid = ctx.playerID;
             G.pendingInfo.selections[pid] = cardIndex;
             
-            if (Object.keys(G.pendingInfo.selections).length === ctx.numPlayers) {
+            if (Object.keys(G.pendingInfo.selections).length === G.pendingInfo.activeCount) {
               const selections = G.pendingInfo.selections;
               const passedCards = {};
               
@@ -162,7 +161,12 @@ export const HanninGame = {
   },
 
   moves: {
-    startGame: ({ G }) => { G.gameState = 'playing'; },
+    startGame: ({ G, events }) => { 
+      G.gameState = 'playing'; 
+      if (G.startingPlayer !== '0') {
+        events.endTurn({ next: G.startingPlayer });
+      }
+    },
     playCard: ({ G, ctx, events, random }, cardIndex, targetPlayerId) => {
       if (G.winner) return INVALID_MOVE;
       const pid = ctx.currentPlayer;
@@ -288,12 +292,19 @@ export const HanninGame = {
           break;
 
         case 'info_manipulation':
-          G.pendingInfo = {
-            selections: {}
-          };
-          logMsg += `情報操作が発動！全員が左隣に1枚渡します。（カード選択中...）`;
-          shouldEndTurn = false;
-          events.setActivePlayers({ all: 'infoSelect' });
+          const activePlayersWithCards = Object.keys(G.players).filter(id => G.players[id].hand.length > 0);
+          if (activePlayersWithCards.length === 0) {
+            logMsg += `しかし、渡せる手札を持つ人が誰もいなかった！`;
+            shouldEndTurn = true;
+          } else {
+            G.pendingInfo = {
+              selections: {},
+              activeCount: activePlayersWithCards.length
+            };
+            logMsg += `情報操作が発動！手札がある人は全員左隣に1枚渡します。（カード選択中...）`;
+            shouldEndTurn = false;
+            events.setActivePlayers({ all: 'infoSelect' });
+          }
           break;
 
         case 'first_discoverer':
