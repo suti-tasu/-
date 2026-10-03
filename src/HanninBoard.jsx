@@ -153,7 +153,8 @@ export const HanninBoard = ({ G, ctx, moves, playerID, events, matchData }) => {
         <div>
           {isActivePlayer && !activeStage && <span style={{ color: '#ffeb3b', fontWeight: 'bold' }}>あなたのターンです</span>}
           {isTradeSelect && <span style={{ color: '#ffeb3b', fontWeight: 'bold' }}>取り引きするカードを選んでください</span>}
-          {isInfoSelect && <span style={{ color: '#ffeb3b', fontWeight: 'bold' }}>左隣に渡すカードを選んでください</span>}
+          {isInfoSelect && G.pendingInfo?.selections?.[pid] === undefined && <span style={{ color: '#ffeb3b', fontWeight: 'bold' }}>左隣に渡すカードを選んでください</span>}
+          {isInfoSelect && G.pendingInfo?.selections?.[pid] !== undefined && <span style={{ color: '#4caf50', fontWeight: 'bold' }}>カードを選択しました。他の人を待っています...</span>}
           {!isActivePlayer && !activeStage && <span>{getPlayerName(ctx.currentPlayer)} のターンを待っています...</span>}
         </div>
       </div>
@@ -241,8 +242,10 @@ export const HanninBoard = ({ G, ctx, moves, playerID, events, matchData }) => {
             const cardInfo = CARD_TYPES[card.toUpperCase()];
             // Determine if playable
             let playable = false;
-            if (isTradeSelect || isInfoSelect) {
+            if (isTradeSelect) {
               playable = true;
+            } else if (isInfoSelect) {
+              playable = G.pendingInfo?.selections?.[pid] === undefined;
             } else if (isActivePlayer && !activeStage) {
               if (G.discardPile.length === 0) {
                 playable = card === 'first_discoverer';
@@ -258,6 +261,7 @@ export const HanninBoard = ({ G, ctx, moves, playerID, events, matchData }) => {
                 key={idx} 
                 onClick={() => playable && handleCardClick(idx)}
                 style={{ 
+                  position: 'relative',
                   background: '#fff', border: `3px solid ${playable ? '#4caf50' : '#aaa'}`, 
                   borderRadius: '10px', padding: '15px', minWidth: '140px', cursor: playable ? 'pointer' : 'not-allowed',
                   opacity: playable ? 1 : 0.6,
@@ -265,6 +269,9 @@ export const HanninBoard = ({ G, ctx, moves, playerID, events, matchData }) => {
                   transition: 'transform 0.1s'
                 }}
               >
+                {isInfoSelect && G.pendingInfo?.selections?.[pid] === idx && (
+                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(76, 175, 80, 0.2)', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '4em', zIndex: 10 }}>✅</div>
+                )}
                 <div style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '10px', textAlign: 'center' }}>
                   {cardInfo.name}
                 </div>
