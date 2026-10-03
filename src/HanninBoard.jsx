@@ -152,7 +152,8 @@ export const HanninBoard = ({ G, ctx, moves, playerID, events, matchData }) => {
         </div>
         <div>
           {isActivePlayer && !activeStage && <span style={{ color: '#ffeb3b', fontWeight: 'bold' }}>あなたのターンです</span>}
-          {isTradeSelect && <span style={{ color: '#ffeb3b', fontWeight: 'bold' }}>取り引きするカードを選んでください</span>}
+          {isTradeSelect && !((pid === G.pendingTrade?.initiator && G.pendingTrade?.initiatorCard !== null) || (pid === G.pendingTrade?.target && G.pendingTrade?.targetCard !== null)) && <span style={{ color: '#ffeb3b', fontWeight: 'bold' }}>取り引きするカードを選んでください</span>}
+          {isTradeSelect && ((pid === G.pendingTrade?.initiator && G.pendingTrade?.initiatorCard !== null) || (pid === G.pendingTrade?.target && G.pendingTrade?.targetCard !== null)) && <span style={{ color: '#4caf50', fontWeight: 'bold' }}>カードを選択しました。相手を待っています...</span>}
           {isInfoSelect && G.pendingInfo?.selections?.[pid] === undefined && <span style={{ color: '#ffeb3b', fontWeight: 'bold' }}>左隣に渡すカードを選んでください</span>}
           {isInfoSelect && G.pendingInfo?.selections?.[pid] !== undefined && <span style={{ color: '#4caf50', fontWeight: 'bold' }}>カードを選択しました。他の人を待っています...</span>}
           {!isActivePlayer && !activeStage && <span>{getPlayerName(ctx.currentPlayer)} のターンを待っています...</span>}
@@ -184,15 +185,29 @@ export const HanninBoard = ({ G, ctx, moves, playerID, events, matchData }) => {
           <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', flex: 1, border: '1px solid #ccc' }}>
             <h3>プレイ履歴（場札）</h3>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-              {G.discardPile.map((play, idx) => (
-                <div key={idx} style={{ 
-                  background: '#eee', padding: '10px', borderRadius: '5px', border: '1px solid #999', width: '120px', textAlign: 'center'
-                }}>
-                  <div style={{ fontSize: '12px', color: '#666' }}>P{play.pid}</div>
-                  <div style={{ fontWeight: 'bold', margin: '5px 0' }}>{CARD_TYPES[play.card.toUpperCase()].name}</div>
-                  {play.target && <div style={{ fontSize: '12px', color: '#d32f2f' }}>→ P{play.target}</div>}
-                </div>
-              ))}
+              {G.discardPile.map((play, idx) => {
+                const cardInfo = CARD_TYPES[play.card.toUpperCase()];
+                return (
+                  <div key={idx} style={{ 
+                    background: '#eee', padding: '10px', borderRadius: '5px', border: '1px solid #999', width: '160px', textAlign: 'center', display: 'flex', flexDirection: 'column'
+                  }}>
+                    <div style={{ fontSize: '12px', color: '#666', borderBottom: '1px solid #ccc', paddingBottom: '3px', marginBottom: '5px' }}>
+                      {getPlayerName(play.pid)} が使用
+                    </div>
+                    <div style={{ fontWeight: 'bold', fontSize: '16px', color: '#333', margin: '2px 0' }}>
+                      {cardInfo.name}
+                    </div>
+                    {play.target && (
+                      <div style={{ fontSize: '12px', color: '#d32f2f', fontWeight: 'bold', margin: '3px 0' }}>
+                        対象: {getPlayerName(play.target)}
+                      </div>
+                    )}
+                    <div style={{ fontSize: '11px', color: '#555', marginTop: '5px', paddingTop: '5px', borderTop: '1px dashed #ccc', lineHeight: '1.3', textAlign: 'left', flex: 1 }}>
+                      {cardInfo.desc}
+                    </div>
+                  </div>
+                );
+              })}
               {G.discardPile.length === 0 && <div style={{ color: '#999' }}>まだカードは出されていません。</div>}
             </div>
           </div>
@@ -243,7 +258,15 @@ export const HanninBoard = ({ G, ctx, moves, playerID, events, matchData }) => {
             // Determine if playable
             let playable = false;
             if (isTradeSelect) {
-              playable = true;
+              const isInitiator = pid === G.pendingTrade?.initiator;
+              const isTarget = pid === G.pendingTrade?.target;
+              if (isInitiator) {
+                playable = G.pendingTrade?.initiatorCard === null;
+              } else if (isTarget) {
+                playable = G.pendingTrade?.targetCard === null;
+              } else {
+                playable = false;
+              }
             } else if (isInfoSelect) {
               playable = G.pendingInfo?.selections?.[pid] === undefined;
             } else if (isActivePlayer && !activeStage) {
@@ -269,7 +292,11 @@ export const HanninBoard = ({ G, ctx, moves, playerID, events, matchData }) => {
                   transition: 'transform 0.1s'
                 }}
               >
-                {isInfoSelect && G.pendingInfo?.selections?.[pid] === idx && (
+                {(
+                  (isInfoSelect && G.pendingInfo?.selections?.[pid] === idx) ||
+                  (isTradeSelect && pid === G.pendingTrade?.initiator && G.pendingTrade?.initiatorCard === idx) ||
+                  (isTradeSelect && pid === G.pendingTrade?.target && G.pendingTrade?.targetCard === idx)
+                ) && (
                   <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(76, 175, 80, 0.2)', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '4em', zIndex: 10 }}>✅</div>
                 )}
                 <div style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '10px', textAlign: 'center' }}>
