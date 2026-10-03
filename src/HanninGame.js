@@ -100,8 +100,8 @@ export const HanninGame = {
     stages: {
       tradeSelect: {
         moves: {
-          selectCardForTrade: ({ G, ctx, events }, cardIndex) => {
-            const pid = ctx.playerID;
+          selectCardForTrade: ({ G, ctx, events, playerID }, cardIndex) => {
+            const pid = playerID;
             if (pid === G.pendingTrade.initiator) {
               G.pendingTrade.initiatorCard = cardIndex;
             } else if (pid === G.pendingTrade.target) {
@@ -130,8 +130,8 @@ export const HanninGame = {
       },
       infoSelect: {
         moves: {
-          selectCardForInfo: ({ G, ctx, events }, cardIndex) => {
-            const pid = ctx.playerID;
+          selectCardForInfo: ({ G, ctx, events, playerID }, cardIndex) => {
+            const pid = playerID;
             G.pendingInfo.selections[pid] = cardIndex;
             
             if (Object.keys(G.pendingInfo.selections).length === G.pendingInfo.activeCount) {
@@ -281,15 +281,20 @@ export const HanninGame = {
           break;
 
         case 'trade':
-          G.pendingTrade = {
-            initiator: pid,
-            target: targetPlayerId,
-            initiatorCard: null,
-            targetCard: null
-          };
-          logMsg += `Player ${targetPlayerId} と取り引きを始めました。（カード選択中...）`;
-          shouldEndTurn = false;
-          events.setActivePlayers({ value: { [pid]: 'tradeSelect', [targetPlayerId]: 'tradeSelect' } });
+          if (G.players[pid].hand.length === 0 || G.players[targetPlayerId].hand.length === 0) {
+            logMsg += `しかし、どちらかの手札がないため取り引きできませんでした！`;
+            shouldEndTurn = true;
+          } else {
+            G.pendingTrade = {
+              initiator: pid,
+              target: targetPlayerId,
+              initiatorCard: null,
+              targetCard: null
+            };
+            logMsg += `Player ${targetPlayerId} と取り引きを始めました。（カード選択中...）`;
+            shouldEndTurn = false;
+            events.setActivePlayers({ value: { [pid]: 'tradeSelect', [targetPlayerId]: 'tradeSelect' } });
+          }
           break;
 
         case 'info_manipulation':
