@@ -98,6 +98,18 @@ export const HanninGame = {
       next: ({ ctx }) => (ctx.playOrderPos + 1) % ctx.numPlayers,
     },
     stages: {
+      gameover: {
+        moves: {
+          rematchGame: ({ G, ctx, random, events }) => {
+            if (!G.winner) return;
+            const newG = HanninGame.setup({ ctx, random });
+            newG.gameState = 'lobby';
+            Object.keys(G).forEach(k => delete G[k]);
+            Object.assign(G, newG);
+            events.endTurn({ next: '0' });
+          }
+        }
+      },
       tradeSelect: {
         moves: {
           selectCardForTrade: ({ G, ctx, events, playerID }, cardIndex) => {
@@ -162,13 +174,6 @@ export const HanninGame = {
   },
 
   moves: {
-    rematchGame: ({ G, ctx, random }) => {
-      if (!G.winner) return;
-      const newG = HanninGame.setup({ ctx, random });
-      newG.gameState = 'lobby';
-      Object.keys(G).forEach(k => delete G[k]);
-      Object.assign(G, newG);
-    },
     startGame: ({ G, events }) => { 
       G.gameState = 'playing'; 
       if (G.startingPlayer !== '0') {
@@ -204,7 +209,7 @@ export const HanninGame = {
         case 'criminal':
           G.winner = 'criminal';
           G.winnerDetails = `Player ${pid} が犯人として逃げ切りました！`;
-          // events.endGame(); /* Replaced by setting G.winner */
+          events.setActivePlayers({ all: 'gameover' });
           break;
 
         case 'detective':
@@ -215,7 +220,7 @@ export const HanninGame = {
           } else if (targetHand.includes('criminal')) {
             G.winner = 'town';
             G.winnerDetails = `Player ${pid} が探偵として犯人（Player ${targetPlayerId}）を言い当てました！`;
-            // events.endGame(); /* Replaced by setting G.winner */
+            events.setActivePlayers({ all: 'gameover' });
           } else {
             result = 'miss';
             logMsg += `Player ${targetPlayerId} は犯人ではありませんでした。`;
@@ -229,7 +234,7 @@ export const HanninGame = {
           if (pulledCard === 'criminal') {
             G.winner = 'town';
             G.winnerDetails = `Player ${pid} のいぬが犯人（Player ${targetPlayerId}）を見つけました！`;
-            // events.endGame(); /* Replaced by setting G.winner */
+            events.setActivePlayers({ all: 'gameover' });
           } else {
             result = { card: pulledCard, target: targetPlayerId }; 
             logMsg += `Player ${targetPlayerId} の手札を1枚確認し、犯人ではありませんでした。`;

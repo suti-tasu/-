@@ -7,8 +7,8 @@ export const HanninBoard = ({ G, ctx, moves, playerID, events, matchData }) => {
   const [showRules, setShowRules] = useState(false);
 
   const getPlayerName = (id) => {
-    const p = matchData?.find(m => m.id === parseInt(id));
-    return p ? p.name : `Player ${id}`;
+    const p = matchData?.find(m => m.id == id);
+    return p && p.name ? p.name : `Player ${id}`;
   };
 
   const rulesModal = showRules && (
