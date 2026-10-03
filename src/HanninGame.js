@@ -4,7 +4,7 @@ export const CARD_TYPES = {
   CRIMINAL: { id: 'criminal', name: '犯人', desc: '手札がこの1枚の時のみ出せる。出したら勝ち。' },
   FIRST_DISCOVERER: { id: 'first_discoverer', name: '第一発見者', desc: 'ゲーム開始時、必ず一番最初に出す。' },
   DETECTIVE: { id: 'detective', name: '探偵', desc: '1人を指名する。その人が「犯人」を持っていれば勝ち。「アリバイ」を持っていたら無効。' },
-  ALIBI: { id: 'alibi', name: 'アリバイ', desc: '探偵に指名された時、「犯人」を持っていても「違います」と言える。' },
+  ALIBI: { id: 'alibi', name: 'アリバイ', desc: '手札に持っている間だけ有効。探偵に指名された時、「犯人」を持っていても「違います」と言える。（※場に出した時は何も起きません）' },
   ACCOMPLICE: { id: 'accomplice', name: 'たくらみ', desc: '出すと犯人の味方になる。犯人が勝てば一緒に勝ち。' },
   DOG: { id: 'dog', name: 'いぬ', desc: '1人を指名し、手札1枚を引いて見る。「犯人」なら勝ち、それ以外なら相手の手札に戻す。' },
   BOY: { id: 'boy', name: '少年', desc: '出すと、現在「犯人」を持っている人がこっそりあなたにだけ正体を明かす。' },
@@ -162,6 +162,13 @@ export const HanninGame = {
   },
 
   moves: {
+    rematchGame: ({ G, ctx, random }) => {
+      if (!G.winner) return;
+      const newG = HanninGame.setup({ ctx, random });
+      newG.gameState = 'lobby';
+      Object.keys(G).forEach(k => delete G[k]);
+      Object.assign(G, newG);
+    },
     startGame: ({ G, events }) => { 
       G.gameState = 'playing'; 
       if (G.startingPlayer !== '0') {
@@ -197,7 +204,7 @@ export const HanninGame = {
         case 'criminal':
           G.winner = 'criminal';
           G.winnerDetails = `Player ${pid} が犯人として逃げ切りました！`;
-          events.endGame();
+          // events.endGame(); /* Replaced by setting G.winner */
           break;
 
         case 'detective':
@@ -208,7 +215,7 @@ export const HanninGame = {
           } else if (targetHand.includes('criminal')) {
             G.winner = 'town';
             G.winnerDetails = `Player ${pid} が探偵として犯人（Player ${targetPlayerId}）を言い当てました！`;
-            events.endGame();
+            // events.endGame(); /* Replaced by setting G.winner */
           } else {
             result = 'miss';
             logMsg += `Player ${targetPlayerId} は犯人ではありませんでした。`;
@@ -222,7 +229,7 @@ export const HanninGame = {
           if (pulledCard === 'criminal') {
             G.winner = 'town';
             G.winnerDetails = `Player ${pid} のいぬが犯人（Player ${targetPlayerId}）を見つけました！`;
-            events.endGame();
+            // events.endGame(); /* Replaced by setting G.winner */
           } else {
             result = { card: pulledCard, target: targetPlayerId }; 
             logMsg += `Player ${targetPlayerId} の手札を1枚確認し、犯人ではありませんでした。`;

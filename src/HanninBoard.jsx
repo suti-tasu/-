@@ -129,12 +129,61 @@ export const HanninBoard = ({ G, ctx, moves, playerID, events, matchData }) => {
   };
 
   if (G.winner) {
+    const criminalTeam = [];
+    const townTeam = [];
+    Object.keys(G.players).forEach(id => {
+      const p = G.players[id];
+      if (p.hand.includes('criminal') || p.isAccomplice) {
+        criminalTeam.push(id);
+      } else {
+        townTeam.push(id);
+      }
+    });
+
+    const winners = G.winner === 'criminal' ? criminalTeam : townTeam;
+    const losers = G.winner === 'criminal' ? townTeam : criminalTeam;
+
     return (
-      <div style={{ textAlign: 'center', padding: '50px', background: G.winner === 'town' ? '#d4edda' : '#f8d7da' }}>
-        <h2>ゲーム終了！</h2>
-        <h3>{G.winner === 'town' ? '探偵側（町）の勝利！' : '犯人の勝利（逃げ切り）！'}</h3>
-        <p>{G.winnerDetails}</p>
-        <button onClick={() => window.location.reload()} style={{ padding: '10px 20px', fontSize: '16px' }}>ロビーに戻る</button>
+      <div style={{ textAlign: 'center', padding: '50px', background: G.winner === 'town' ? '#d4edda' : '#f8d7da', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+        <h1 style={{ fontSize: '3em', margin: '0 0 10px 0', color: G.winner === 'town' ? '#2e7d32' : '#c62828' }}>
+          {G.winner === 'town' ? '🏙️ 探偵側（町）の勝利！' : '👺 犯人の勝利（逃げ切り）！'}
+        </h1>
+        <p style={{ fontSize: '1.3em', fontWeight: 'bold' }}>{G.winnerDetails}</p>
+
+        <div style={{ display: 'flex', gap: '40px', margin: '30px 0', background: 'white', padding: '40px 60px', borderRadius: '15px', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' }}>
+          <div style={{ minWidth: '150px' }}>
+            <h2 style={{ margin: '0 0 15px 0', color: '#ff9800', borderBottom: '3px solid #ff9800', paddingBottom: '10px' }}>👑 勝者</h2>
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: '1.2em', textAlign: 'left' }}>
+              {winners.map(id => (
+                <li key={id} style={{ margin: '10px 0', fontWeight: 'bold' }}>
+                  {getPlayerName(id)}
+                  <span style={{ fontSize: '0.8em', color: '#666', marginLeft: '5px' }}>
+                    {G.players[id].hand.includes('criminal') ? '(犯人)' : G.players[id].isAccomplice ? '(たくらみ)' : ''}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div style={{ borderLeft: '2px dashed #ccc' }}></div>
+          <div style={{ minWidth: '150px' }}>
+            <h2 style={{ margin: '0 0 15px 0', color: '#757575', borderBottom: '3px solid #757575', paddingBottom: '10px' }}>💀 敗者</h2>
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: '1.2em', textAlign: 'left' }}>
+              {losers.map(id => (
+                <li key={id} style={{ margin: '10px 0', color: '#555' }}>
+                  {getPlayerName(id)}
+                  <span style={{ fontSize: '0.8em', color: '#888', marginLeft: '5px' }}>
+                    {G.players[id].hand.includes('criminal') ? '(犯人)' : G.players[id].isAccomplice ? '(たくらみ)' : ''}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'center', gap: '20px' }}>
+          <button onClick={() => window.location.href = window.location.pathname} style={{ padding: '15px 30px', fontSize: '18px', background: '#f44336', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>🚪 ロビーに戻る</button>
+          <button onClick={() => moves.rematchGame()} style={{ padding: '15px 30px', fontSize: '18px', background: '#4CAF50', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>🔄 もう一度遊ぶ（再戦）</button>
+        </div>
       </div>
     );
   }
