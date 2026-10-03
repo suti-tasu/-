@@ -94,6 +94,7 @@ export const HanninGame = {
 
   turn: {
     order: {
+      first: ({ ctx }) => 0,
       next: ({ ctx }) => (ctx.playOrderPos + 1) % ctx.numPlayers,
     },
     stages: {

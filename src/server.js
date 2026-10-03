@@ -20,6 +20,7 @@ const server = Server({
 // Serve the compiled frontend
 server.app.use(serve(path.join(__dirname, '../dist')));
 
-server.run(8000, () => {
-  console.log('Server is running on port 8000...');
+const PORT = process.env.PORT || 8000;
+server.run(PORT, () => {
+  console.log(`Server is running on port ${PORT}...`);
 });
