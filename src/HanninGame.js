@@ -93,6 +93,11 @@ export const HanninGame = {
   },
 
   turn: {
+    onBegin: ({ G, ctx, events }) => {
+      if (G.gameState === 'playing' && G.players[ctx.currentPlayer].hand.length === 0) {
+        events.endTurn();
+      }
+    },
     order: {
       first: ({ ctx }) => 0,
       next: ({ ctx }) => (ctx.playOrderPos + 1) % ctx.numPlayers,
@@ -158,9 +163,12 @@ export const HanninGame = {
                 G.players[id].hand.splice(selections[id], 1);
               });
               
+              const participants = G.pendingInfo.participants;
               Object.keys(passedCards).forEach(id => {
-                const leftIdx = (parseInt(id, 10) + 1) % ctx.numPlayers;
-                G.players[leftIdx.toString()].hand.push(passedCards[id]);
+                const currentIndex = participants.indexOf(id);
+                const leftIndex = (currentIndex + 1) % participants.length;
+                const leftPlayerId = participants[leftIndex];
+                G.players[leftPlayerId].hand.push(passedCards[id]);
               });
               
               G.logs.push(`情報操作が完了し、全員のカードが移動しました。`);
@@ -258,13 +266,17 @@ export const HanninGame = {
           break;
 
         case 'rumor':
+          const rumorParticipants = Object.keys(G.players).filter(id => G.players[id].hand.length > 0).sort((a, b) => parseInt(a) - parseInt(b));
+          if (rumorParticipants.length <= 1) {
+            logMsg += `しかし、引ける手札を持つ人が誰もいなかった！`;
+            break;
+          }
           const pullInfo = {};
-          Object.keys(G.players).forEach(id => {
-            const rightIdx = (parseInt(id, 10) - 1 + ctx.numPlayers) % ctx.numPlayers;
-            const rightId = rightIdx.toString();
-            if (G.players[rightId].hand.length > 0) {
-              pullInfo[id] = { target: rightId, idx: random.Die(G.players[rightId].hand.length) - 1 };
-            }
+          rumorParticipants.forEach(id => {
+            const currentIndex = rumorParticipants.indexOf(id);
+            const rightIndex = (currentIndex - 1 + rumorParticipants.length) % rumorParticipants.length;
+            const rightId = rumorParticipants[rightIndex];
+            pullInfo[id] = { target: rightId, idx: random.Die(G.players[rightId].hand.length) - 1 };
           });
           
           const pulledCards = {};
@@ -317,7 +329,8 @@ export const HanninGame = {
           } else {
             G.pendingInfo = {
               selections: {},
-              activeCount: activePlayersWithCards.length
+              activeCount: activePlayersWithCards.length,
+              participants: activePlayersWithCards.sort((a, b) => parseInt(a) - parseInt(b))
             };
             logMsg += `情報操作が発動！手札がある人は全員左隣に1枚渡します。（カード選択中...）`;
             shouldEndTurn = false;

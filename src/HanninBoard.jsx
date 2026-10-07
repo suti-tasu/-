@@ -129,11 +129,16 @@ export const HanninBoard = ({ G, ctx, moves, playerID, events, matchData }) => {
   };
 
   if (G.winner) {
+    const isPlayerCriminal = (id) => {
+      const p = G.players[id];
+      return p.hand.includes('criminal') || G.discardPile.some(d => d.card === 'criminal' && d.pid === id);
+    };
+
     const criminalTeam = [];
     const townTeam = [];
     Object.keys(G.players).forEach(id => {
       const p = G.players[id];
-      if (p.hand.includes('criminal') || p.isAccomplice) {
+      if (isPlayerCriminal(id) || p.isAccomplice) {
         criminalTeam.push(id);
       } else {
         townTeam.push(id);
@@ -158,7 +163,7 @@ export const HanninBoard = ({ G, ctx, moves, playerID, events, matchData }) => {
                 <li key={id} style={{ margin: '10px 0', fontWeight: 'bold' }}>
                   {getPlayerName(id)}
                   <span style={{ fontSize: '0.8em', color: '#666', marginLeft: '5px' }}>
-                    {G.players[id].hand.includes('criminal') ? '(犯人)' : G.players[id].isAccomplice ? '(たくらみ)' : ''}
+                    {isPlayerCriminal(id) ? '(犯人)' : G.players[id].isAccomplice ? '(たくらみ)' : ''}
                   </span>
                 </li>
               ))}
@@ -172,7 +177,7 @@ export const HanninBoard = ({ G, ctx, moves, playerID, events, matchData }) => {
                 <li key={id} style={{ margin: '10px 0', color: '#555' }}>
                   {getPlayerName(id)}
                   <span style={{ fontSize: '0.8em', color: '#888', marginLeft: '5px' }}>
-                    {G.players[id].hand.includes('criminal') ? '(犯人)' : G.players[id].isAccomplice ? '(たくらみ)' : ''}
+                    {isPlayerCriminal(id) ? '(犯人)' : G.players[id].isAccomplice ? '(たくらみ)' : ''}
                   </span>
                 </li>
               ))}
@@ -223,7 +228,7 @@ export const HanninBoard = ({ G, ctx, moves, playerID, events, matchData }) => {
                   background: '#fff', padding: '10px', borderRadius: '8px', 
                   minWidth: '100px', textAlign: 'center', border: ctx.currentPlayer === id ? '3px solid #f44336' : '1px solid #ccc'
                 }}>
-                  <div style={{ fontWeight: 'bold' }}>Player {id}</div>
+                  <div style={{ fontWeight: 'bold' }}>{getPlayerName(id)}</div>
                   <div style={{ fontSize: '24px', margin: '10px 0' }}>🃏 x {p.hand.length}</div>
                 </div>
               );
@@ -268,7 +273,7 @@ export const HanninBoard = ({ G, ctx, moves, playerID, events, matchData }) => {
           <div style={{ flex: 1, padding: '20px', overflowY: 'auto' }}>
             <h3>システムログ</h3>
             <ul style={{ paddingLeft: '20px', margin: 0, fontSize: '14px', color: '#444' }}>
-              {G.logs.map((log, i) => <li key={i} style={{ marginBottom: '5px' }}>{log}</li>)}
+              {G.logs.map((log, i) => <li key={i} style={{ marginBottom: '5px' }}>{log.replace(/Player (\d+)/g, (match, id) => getPlayerName(id))}</li>)}
             </ul>
           </div>
           
@@ -278,15 +283,15 @@ export const HanninBoard = ({ G, ctx, moves, playerID, events, matchData }) => {
               <ul style={{ paddingLeft: '20px', margin: 0, fontSize: '14px' }}>
                 {player.privateKnowledge.map((k, i) => {
                   if (k.card === 'boy') {
-                    return <li key={i}>少年の効果：犯人は Player {k.result.criminalOwner} です！</li>;
+                    return <li key={i}>少年の効果：犯人は {getPlayerName(k.result.criminalOwner)} です！</li>;
                   }
                   if (k.card === 'dog') {
-                    return <li key={i}>いぬの効果：Player {k.target} のカードは {CARD_TYPES[k.result.card.toUpperCase()].name} でした。</li>;
+                    return <li key={i}>いぬの効果：{getPlayerName(k.target)} のカードは {CARD_TYPES[k.result.card.toUpperCase()].name} でした。</li>;
                   }
                   if (k.card === 'witness') {
                     return (
                       <li key={i}>
-                        目撃者の効果：Player {k.target} の手札 → {k.result.hand.map(c => CARD_TYPES[c.toUpperCase()].name).join(', ')}
+                        目撃者の効果：{getPlayerName(k.target)} の手札 → {k.result.hand.map(c => CARD_TYPES[c.toUpperCase()].name).join(', ')}
                       </li>
                     );
                   }
@@ -383,7 +388,7 @@ export const HanninBoard = ({ G, ctx, moves, playerID, events, matchData }) => {
                       background: canSelect ? '#2196f3' : '#ccc', color: '#fff', border: 'none', borderRadius: '5px'
                     }}
                   >
-                    Player {id} {canSelect ? '' : '(手札なし)'}
+                    {getPlayerName(id)} {canSelect ? '' : '(手札なし)'}
                   </button>
                 );
               })}
