@@ -8,6 +8,19 @@ export const HanninBoard = ({ G, ctx, moves, playerID, events, matchData }) => {
   const [targetModalOpen, setTargetModalOpen] = useState(false);
   const [showRules, setShowRules] = useState(false);
 
+  const pid = playerID || '0';
+  const activeStage = ctx.activePlayers && ctx.activePlayers[pid];
+  const isTradeSelect = activeStage === 'tradeSelect';
+  const isInfoSelect = activeStage === 'infoSelect';
+
+  useEffect(() => {
+    if (!isInfoSelect) setSelectedInfoCardIdx(null);
+  }, [isInfoSelect]);
+
+  useEffect(() => {
+    if (!isTradeSelect) setSelectedTradeCardIdx(null);
+  }, [isTradeSelect]);
+
   const getPlayerName = (id) => {
     const p = matchData?.find(m => m.id == id);
     return p && p.name ? p.name : `Player ${id}`;
@@ -80,7 +93,6 @@ export const HanninBoard = ({ G, ctx, moves, playerID, events, matchData }) => {
     );
   }
 
-  const pid = playerID || '0';
   const player = G.players[pid];
   const isActivePlayer = ctx.currentPlayer === pid;
   
@@ -96,11 +108,6 @@ export const HanninBoard = ({ G, ctx, moves, playerID, events, matchData }) => {
     orderedPlayerIds.push(targetIdx.toString());
   }
 
-  // Check if this player is in an active stage (tradeSelect or infoSelect)
-  const activeStage = ctx.activePlayers && ctx.activePlayers[pid];
-  const isTradeSelect = activeStage === 'tradeSelect';
-  const isInfoSelect = activeStage === 'infoSelect';
-
   const hasSubmittedInfo = isInfoSelect && G.pendingInfo?.selections?.[pid] !== undefined;
   const isTradeInitiator = pid === G.pendingTrade?.initiator;
   const isTradeTarget = pid === G.pendingTrade?.target;
@@ -108,14 +115,6 @@ export const HanninBoard = ({ G, ctx, moves, playerID, events, matchData }) => {
     (isTradeInitiator && G.pendingTrade?.initiatorCard !== null && G.pendingTrade?.initiatorCard !== undefined) ||
     (isTradeTarget && G.pendingTrade?.targetCard !== null && G.pendingTrade?.targetCard !== undefined)
   );
-
-  useEffect(() => {
-    if (!isInfoSelect) setSelectedInfoCardIdx(null);
-  }, [isInfoSelect]);
-
-  useEffect(() => {
-    if (!isTradeSelect) setSelectedTradeCardIdx(null);
-  }, [isTradeSelect]);
 
   const handleCardClick = (idx) => {
     if (isTradeSelect) {
