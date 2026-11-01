@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CARD_TYPES } from './HanninGame';
 
 export const HanninBoard = ({ G, ctx, moves, playerID, events, matchData }) => {
   const [selectedCardIdx, setSelectedCardIdx] = useState(null);
+  const [selectedInfoCardIdx, setSelectedInfoCardIdx] = useState(null);
+  const [selectedTradeCardIdx, setSelectedTradeCardIdx] = useState(null);
   const [targetModalOpen, setTargetModalOpen] = useState(false);
   const [showRules, setShowRules] = useState(false);
 
@@ -82,18 +84,48 @@ export const HanninBoard = ({ G, ctx, moves, playerID, events, matchData }) => {
   const player = G.players[pid];
   const isActivePlayer = ctx.currentPlayer === pid;
   
+  const numPlayers = ctx.numPlayers;
+  const myIdx = parseInt(pid, 10);
+  const leftId = ((myIdx + 1) % numPlayers).toString();
+  const rightId = ((myIdx - 1 + numPlayers) % numPlayers).toString();
+
+  // 自分を起点とした時計回りのプレイヤー順
+  const orderedPlayerIds = [];
+  for (let i = 0; i < numPlayers; i++) {
+    const targetIdx = (myIdx + i) % numPlayers;
+    orderedPlayerIds.push(targetIdx.toString());
+  }
+
   // Check if this player is in an active stage (tradeSelect or infoSelect)
   const activeStage = ctx.activePlayers && ctx.activePlayers[pid];
   const isTradeSelect = activeStage === 'tradeSelect';
   const isInfoSelect = activeStage === 'infoSelect';
 
+  const hasSubmittedInfo = isInfoSelect && G.pendingInfo?.selections?.[pid] !== undefined;
+  const isTradeInitiator = pid === G.pendingTrade?.initiator;
+  const isTradeTarget = pid === G.pendingTrade?.target;
+  const hasSubmittedTrade = isTradeSelect && (
+    (isTradeInitiator && G.pendingTrade?.initiatorCard !== null && G.pendingTrade?.initiatorCard !== undefined) ||
+    (isTradeTarget && G.pendingTrade?.targetCard !== null && G.pendingTrade?.targetCard !== undefined)
+  );
+
+  useEffect(() => {
+    if (!isInfoSelect) setSelectedInfoCardIdx(null);
+  }, [isInfoSelect]);
+
+  useEffect(() => {
+    if (!isTradeSelect) setSelectedTradeCardIdx(null);
+  }, [isTradeSelect]);
+
   const handleCardClick = (idx) => {
     if (isTradeSelect) {
-      moves.selectCardForTrade(idx);
+      if (hasSubmittedTrade) return;
+      setSelectedTradeCardIdx(idx);
       return;
     }
     if (isInfoSelect) {
-      moves.selectCardForInfo(idx);
+      if (hasSubmittedInfo) return;
+      setSelectedInfoCardIdx(idx);
       return;
     }
 
@@ -110,6 +142,12 @@ export const HanninBoard = ({ G, ctx, moves, playerID, events, matchData }) => {
     // Criminal rule
     if (card === 'criminal' && player.hand.length > 1) {
       alert('「犯人」は最後の一枚になるまで出せません。');
+      return;
+    }
+
+    // Detective rule (cannot be played in the first round)
+    if (card === 'detective' && G.discardPile.length < ctx.numPlayers) {
+      alert('「探偵」は2周目になるまで（全員に1回手番が回るまで）使えません。');
       return;
     }
 
@@ -208,7 +246,7 @@ export const HanninBoard = ({ G, ctx, moves, playerID, events, matchData }) => {
           {isActivePlayer && !activeStage && <span style={{ color: '#ffeb3b', fontWeight: 'bold' }}>あなたのターンです</span>}
           {isTradeSelect && !((pid === G.pendingTrade?.initiator && G.pendingTrade?.initiatorCard !== null) || (pid === G.pendingTrade?.target && G.pendingTrade?.targetCard !== null)) && <span style={{ color: '#ffeb3b', fontWeight: 'bold' }}>取り引きするカードを選んでください</span>}
           {isTradeSelect && ((pid === G.pendingTrade?.initiator && G.pendingTrade?.initiatorCard !== null) || (pid === G.pendingTrade?.target && G.pendingTrade?.targetCard !== null)) && <span style={{ color: '#4caf50', fontWeight: 'bold' }}>カードを選択しました。相手を待っています...</span>}
-          {isInfoSelect && G.pendingInfo?.selections?.[pid] === undefined && <span style={{ color: '#ffeb3b', fontWeight: 'bold' }}>左隣に渡すカードを選んでください</span>}
+          {isInfoSelect && G.pendingInfo?.selections?.[pid] === undefined && <span style={{ color: '#ffeb3b', fontWeight: 'bold' }}>左隣（{getPlayerName(leftId)}）に渡すカードを選んでください</span>}
           {isInfoSelect && G.pendingInfo?.selections?.[pid] !== undefined && <span style={{ color: '#4caf50', fontWeight: 'bold' }}>カードを選択しました。他の人を待っています...</span>}
           {!isActivePlayer && !activeStage && <span>{getPlayerName(ctx.currentPlayer)} のターンを待っています...</span>}
         </div>
@@ -218,21 +256,73 @@ export const HanninBoard = ({ G, ctx, moves, playerID, events, matchData }) => {
         {/* MAIN BOARD */}
         <div style={{ flex: 2, padding: '20px', display: 'flex', flexDirection: 'column', gap: '20px', overflowY: 'auto' }}>
           
-          {/* OTHER PLAYERS */}
-          <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '10px' }}>
-            {Object.keys(G.players).map(id => {
-              if (id === pid) return null;
-              const p = G.players[id];
-              return (
-                <div key={id} style={{ 
-                  background: '#fff', padding: '10px', borderRadius: '8px', 
-                  minWidth: '100px', textAlign: 'center', border: ctx.currentPlayer === id ? '3px solid #f44336' : '1px solid #ccc'
-                }}>
-                  <div style={{ fontWeight: 'bold' }}>{getPlayerName(id)}</div>
-                  <div style={{ fontSize: '24px', margin: '10px 0' }}>🃏 x {p.hand.length}</div>
-                </div>
-              );
-            })}
+          {/* SEATING ORDER & PLAYERS */}
+          <div style={{ background: '#fff', padding: '15px 20px', borderRadius: '10px', border: '1px solid #ccc', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+              <span style={{ fontWeight: 'bold', color: '#444', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span>🔄 席順（時計回り / 手番順）</span>
+              </span>
+              <span style={{ fontSize: '11px', color: '#555', background: '#f5f5f5', padding: '3px 8px', borderRadius: '4px', border: '1px solid #e0e0e0' }}>
+                👈 左隣へ「情報操作」で渡す / 👉 右隣から「うわさ」で引く
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflowX: 'auto', paddingBottom: '6px' }}>
+              {orderedPlayerIds.map((id, index) => {
+                const isMe = id === pid;
+                const isCurrent = ctx.currentPlayer === id;
+                const isLeft = id === leftId;
+                const isRight = id === rightId;
+                const p = G.players[id];
+
+                let relationBadge = null;
+                if (isMe) {
+                  relationBadge = <span style={{ background: '#4caf50', color: '#fff', fontSize: '11px', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold' }}>👤 あなた</span>;
+                } else if (isLeft && isRight) {
+                  relationBadge = <span style={{ background: '#9c27b0', color: '#fff', fontSize: '11px', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold' }}>左右の相手</span>;
+                } else if (isLeft) {
+                  relationBadge = <span style={{ background: '#1976d2', color: '#fff', fontSize: '11px', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold' }}>👈 左隣（渡す先）</span>;
+                } else if (isRight) {
+                  relationBadge = <span style={{ background: '#f57c00', color: '#fff', fontSize: '11px', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold' }}>👉 右隣（引く元）</span>;
+                } else {
+                  relationBadge = <span style={{ background: '#757575', color: '#fff', fontSize: '10px', padding: '2px 6px', borderRadius: '10px' }}>向かい側</span>;
+                }
+
+                return (
+                  <React.Fragment key={id}>
+                    {index > 0 && (
+                      <div style={{ color: '#bbb', fontSize: '18px', fontWeight: 'bold', userSelect: 'none', padding: '0 2px' }}>➔</div>
+                    )}
+                    <div style={{ 
+                      background: isCurrent ? '#fff8e1' : (isMe ? '#f1f8e9' : '#fafafa'), 
+                      padding: '10px 14px', 
+                      borderRadius: '8px', 
+                      minWidth: '115px', 
+                      textAlign: 'center', 
+                      border: isCurrent ? '3px solid #ff5722' : (isMe ? '2px solid #81c784' : '1px solid #ccc'),
+                      boxShadow: isCurrent ? '0 0 10px rgba(255,87,34,0.35)' : 'none',
+                      position: 'relative',
+                      flexShrink: 0
+                    }}>
+                      {isCurrent && (
+                        <div style={{ position: 'absolute', top: '-10px', left: '50%', transform: 'translateX(-50%)', background: '#ff5722', color: '#fff', fontSize: '10px', padding: '1px 8px', borderRadius: '10px', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                          手番中
+                        </div>
+                      )}
+                      <div style={{ fontWeight: 'bold', fontSize: '14px', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '120px' }}>
+                        {getPlayerName(id)}
+                      </div>
+                      <div style={{ fontSize: '18px', margin: '6px 0', fontWeight: 'bold', color: '#333' }}>
+                        🃏 x {p.hand.length}
+                      </div>
+                      <div style={{ marginTop: '4px' }}>
+                        {relationBadge}
+                      </div>
+                    </div>
+                  </React.Fragment>
+                );
+              })}
+            </div>
           </div>
 
           {/* DISCARD PILE */}
@@ -303,34 +393,206 @@ export const HanninBoard = ({ G, ctx, moves, playerID, events, matchData }) => {
         </div>
       </div>
 
-      {/* MY HAND */}
-      <div style={{ background: '#e0e0e0', padding: '20px', borderTop: '2px solid #ccc' }}>
-        <h3 style={{ marginTop: 0 }}>自分の手札 {player.isAccomplice && <span style={{ color: 'red', fontSize: '14px' }}>（あなたはたくらみを使用済み：犯人陣営）</span>}</h3>
-        <div style={{ display: 'flex', gap: '15px', overflowX: 'auto' }}>
+      {/* MY HAND CONTAINER */}
+      <div style={{ 
+        background: isActivePlayer && !activeStage ? '#f1f8e9' : (isInfoSelect ? '#ede7f6' : (isTradeSelect ? '#fff8e1' : '#f0f0f0')), 
+        padding: '20px', 
+        borderTop: isActivePlayer && !activeStage ? '4px solid #4caf50' : (isInfoSelect ? '4px solid #5c6bc0' : (isTradeSelect ? '4px solid #ffa726' : '2px solid #ccc')),
+        transition: 'background 0.3s, border-top 0.3s'
+      }}>
+        
+        {/* PHASE STATUS BANNER */}
+        <div style={{ 
+          background: '#fff', 
+          padding: '12px 20px', 
+          borderRadius: '8px', 
+          marginBottom: '15px', 
+          boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
+          border: '1px solid #e0e0e0',
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '10px'
+        }}>
+          {/* 左側：状態メッセージ */}
+          <div>
+            {isActivePlayer && !activeStage && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '24px' }}>🎯</span>
+                <div>
+                  <div style={{ fontWeight: 'bold', fontSize: '16px', color: '#2e7d32' }}>
+                    あなたのターンです！
+                  </div>
+                  <div style={{ fontSize: '13px', color: '#555' }}>
+                    手札から場に出すカードを1枚クリックしてください
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {isInfoSelect && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '24px' }}>🔀</span>
+                <div>
+                  <div style={{ fontWeight: 'bold', fontSize: '16px', color: '#3949ab' }}>
+                    【情報操作】発動中！（全員同時にカードを回します）
+                  </div>
+                  <div style={{ fontSize: '13px', color: '#555' }}>
+                    左隣（<strong style={{ color: '#1976d2' }}>{getPlayerName(leftId)}</strong> さん）に渡すカードを選んでください
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {isTradeSelect && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '24px' }}>🤝</span>
+                <div>
+                  <div style={{ fontWeight: 'bold', fontSize: '16px', color: '#e65100' }}>
+                    【取り引き】実行中！
+                  </div>
+                  <div style={{ fontSize: '13px', color: '#555' }}>
+                    相手と交換する手札を1枚選んでください
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {!isActivePlayer && !activeStage && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '24px' }}>⏳</span>
+                <div>
+                  <div style={{ fontWeight: 'bold', fontSize: '15px', color: '#666' }}>
+                    手番待ち
+                  </div>
+                  <div style={{ fontSize: '13px', color: '#777' }}>
+                    <strong>{getPlayerName(ctx.currentPlayer)}</strong> さんのターンを待っています...
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 右側：情報操作・取り引きの確定・キャンセル操作パネル */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {/* 情報操作：提出完了（待機中） */}
+            {isInfoSelect && hasSubmittedInfo && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#e8f5e9', padding: '6px 12px', borderRadius: '6px', border: '1px solid #c8e6c9' }}>
+                <span style={{ color: '#2e7d32', fontWeight: 'bold', fontSize: '13px' }}>
+                  ✅ 送信完了（他の人を待っています...）
+                </span>
+                <button 
+                  onClick={() => { moves.unselectCardForInfo(); setSelectedInfoCardIdx(null); }}
+                  style={{ background: '#f44336', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}
+                >
+                  🔄 選び直す（キャンセル）
+                </button>
+              </div>
+            )}
+
+            {/* 情報操作：仮選択中 */}
+            {isInfoSelect && !hasSubmittedInfo && selectedInfoCardIdx !== null && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#e8eaf6', padding: '6px 12px', borderRadius: '6px', border: '1px solid #c5cae9' }}>
+                <span style={{ fontSize: '13px', color: '#283593' }}>
+                  渡すカード: <strong>{CARD_TYPES[player.hand[selectedInfoCardIdx]?.toUpperCase()]?.name}</strong>
+                </span>
+                <button 
+                  onClick={() => moves.selectCardForInfo(selectedInfoCardIdx)}
+                  style={{ background: '#3f51b5', color: '#fff', border: 'none', padding: '6px 14px', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
+                >
+                  ✅ これを渡す（確定）
+                </button>
+                <button 
+                  onClick={() => setSelectedInfoCardIdx(null)}
+                  style={{ background: '#9e9e9e', color: '#fff', border: 'none', padding: '6px 10px', borderRadius: '5px', cursor: 'pointer', fontSize: '12px' }}
+                >
+                  ✖ 取消
+                </button>
+              </div>
+            )}
+
+            {/* 取り引き：提出完了（待機中） */}
+            {isTradeSelect && hasSubmittedTrade && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#e8f5e9', padding: '6px 12px', borderRadius: '6px', border: '1px solid #c8e6c9' }}>
+                <span style={{ color: '#2e7d32', fontWeight: 'bold', fontSize: '13px' }}>
+                  ✅ 送信完了（相手を待っています...）
+                </span>
+                <button 
+                  onClick={() => { moves.unselectCardForTrade(); setSelectedTradeCardIdx(null); }}
+                  style={{ background: '#f44336', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}
+                >
+                  🔄 選び直す（キャンセル）
+                </button>
+              </div>
+            )}
+
+            {/* 取り引き：仮選択中 */}
+            {isTradeSelect && !hasSubmittedTrade && selectedTradeCardIdx !== null && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#fff3e0', padding: '6px 12px', borderRadius: '6px', border: '1px solid #ffe0b2' }}>
+                <span style={{ fontSize: '13px', color: '#e65100' }}>
+                  交換カード: <strong>{CARD_TYPES[player.hand[selectedTradeCardIdx]?.toUpperCase()]?.name}</strong>
+                </span>
+                <button 
+                  onClick={() => moves.selectCardForTrade(selectedTradeCardIdx)}
+                  style={{ background: '#ff9800', color: '#fff', border: 'none', padding: '6px 14px', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
+                >
+                  ✅ 交換に出す（確定）
+                </button>
+                <button 
+                  onClick={() => setSelectedTradeCardIdx(null)}
+                  style={{ background: '#9e9e9e', color: '#fff', border: 'none', padding: '6px 10px', borderRadius: '5px', cursor: 'pointer', fontSize: '12px' }}
+                >
+                  ✖ 取消
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 手札カードリスト */}
+        <div style={{ display: 'flex', gap: '15px', overflowX: 'auto', paddingBottom: '5px' }}>
           {player.hand.map((card, idx) => {
             const cardInfo = CARD_TYPES[card.toUpperCase()];
+            
             // Determine if playable
             let playable = false;
+            let isSelected = false;
+            let isSubmitted = false;
+
             if (isTradeSelect) {
-              const isInitiator = pid === G.pendingTrade?.initiator;
-              const isTarget = pid === G.pendingTrade?.target;
-              if (isInitiator) {
-                playable = G.pendingTrade?.initiatorCard === null;
-              } else if (isTarget) {
-                playable = G.pendingTrade?.targetCard === null;
-              } else {
-                playable = false;
-              }
+              playable = !hasSubmittedTrade;
+              isSelected = selectedTradeCardIdx === idx;
+              isSubmitted = hasSubmittedTrade && (
+                (isTradeInitiator && G.pendingTrade?.initiatorCard === idx) ||
+                (isTradeTarget && G.pendingTrade?.targetCard === idx)
+              );
             } else if (isInfoSelect) {
-              playable = G.pendingInfo?.selections?.[pid] === undefined;
+              playable = !hasSubmittedInfo;
+              isSelected = selectedInfoCardIdx === idx;
+              isSubmitted = hasSubmittedInfo && G.pendingInfo?.selections?.[pid] === idx;
             } else if (isActivePlayer && !activeStage) {
               if (G.discardPile.length === 0) {
                 playable = card === 'first_discoverer';
               } else if (card === 'criminal') {
                 playable = player.hand.length === 1;
+              } else if (card === 'detective') {
+                playable = G.discardPile.length >= ctx.numPlayers;
               } else {
                 playable = true;
               }
+            }
+
+            let borderColor = '#aaa';
+            let cardBg = '#fff';
+            if (isSubmitted) {
+              borderColor = '#4caf50';
+              cardBg = '#f1f8e9';
+            } else if (isSelected) {
+              borderColor = isInfoSelect ? '#3949ab' : '#e65100';
+              cardBg = isInfoSelect ? '#ede7f6' : '#fff3e0';
+            } else if (playable) {
+              borderColor = isInfoSelect ? '#5c6bc0' : (isTradeSelect ? '#ffa726' : '#4caf50');
             }
 
             return (
@@ -339,21 +601,30 @@ export const HanninBoard = ({ G, ctx, moves, playerID, events, matchData }) => {
                 onClick={() => playable && handleCardClick(idx)}
                 style={{ 
                   position: 'relative',
-                  background: '#fff', border: `3px solid ${playable ? '#4caf50' : '#aaa'}`, 
-                  borderRadius: '10px', padding: '15px', minWidth: '140px', cursor: playable ? 'pointer' : 'not-allowed',
-                  opacity: playable ? 1 : 0.6,
-                  boxShadow: playable ? '0 4px 8px rgba(0,0,0,0.2)' : 'none',
-                  transition: 'transform 0.1s'
+                  background: cardBg,
+                  border: `3px solid ${borderColor}`, 
+                  borderRadius: '10px', 
+                  padding: '15px', 
+                  minWidth: '140px', 
+                  cursor: playable ? 'pointer' : (isSubmitted ? 'default' : 'not-allowed'),
+                  opacity: (playable || isSubmitted || isSelected) ? 1 : 0.6,
+                  boxShadow: isSelected ? '0 0 12px rgba(63,81,181,0.5)' : (playable ? '0 4px 8px rgba(0,0,0,0.15)' : 'none'),
+                  transform: isSelected ? 'translateY(-6px)' : 'none',
+                  transition: 'all 0.2s'
                 }}
               >
-                {(
-                  (isInfoSelect && G.pendingInfo?.selections?.[pid] === idx) ||
-                  (isTradeSelect && pid === G.pendingTrade?.initiator && G.pendingTrade?.initiatorCard === idx) ||
-                  (isTradeSelect && pid === G.pendingTrade?.target && G.pendingTrade?.targetCard === idx)
-                ) && (
-                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(76, 175, 80, 0.2)', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '4em', zIndex: 10 }}>✅</div>
+                {isSubmitted && (
+                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(76, 175, 80, 0.25)', borderRadius: '6px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}>
+                    <span style={{ fontSize: '3em' }}>✅</span>
+                    <span style={{ fontWeight: 'bold', color: '#2e7d32', fontSize: '13px', background: '#fff', padding: '2px 8px', borderRadius: '10px', marginTop: '4px' }}>提出済み</span>
+                  </div>
                 )}
-                <div style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '10px', textAlign: 'center' }}>
+                {isSelected && !isSubmitted && (
+                  <div style={{ position: 'absolute', top: '-10px', right: '10px', background: isInfoSelect ? '#3949ab' : '#e65100', color: '#fff', fontSize: '11px', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold', zIndex: 5 }}>
+                    選択中
+                  </div>
+                )}
+                <div style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '10px', textAlign: 'center', color: '#333' }}>
                   {cardInfo.name}
                 </div>
                 <div style={{ fontSize: '12px', color: '#666', lineHeight: 1.4 }}>
@@ -378,17 +649,29 @@ export const HanninBoard = ({ G, ctx, moves, playerID, events, matchData }) => {
                 if (id === pid) return null;
                 const p = G.players[id];
                 const canSelect = p.hand.length > 0;
+                const isLeft = id === leftId;
+                const isRight = id === rightId;
+                let relText = '';
+                if (isLeft && isRight) relText = '（左右）';
+                else if (isLeft) relText = '（👈 左隣）';
+                else if (isRight) relText = '（👉 右隣）';
+
                 return (
                   <button 
                     key={id} 
                     onClick={() => handleTargetSelect(id)}
                     disabled={!canSelect}
                     style={{ 
-                      padding: '10px 20px', fontSize: '16px', cursor: canSelect ? 'pointer' : 'not-allowed',
-                      background: canSelect ? '#2196f3' : '#ccc', color: '#fff', border: 'none', borderRadius: '5px'
+                      padding: '12px 18px', fontSize: '15px', cursor: canSelect ? 'pointer' : 'not-allowed',
+                      background: canSelect ? (isLeft ? '#1976d2' : isRight ? '#f57c00' : '#455a64') : '#ccc',
+                      color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold',
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', minWidth: '130px'
                     }}
                   >
-                    {getPlayerName(id)} {canSelect ? '' : '(手札なし)'}
+                    <span>{getPlayerName(id)} {relText}</span>
+                    <span style={{ fontSize: '12px', fontWeight: 'normal', opacity: 0.9 }}>
+                      {canSelect ? `手札 ${p.hand.length}枚` : '(手札なし)'}
+                    </span>
                   </button>
                 );
               })}

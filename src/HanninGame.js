@@ -3,7 +3,7 @@ const INVALID_MOVE = 'INVALID_MOVE';
 export const CARD_TYPES = {
   CRIMINAL: { id: 'criminal', name: '犯人', desc: '手札がこの1枚の時のみ出せる。出したら勝ち。' },
   FIRST_DISCOVERER: { id: 'first_discoverer', name: '第一発見者', desc: 'ゲーム開始時、必ず一番最初に出す。' },
-  DETECTIVE: { id: 'detective', name: '探偵', desc: '1人を指名する。その人が「犯人」を持っていれば勝ち。「アリバイ」を持っていたら無効。' },
+  DETECTIVE: { id: 'detective', name: '探偵', desc: '【2周目から使用可】1人を指名する。その人が「犯人」を持っていれば勝ち。「アリバイ」を持っていたら無効。' },
   ALIBI: { id: 'alibi', name: 'アリバイ', desc: '手札に持っている間だけ有効。探偵に指名された時、「犯人」を持っていても「違います」と言える。（※場に出した時は何も起きません）' },
   ACCOMPLICE: { id: 'accomplice', name: 'たくらみ', desc: '出すと犯人の味方になる。犯人が勝てば一緒に勝ち。' },
   DOG: { id: 'dog', name: 'いぬ', desc: '1人を指名し、手札1枚を引いて見る。「犯人」なら勝ち、それ以外なら相手の手札に戻す。' },
@@ -16,22 +16,23 @@ export const CARD_TYPES = {
 };
 
 const ALL_CARDS = [
-  'criminal', 'first_discoverer', 
-  'detective', 'detective',
-  'alibi', 'alibi', 'alibi', 'alibi',
-  'accomplice', 'accomplice', 'accomplice',
-  'dog', 'dog',
+  'criminal',
+  'first_discoverer',
+  'dog',
   'boy',
-  'witness',
-  'trade', 'trade',
-  'info_manipulation', 'info_manipulation',
-  'rumor', 'rumor',
-  'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen', 'citizen'
+  'citizen', 'citizen',
+  'accomplice', 'accomplice',
+  'witness', 'witness', 'witness',
+  'info_manipulation', 'info_manipulation', 'info_manipulation',
+  'detective', 'detective', 'detective', 'detective',
+  'rumor', 'rumor', 'rumor', 'rumor',
+  'alibi', 'alibi', 'alibi', 'alibi', 'alibi',
+  'trade', 'trade', 'trade', 'trade', 'trade'
 ];
 
 const MUST_CARDS = {
-  3: ['first_discoverer', 'criminal', 'detective', 'alibi'],
-  4: ['first_discoverer', 'criminal', 'detective', 'alibi', 'accomplice'],
+  3: ['first_discoverer', 'criminal', 'detective', 'alibi', 'alibi'],
+  4: ['first_discoverer', 'criminal', 'detective', 'alibi', 'alibi', 'accomplice'],
   5: ['first_discoverer', 'criminal', 'detective', 'alibi', 'alibi', 'accomplice'],
   6: ['first_discoverer', 'criminal', 'detective', 'detective', 'alibi', 'alibi', 'accomplice', 'accomplice'],
   7: ['first_discoverer', 'criminal', 'detective', 'detective', 'alibi', 'alibi', 'alibi', 'accomplice', 'accomplice'],
@@ -142,6 +143,16 @@ export const HanninGame = {
               G.pendingTrade = null;
               events.endTurn();
             }
+          },
+          unselectCardForTrade: ({ G, playerID }) => {
+            const pid = playerID;
+            if (G.pendingTrade) {
+              if (pid === G.pendingTrade.initiator) {
+                G.pendingTrade.initiatorCard = null;
+              } else if (pid === G.pendingTrade.target) {
+                G.pendingTrade.targetCard = null;
+              }
+            }
           }
         }
       },
@@ -163,17 +174,20 @@ export const HanninGame = {
                 G.players[id].hand.splice(selections[id], 1);
               });
               
-              const participants = G.pendingInfo.participants;
               Object.keys(passedCards).forEach(id => {
-                const currentIndex = participants.indexOf(id);
-                const leftIndex = (currentIndex + 1) % participants.length;
-                const leftPlayerId = participants[leftIndex];
-                G.players[leftPlayerId].hand.push(passedCards[id]);
+                const leftIdx = (parseInt(id, 10) + 1) % ctx.numPlayers;
+                G.players[leftIdx.toString()].hand.push(passedCards[id]);
               });
               
               G.logs.push(`情報操作が完了し、全員のカードが移動しました。`);
               G.pendingInfo = null;
               events.endTurn();
+            }
+          },
+          unselectCardForInfo: ({ G, playerID }) => {
+            const pid = playerID;
+            if (G.pendingInfo && G.pendingInfo.selections) {
+              delete G.pendingInfo.selections[pid];
             }
           }
         }
@@ -199,6 +213,10 @@ export const HanninGame = {
       }
 
       if (card === 'criminal' && player.hand.length > 1) {
+        return INVALID_MOVE;
+      }
+
+      if (card === 'detective' && G.discardPile.length < ctx.numPlayers) {
         return INVALID_MOVE;
       }
 
@@ -266,17 +284,13 @@ export const HanninGame = {
           break;
 
         case 'rumor':
-          const rumorParticipants = Object.keys(G.players).filter(id => G.players[id].hand.length > 0).sort((a, b) => parseInt(a) - parseInt(b));
-          if (rumorParticipants.length <= 1) {
-            logMsg += `しかし、引ける手札を持つ人が誰もいなかった！`;
-            break;
-          }
           const pullInfo = {};
-          rumorParticipants.forEach(id => {
-            const currentIndex = rumorParticipants.indexOf(id);
-            const rightIndex = (currentIndex - 1 + rumorParticipants.length) % rumorParticipants.length;
-            const rightId = rumorParticipants[rightIndex];
-            pullInfo[id] = { target: rightId, idx: random.Die(G.players[rightId].hand.length) - 1 };
+          Object.keys(G.players).forEach(id => {
+            const rightIdx = (parseInt(id, 10) - 1 + ctx.numPlayers) % ctx.numPlayers;
+            const rightId = rightIdx.toString();
+            if (G.players[rightId].hand.length > 0) {
+              pullInfo[id] = { target: rightId, idx: random.Die(G.players[rightId].hand.length) - 1 };
+            }
           });
           
           const pulledCards = {};
