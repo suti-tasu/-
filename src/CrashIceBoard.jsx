@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ROULETTE_ITEMS, HEX_DIRECTIONS, getPowerThresholds } from './CrashIceGame';
+import { CrashIce3DCanvas } from './CrashIce3DCanvas';
 
 // 六角形の描画計算用ヘルパー
 const HEX_SIZE = 34; // 六角形の半径 (px)
@@ -23,6 +24,8 @@ const getHexPolygonPoints = (cx, cy, r) => {
 };
 
 export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
+  const [viewMode, setViewMode] = useState('3d'); // '3d' | '2d'
+  const [strikeTrigger, setStrikeTrigger] = useState(null); // { key, power, id }
   const [selectedBlockKey, setSelectedBlockKey] = useState(null);
   const [power, setPower] = useState(50);
   const [isPowerRunning, setIsPowerRunning] = useState(false);
@@ -31,6 +34,8 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
   const [needleAngle, setNeedleAngle] = useState(() => (G.rouletteResultIndex ?? 0) * 72);
   const [fallingBlocks, setFallingBlocks] = useState([]);
   const [isBoardShaking, setIsBoardShaking] = useState(false);
+  const [showGameOverModal, setShowGameOverModal] = useState(false);
+  const [isGameOverDismissed, setIsGameOverDismissed] = useState(false);
   const isFirstRender = useRef(true);
   const prevLastDroppedRef = useRef([]);
 
@@ -54,11 +59,25 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
     orderedPlayerIds.push(targetIdx.toString());
   }
 
+  // 決着時：演出（崩落・ペンギン転落）を最後まで見届けてから結果ダイアログを表示
+  useEffect(() => {
+    if (G.winner) {
+      const timer = setTimeout(() => {
+        setShowGameOverModal(true);
+      }, 1600);
+      return () => clearTimeout(timer);
+    } else {
+      setShowGameOverModal(false);
+      setIsGameOverDismissed(false);
+    }
+  }, [G.winner]);
+
   // 落下ブロックの物理アニメーション & 盤面揺れ演出
   useEffect(() => {
     if (G.lastDroppedKeys && G.lastDroppedKeys.length > 0) {
       if (G.lastDroppedKeys !== prevLastDroppedRef.current) {
         prevLastDroppedRef.current = G.lastDroppedKeys;
+        setStrikeTrigger({ key: G.lastDroppedKeys[0], power: 65, id: Date.now() });
         setIsBoardShaking(true);
         const shakeTimer = setTimeout(() => setIsBoardShaking(false), 350);
 
@@ -179,6 +198,7 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
     const strikePower = power;
     setSelectedBlockKey(null);
 
+    setStrikeTrigger({ key: targetKey, power: strikePower, id: Date.now() });
     moves.strikeBlock(targetKey, strikePower);
   };
 
@@ -230,6 +250,8 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
     if (val <= thresholds.strongMax) return '強打！ (周囲に衝撃)';
     return '💥 超強打！ (大崩落の危険)';
   };
+
+  const isLoser = G.winner && G.loser === pid;
 
   // 待機ルーム（Lobby）
   if (G.gameState === 'lobby') {
@@ -299,43 +321,6 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
             ホスト（{getPlayerName('0')}）が開始するのを待っています...
           </div>
         )}
-      </div>
-    );
-  }
-
-  // 勝敗画面
-  if (G.winner) {
-    const isLoser = G.loser === pid;
-    return (
-      <div style={{ minHeight: '100vh', background: isLoser ? '#ffebee' : '#e8f5e9', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px', textAlign: 'center' }}>
-        <div style={{ fontSize: '70px', marginBottom: '10px', animation: 'bounce 1s infinite' }}>
-          {isLoser ? '💀🐧💦' : '🎉👑🐧'}
-        </div>
-        <h1 style={{ fontSize: '2.5em', color: isLoser ? '#c62828' : '#2e7d32', margin: '0 0 10px 0' }}>
-          {isLoser ? 'あなたがペンギンを落としました！敗北！' : 'ペンギン生存！あなたの勝利！'}
-        </h1>
-        <p style={{ fontSize: '1.3em', fontWeight: 'bold', color: '#555', marginBottom: '25px' }}>
-          {G.winnerDetails}
-        </p>
-
-        <div style={{ background: '#fff', padding: '25px 40px', borderRadius: '15px', boxShadow: '0 4px 15px rgba(0,0,0,0.1)', marginBottom: '30px', maxWidth: '400px', width: '100%' }}>
-          <h3 style={{ margin: '0 0 15px 0', borderBottom: '2px solid #ddd', paddingBottom: '8px' }}>結果発表</h3>
-          <div style={{ color: '#d32f2f', fontWeight: 'bold', fontSize: '18px', margin: '8px 0' }}>
-            💀 敗者: {getPlayerName(G.loser)}
-          </div>
-          <div style={{ color: '#2e7d32', fontWeight: 'bold', fontSize: '16px', margin: '8px 0' }}>
-            👑 勝者: 生き残ったプレイヤー全員
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', gap: '15px' }}>
-          <button onClick={() => window.location.href = window.location.pathname} style={{ padding: '14px 28px', fontSize: '16px', background: '#757575', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>
-            🚪 ロビーに戻る
-          </button>
-          <button onClick={() => moves.rematchGame()} style={{ padding: '14px 28px', fontSize: '16px', background: '#00bcd4', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
-            🔄 もう一度遊ぶ（再戦）
-          </button>
-        </div>
       </div>
     );
   }
@@ -419,157 +404,194 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
         {/* LEFT / CENTER: ICE FIELD */}
         <div style={{ flex: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', padding: '10px' }}>
           
-          {/* FIELD WRAPPER */}
-          <div 
-            className={isBoardShaking ? 'board-shaking' : ''}
-            style={{ 
-              background: 'radial-gradient(circle, #ffffff 0%, #b2ebf2 70%, #80deea 100%)', 
-              borderRadius: '50%', padding: '25px', boxShadow: 'inset 0 4px 15px rgba(0,0,0,0.15), 0 10px 25px rgba(0,96,100,0.25)',
-              border: '8px solid #00838f', position: 'relative'
-            }}
-          >
-            <style>{`
-              @keyframes iceFallAnim {
-                0% { transform: translateY(0) scale(1) rotate(0deg); opacity: 0.9; }
-                50% { opacity: 0.7; }
-                100% { transform: translateY(140px) scale(0.2) rotate(45deg); opacity: 0; }
-              }
-              @keyframes penguinFallAnim {
-                0% { transform: translateY(0) scale(1) rotate(0deg); }
-                50% { transform: translateY(60px) scale(0.8) rotate(90deg); }
-                100% { transform: translateY(180px) scale(0.1) rotate(270deg); opacity: 0; }
-              }
-              @keyframes boardShakeAnim {
-                0% { transform: translate(0, 0); }
-                20% { transform: translate(-5px, 3px); }
-                40% { transform: translate(5px, -3px); }
-                60% { transform: translate(-3px, -2px); }
-                80% { transform: translate(3px, 2px); }
-                100% { transform: translate(0, 0); }
-              }
-              .ice-falling-block {
-                animation: iceFallAnim 0.75s ease-in forwards;
-                pointer-events: none;
-              }
-              .penguin-tumbling {
-                animation: penguinFallAnim 1.2s ease-in forwards;
-                pointer-events: none;
-              }
-              .board-shaking {
-                animation: boardShakeAnim 0.35s ease-in-out;
-              }
-            `}</style>
-            <svg width="460" height="420" viewBox="-230 -210 460 420" style={{ overflow: 'visible' }}>
-              <defs>
-                {/* 氷ブロックのグラデーション */}
-                <radialGradient id="blueIce" cx="30%" cy="30%" r="70%">
-                  <stop offset="0%" stopColor="#80d8ff" />
-                  <stop offset="50%" stopColor="#29b6f6" />
-                  <stop offset="100%" stopColor="#0288d1" />
-                </radialGradient>
-                <radialGradient id="whiteIce" cx="30%" cy="30%" r="70%">
-                  <stop offset="0%" stopColor="#ffffff" />
-                  <stop offset="60%" stopColor="#eceff1" />
-                  <stop offset="100%" stopColor="#b0bec5" />
-                </radialGradient>
-                <filter id="iceShadow" x="-20%" y="-20%" width="140%" height="140%">
-                  <feDropShadow dx="1" dy="3" stdDeviation="2" floodOpacity="0.25" />
-                </filter>
-              </defs>
-
-              {/* 外枠 */}
-              <circle cx="0" cy="0" r="195" fill="none" stroke="#004d40" strokeWidth="4" strokeDasharray="6,4" opacity="0.4" />
-
-              {/* 落下中の氷ブロック (物理落下アニメーション) */}
-              {fallingBlocks.map(fb => {
-                const { x, y } = hexToPixel(fb.q, fb.r);
-                const points = getHexPolygonPoints(x, y, HEX_SIZE - 2);
-                return (
-                  <g key={fb.id} className="ice-falling-block">
-                    <polygon
-                      points={points}
-                      fill="url(#blueIce)"
-                      stroke="#ffffff"
-                      strokeWidth="1.5"
-                      filter="url(#iceShadow)"
-                    />
-                  </g>
-                );
-              })}
-
-              {/* 氷ブロック一覧 */}
-              {Object.keys(G.board).map(key => {
-                const b = G.board[key];
-                const { x, y } = hexToPixel(b.q, b.r);
-                const isSelected = selectedBlockKey === key;
-                const points = getHexPolygonPoints(x, y, HEX_SIZE - 2);
-
-                const isTargetColor = !G.rouletteResult || G.rouletteResult.targetColor === 'any' || G.rouletteResult.targetColor === b.color;
-                const canStrikeThis = isActivePlayer && G.turnStep === 'strike' && isTargetColor;
-
-                return (
-                  <g 
-                    key={key} 
-                    onClick={() => canStrikeThis && handleBlockClick(key)}
-                    style={{ cursor: canStrikeThis ? 'pointer' : 'default', transition: 'transform 0.1s' }}
-                  >
-                    <polygon
-                      points={points}
-                      fill={b.color === 'blue' ? 'url(#blueIce)' : 'url(#whiteIce)'}
-                      stroke={isSelected ? '#ffeb3b' : (b.cracked ? '#e53935' : (b.isEdge ? '#006064' : '#ffffff'))}
-                      strokeWidth={isSelected ? 4 : (b.cracked ? 2.5 : 1.5)}
-                      filter="url(#iceShadow)"
-                      style={{
-                        transition: 'stroke 0.2s, stroke-width 0.2s',
-                        opacity: canStrikeThis ? 1 : 0.85
-                      }}
-                    />
-                    {/* ヒビのエフェクト */}
-                    {b.cracked && (
-                      <path
-                        d={`M ${x-10} ${y-10} L ${x+2} ${y+2} L ${x-4} ${y+12} M ${x+2} ${y+2} L ${x+12} ${y-4}`}
-                        stroke="#b71c1c"
-                        strokeWidth="2"
-                        fill="none"
-                      />
-                    )}
-                  </g>
-                );
-              })}
-
-              {/* 中央のペンギン */}
-              {(() => {
-                const { x, y } = hexToPixel(G.penguinPos.q, G.penguinPos.r);
-                return (
-                  <g 
-                    transform={`translate(${x}, ${y})`} 
-                    className={G.penguinFallen ? 'penguin-tumbling' : ''}
-                    style={{ pointerEvents: 'none' }}
-                  >
-                    <circle cx="0" cy="5" r="14" fill="rgba(0,0,0,0.2)" />
-                    <text x="0" y="8" fontSize="28" textAnchor="middle" dominantBaseline="middle" style={{ userSelect: 'none' }}>
-                      🐧
-                    </text>
-                  </g>
-                );
-              })()}
-            </svg>
+          {/* VIEW SWITCH & TITLE BAR */}
+          <div style={{ width: '100%', maxWidth: '540px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#006064', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              🧊 盤面エリア {viewMode === '3d' ? '(3D物理シミュレーション)' : '(2Dフラット表示)'}
+            </span>
+            <button
+              onClick={() => setViewMode(prev => prev === '3d' ? '2d' : '3d')}
+              style={{
+                background: viewMode === '3d' ? 'linear-gradient(135deg, #0284c7, #0369a1)' : '#f8fafc',
+                color: viewMode === '3d' ? '#fff' : '#475569',
+                border: '1px solid #0284c7',
+                borderRadius: '20px',
+                padding: '4px 12px',
+                fontSize: '12px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: viewMode === '3d' ? '0 2px 8px rgba(2, 132, 199, 0.4)' : 'none',
+                transition: 'all 0.2s'
+              }}
+            >
+              {viewMode === '3d' ? '🎮 3D物理ビュー (ON)' : '📐 2Dフラット表示'} (切替)
+            </button>
           </div>
+
+          {viewMode === '3d' ? (
+            <div style={{ width: '100%', maxWidth: '540px', position: 'relative' }}>
+              <CrashIce3DCanvas
+                board={G.board}
+                penguinPos={G.penguinFallen ? null : `${G.penguinPos.q},${G.penguinPos.r}`}
+                winner={G.winner}
+                selectedBlockKey={selectedBlockKey}
+                onSelectBlock={handleBlockClick}
+                strikeTarget={strikeTrigger}
+                lastDroppedKeys={G.lastDroppedKeys}
+                canInteract={isActivePlayer && G.turnStep === 'strike' && !G.winner}
+                allowedColor={G.rouletteResult ? G.rouletteResult.targetColor : null}
+              />
+            </div>
+          ) : (
+            /* FIELD WRAPPER (2D) */
+            <div 
+              className={isBoardShaking ? 'board-shaking' : ''}
+              style={{ 
+                background: 'radial-gradient(circle, #ffffff 0%, #b2ebf2 70%, #80deea 100%)', 
+                borderRadius: '50%', padding: '25px', boxShadow: 'inset 0 4px 15px rgba(0,0,0,0.15), 0 10px 25px rgba(0,96,100,0.25)',
+                border: '8px solid #00838f', position: 'relative'
+              }}
+            >
+              <style>{`
+                @keyframes iceFallAnim {
+                  0% { transform: translateY(0) scale(1) rotate(0deg); opacity: 0.9; }
+                  50% { opacity: 0.7; }
+                  100% { transform: translateY(140px) scale(0.2) rotate(45deg); opacity: 0; }
+                }
+                @keyframes penguinFallAnim {
+                  0% { transform: translateY(0) scale(1) rotate(0deg); }
+                  50% { transform: translateY(60px) scale(0.8) rotate(90deg); }
+                  100% { transform: translateY(180px) scale(0.1) rotate(270deg); opacity: 0; }
+                }
+                @keyframes boardShakeAnim {
+                  0% { transform: translate(0, 0); }
+                  20% { transform: translate(-5px, 3px); }
+                  40% { transform: translate(5px, -3px); }
+                  60% { transform: translate(-3px, -2px); }
+                  80% { transform: translate(3px, 2px); }
+                  100% { transform: translate(0, 0); }
+                }
+                .ice-falling-block {
+                  animation: iceFallAnim 0.75s ease-in forwards;
+                  pointer-events: none;
+                }
+                .penguin-tumbling {
+                  animation: penguinFallAnim 1.2s ease-in forwards;
+                  pointer-events: none;
+                }
+                .board-shaking {
+                  animation: boardShakeAnim 0.35s ease-in-out;
+                }
+              `}</style>
+              <svg width="460" height="420" viewBox="-230 -210 460 420" style={{ overflow: 'visible' }}>
+                <defs>
+                  {/* 氷ブロックのグラデーション */}
+                  <radialGradient id="blueIce" cx="30%" cy="30%" r="70%">
+                    <stop offset="0%" stopColor="#80d8ff" />
+                    <stop offset="50%" stopColor="#29b6f6" />
+                    <stop offset="100%" stopColor="#0288d1" />
+                  </radialGradient>
+                  <radialGradient id="whiteIce" cx="30%" cy="30%" r="70%">
+                    <stop offset="0%" stopColor="#ffffff" />
+                    <stop offset="60%" stopColor="#eceff1" />
+                    <stop offset="100%" stopColor="#b0bec5" />
+                  </radialGradient>
+                  <filter id="iceShadow" x="-20%" y="-20%" width="140%" height="140%">
+                    <feDropShadow dx="1" dy="3" stdDeviation="2" floodOpacity="0.25" />
+                  </filter>
+                </defs>
+
+                {/* 外枠 */}
+                <circle cx="0" cy="0" r="195" fill="none" stroke="#004d40" strokeWidth="4" strokeDasharray="6,4" opacity="0.4" />
+
+                {/* 落下中の氷ブロック (物理落下アニメーション) */}
+                {fallingBlocks.map(fb => {
+                  const { x, y } = hexToPixel(fb.q, fb.r);
+                  const points = getHexPolygonPoints(x, y, HEX_SIZE - 2);
+                  return (
+                    <g key={fb.id} className="ice-falling-block">
+                      <polygon
+                        points={points}
+                        fill="url(#blueIce)"
+                        stroke="#ffffff"
+                        strokeWidth="1.5"
+                        filter="url(#iceShadow)"
+                      />
+                    </g>
+                  );
+                })}
+
+                {/* 氷ブロック一覧 */}
+                {Object.keys(G.board).map(key => {
+                  const b = G.board[key];
+                  const { x, y } = hexToPixel(b.q, b.r);
+                  const isSelected = selectedBlockKey === key;
+                  const points = getHexPolygonPoints(x, y, HEX_SIZE - 2);
+
+                  const isTargetColor = !G.rouletteResult || G.rouletteResult.targetColor === 'any' || G.rouletteResult.targetColor === b.color;
+                  const canStrikeThis = isActivePlayer && G.turnStep === 'strike' && isTargetColor;
+
+                  return (
+                    <g 
+                      key={key} 
+                      onClick={() => canStrikeThis && handleBlockClick(key)}
+                      style={{ cursor: canStrikeThis ? 'pointer' : 'default', transition: 'transform 0.1s' }}
+                    >
+                      <polygon
+                        points={points}
+                        fill={b.color === 'blue' ? 'url(#blueIce)' : 'url(#whiteIce)'}
+                        stroke={isSelected ? '#ffeb3b' : (b.isEdge ? '#006064' : '#ffffff')}
+                        strokeWidth={isSelected ? 4 : 1.5}
+                        filter="url(#iceShadow)"
+                        style={{
+                          transition: 'stroke 0.2s, stroke-width 0.2s',
+                          opacity: canStrikeThis ? 1 : 0.85
+                        }}
+                      />
+                    </g>
+                  );
+                })}
+
+                {/* 中央のペンギン */}
+                {(() => {
+                  const { x, y } = hexToPixel(G.penguinPos.q, G.penguinPos.r);
+                  return (
+                    <g 
+                      transform={`translate(${x}, ${y})`} 
+                      className={G.penguinFallen ? 'penguin-tumbling' : ''}
+                      style={{ pointerEvents: 'none' }}
+                    >
+                      <circle cx="0" cy="5" r="14" fill="rgba(0,0,0,0.2)" />
+                      <text x="0" y="8" fontSize="28" textAnchor="middle" dominantBaseline="middle" style={{ userSelect: 'none' }}>
+                        🐧
+                      </text>
+                    </g>
+                  );
+                })()}
+              </svg>
+            </div>
+          )}
 
           {/* TURN INSTRUCTION BANNER */}
           <div style={{ 
             marginTop: '12px', 
-            background: missCount > 0 ? '#fff3e0' : '#fff', 
-            border: missCount > 0 ? '2px solid #ff9800' : 'none',
+            background: G.winner ? '#ffebee' : (missCount > 0 ? '#fff3e0' : '#fff'), 
+            border: G.winner ? '2px solid #ef5350' : (missCount > 0 ? '2px solid #ff9800' : 'none'),
             padding: '8px 24px', 
             borderRadius: '20px', 
             boxShadow: '0 2px 8px rgba(0,0,0,0.1)', 
             fontSize: '14px', 
             fontWeight: 'bold', 
-            color: missCount > 0 ? '#e65100' : '#006064' 
+            color: G.winner ? '#c62828' : (missCount > 0 ? '#e65100' : '#006064') 
           }}>
-            {G.turnStep === 'spin' && (isActivePlayer ? '🎲 右側のルーレットを回してください！' : `${getPlayerName(ctx.currentPlayer)} がルーレットを回しています...`)}
-            {G.turnStep === 'strike' && (
+            {G.winner && (
+              <span>🐧 決着！{getPlayerName(G.loser)} がペンギンを落としました！</span>
+            )}
+            {!G.winner && G.turnStep === 'spin' && (isActivePlayer ? '🎲 右側のルーレットを回してください！' : `${getPlayerName(ctx.currentPlayer)} がルーレットを回しています...`)}
+            {!G.winner && G.turnStep === 'strike' && (
               isActivePlayer 
                 ? (missCount > 0 
                     ? `⚠️ 力が弱すぎました！（連続ミス ${missCount} 回目）強打ゾーンが拡大中！氷を選び直して叩いてください！` 
@@ -716,11 +738,39 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
               >
                 {isSpinning 
                   ? '🎯 回転中...' 
-                  : (isActivePlayer && G.turnStep === 'spin' 
-                      ? '🎲 ルーレットを回す！' 
-                      : (G.turnStep === 'strike' ? '🔨 氷を叩く手番' : '⏳ 相手の手番待ち'))}
+                  : (G.winner 
+                      ? '🏆 ゲーム終了（決着）'
+                      : (isActivePlayer && G.turnStep === 'spin' 
+                          ? '🎲 ルーレットを回す！' 
+                          : (G.turnStep === 'strike' ? '🔨 氷を叩く手番' : '⏳ 相手の手番待ち')))}
               </button>
             </div>
+
+            {/* 決着時の再戦・盤面確認ボタン */}
+            {G.winner && (
+              <div style={{ marginTop: '12px', display: 'flex', gap: '8px' }}>
+                <button
+                  onClick={() => setIsGameOverDismissed(false)}
+                  style={{
+                    flex: 1, padding: '10px 8px', background: '#00838f', color: '#fff',
+                    border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px',
+                    boxShadow: '0 2px 6px rgba(0,131,143,0.3)'
+                  }}
+                >
+                  📊 結果を表示
+                </button>
+                <button
+                  onClick={() => moves.rematchGame()}
+                  style={{
+                    flex: 1, padding: '10px 8px', background: 'linear-gradient(135deg, #e65100, #f57c00)', color: '#fff',
+                    border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px',
+                    boxShadow: '0 2px 6px rgba(230,81,0,0.3)'
+                  }}
+                >
+                  🔄 もう一度遊ぶ
+                </button>
+              </div>
+            )}
 
             {/* 出目結果バッジ */}
             {G.rouletteResult ? (
@@ -830,6 +880,134 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
                 }}
               >
                 🔨 叩く！（HIT）
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 盤面確認中の上部フローティングバー */}
+      {G.winner && isGameOverDismissed && (
+        <div style={{
+          position: 'fixed',
+          top: '55px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: 'rgba(255, 255, 255, 0.95)',
+          padding: '10px 22px',
+          borderRadius: '30px',
+          boxShadow: '0 4px 15px rgba(0,0,0,0.25)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '15px',
+          zIndex: 1100,
+          border: '2px solid #00838f'
+        }}>
+          <span style={{ fontWeight: 'bold', color: '#006064', fontSize: '14px' }}>
+            🐧 盤面を確認中（敗者: {getPlayerName(G.loser)}）
+          </span>
+          <button
+            onClick={() => setIsGameOverDismissed(false)}
+            style={{
+              padding: '6px 14px', background: '#00838f', color: '#fff',
+              border: 'none', borderRadius: '15px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px'
+            }}
+          >
+            📊 結果発表を表示
+          </button>
+          <button
+            onClick={() => moves.rematchGame()}
+            style={{
+              padding: '6px 14px', background: '#e65100', color: '#fff',
+              border: 'none', borderRadius: '15px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px'
+            }}
+          >
+            🔄 再戦
+          </button>
+        </div>
+      )}
+
+      {/* GAME OVER MODAL (決着時の中央ダイアログ) */}
+      {showGameOverModal && !isGameOverDismissed && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.65)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1200,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: isLoser ? '#fff5f5' : '#f0fdf4',
+            borderRadius: '20px',
+            maxWidth: '460px',
+            width: '100%',
+            padding: '30px',
+            textAlign: 'center',
+            boxShadow: '0 15px 40px rgba(0,0,0,0.4)',
+            border: isLoser ? '3px solid #ef5350' : '3px solid #4caf50'
+          }}>
+            <div style={{ fontSize: '64px', marginBottom: '10px' }}>
+              {isLoser ? '💀🐧💦' : '🎉👑🐧'}
+            </div>
+            
+            <h2 style={{ fontSize: '24px', margin: '0 0 10px 0', color: isLoser ? '#c62828' : '#2e7d32' }}>
+              {isLoser ? 'ペンギン落下！あなたの敗北…！' : 'ペンギン生存！あなたの勝利！'}
+            </h2>
+
+            <p style={{ fontSize: '15px', color: '#555', marginBottom: '20px', fontWeight: 'bold' }}>
+              {G.winnerDetails}
+            </p>
+
+            <div style={{ background: '#fff', padding: '16px 20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', marginBottom: '24px', textAlign: 'left' }}>
+              <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#777', borderBottom: '1px solid #eee', paddingBottom: '6px', marginBottom: '10px' }}>
+                最終リザルト
+              </div>
+              <div style={{ color: '#d32f2f', fontWeight: 'bold', fontSize: '16px', marginBottom: '6px' }}>
+                💀 敗者: {getPlayerName(G.loser)}
+              </div>
+              <div style={{ color: '#2e7d32', fontWeight: 'bold', fontSize: '15px' }}>
+                👑 勝者: 生き残ったプレイヤー全員
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  onClick={() => setIsGameOverDismissed(true)}
+                  style={{
+                    flex: 1, padding: '12px', background: '#eceff1', color: '#37474f',
+                    border: '1px solid #cfd8dc', borderRadius: '8px', cursor: 'pointer',
+                    fontWeight: 'bold', fontSize: '14px'
+                  }}
+                >
+                  👁️ 盤面を確認する
+                </button>
+                <button
+                  onClick={() => moves.rematchGame()}
+                  style={{
+                    flex: 1.4, padding: '12px', background: 'linear-gradient(135deg, #00acc1, #00838f)',
+                    color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer',
+                    fontWeight: 'bold', fontSize: '15px', boxShadow: '0 4px 10px rgba(0,131,143,0.3)'
+                  }}
+                >
+                  🔄 もう一度遊ぶ（再戦）
+                </button>
+              </div>
+
+              <button
+                onClick={() => window.location.href = window.location.pathname}
+                style={{
+                  padding: '10px', background: 'transparent', color: '#78909c',
+                  border: 'none', cursor: 'pointer', fontSize: '13px', textDecoration: 'underline'
+                }}
+              >
+                🚪 ロビー（部屋選択）に戻る
               </button>
             </div>
           </div>
