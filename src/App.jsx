@@ -12,6 +12,8 @@ import { Propose } from './ProposeGame';
 import ProposeBoard from './ProposeBoard';
 import { HanninGame } from './HanninGame';
 import { HanninBoard } from './HanninBoard';
+import { CrashIceGame } from './CrashIceGame';
+import { CrashIceBoard } from './CrashIceBoard';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -69,6 +71,13 @@ const HanninClient = Client({
 const ProposeClient = Client({
   game: Propose,
   board: ProposeBoard,
+  multiplayer: SocketIO({ server }),
+  debug: false
+});
+
+const CrashIceClient = Client({
+  game: CrashIceGame,
+  board: CrashIceBoard,
   multiplayer: SocketIO({ server }),
   debug: false
 });
@@ -183,7 +192,7 @@ const App = () => {
     try {
       let match = null;
       let finalGameType = tGameType;
-      const allGames = ['splendor', 'ito', 'haa', 'propose'];
+      const allGames = ['splendor', 'ito', 'haa', 'propose', 'hannin', 'crashice'];
 
       try {
         match = await lobbyClient.getMatch(tGameType, tMatchID);
@@ -283,6 +292,8 @@ const App = () => {
             <ProposeClient matchID={matchID} playerID={playerID} credentials={credentials} />
           ) : gameType === 'hannin' ? (
             <HanninClient matchID={matchID} playerID={playerID} credentials={credentials} />
+          ) : gameType === 'crashice' ? (
+            <CrashIceClient matchID={matchID} playerID={playerID} credentials={credentials} />
           ) : (
             <SplendorClient matchID={matchID} playerID={playerID} credentials={credentials} />
           )}
@@ -320,6 +331,7 @@ const App = () => {
                 <button onClick={() => handleGameTypeChange('haa')} style={{ flex: 1, minWidth: '150px', padding: '10px', background: gameType === 'haa' ? '#e91e63' : '#e0e0e0', color: gameType === 'haa' ? 'white' : 'black', border: 'none', borderRadius: '5px', fontSize: '1.1em', cursor: 'pointer', fontWeight: 'bold' }}>🗣️ はぁって言うゲーム</button>
                 <button onClick={() => handleGameTypeChange('propose')} style={{ flex: 1, minWidth: '150px', padding: '10px', background: gameType === 'propose' ? '#9c27b0' : '#e0e0e0', color: gameType === 'propose' ? 'white' : 'black', border: 'none', borderRadius: '5px', fontSize: '1.1em', cursor: 'pointer', fontWeight: 'bold' }}>💍 プロポーズを君に</button>
                 <button onClick={() => handleGameTypeChange('hannin')} style={{ flex: 1, minWidth: '150px', padding: '10px', background: gameType === 'hannin' ? '#000000' : '#e0e0e0', color: gameType === 'hannin' ? 'white' : 'black', border: 'none', borderRadius: '5px', fontSize: '1.1em', cursor: 'pointer', fontWeight: 'bold' }}>🕵️ 犯人は踊る</button>
+                <button onClick={() => handleGameTypeChange('crashice')} style={{ flex: 1, minWidth: '150px', padding: '10px', background: gameType === 'crashice' ? '#00838f' : '#e0e0e0', color: gameType === 'crashice' ? 'white' : 'black', border: 'none', borderRadius: '5px', fontSize: '1.1em', cursor: 'pointer', fontWeight: 'bold' }}>🐧 クラッシュアイス</button>
               </div>
             </div>
 
@@ -342,7 +354,7 @@ const App = () => {
             <div style={{ marginBottom: '20px' }}>
               <label style={{ display: 'block', marginBottom: '5px' }}>プレイ人数</label>
               <select value={numPlayers} onChange={e => setNumPlayers(Number(e.target.value))} style={{ width: '100%', padding: '10px', fontSize: '1.2em' }}>
-                {(gameType === 'ito' || gameType === 'haa')
+                {(gameType === 'ito' || gameType === 'haa' || gameType === 'crashice')
                   ? [2,3,4,5,6,7,8].map(n => <option key={n} value={n}>{n}人</option>) 
                   : (gameType === 'propose' || gameType === 'hannin') ? [3,4,5,6,7,8].map(n => <option key={n} value={n}>{n}人</option>)
                   : [2,3,4].map(n => <option key={n} value={n}>{n}人</option>)}

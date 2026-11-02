@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { CARD_TYPES } from './HanninGame';
 
 export const HanninBoard = ({ G, ctx, moves, playerID, events, matchData }) => {
-  const [selectedCardIdx, setSelectedCardIdx] = useState(null);
   const [selectedInfoCardIdx, setSelectedInfoCardIdx] = useState(null);
   const [selectedTradeCardIdx, setSelectedTradeCardIdx] = useState(null);
-  const [targetModalOpen, setTargetModalOpen] = useState(false);
   const [showRules, setShowRules] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState(null); // { type: 'play' | 'info' | 'trade', cardIdx: number, card: string }
+  const [alertMessage, setAlertMessage] = useState(null);
 
   const pid = playerID || '0';
   const activeStage = ctx.activePlayers && ctx.activePlayers[pid];
@@ -117,52 +117,40 @@ export const HanninBoard = ({ G, ctx, moves, playerID, events, matchData }) => {
   );
 
   const handleCardClick = (idx) => {
+    const card = player.hand[idx];
+
     if (isTradeSelect) {
       if (hasSubmittedTrade) return;
-      setSelectedTradeCardIdx(idx);
+      setConfirmDialog({ type: 'trade', cardIdx: idx, card });
       return;
     }
     if (isInfoSelect) {
       if (hasSubmittedInfo) return;
-      setSelectedInfoCardIdx(idx);
+      setConfirmDialog({ type: 'info', cardIdx: idx, card });
       return;
     }
 
     if (!isActivePlayer) return;
 
-    const card = player.hand[idx];
-    
     // First turn rule
     if (G.discardPile.length === 0 && card !== 'first_discoverer') {
-      alert('最初のターンは「第一発見者」を出さなければなりません。');
+      setAlertMessage('最初のターンは「第一発見者」を出さなければなりません。');
       return;
     }
 
     // Criminal rule
     if (card === 'criminal' && player.hand.length > 1) {
-      alert('「犯人」は最後の一枚になるまで出せません。');
+      setAlertMessage('「犯人」は最後の一枚になるまで出せません。');
       return;
     }
 
     // Detective rule (cannot be played in the first round)
     if (card === 'detective' && G.discardPile.length < ctx.numPlayers) {
-      alert('「探偵」は2周目になるまで（全員に1回手番が回るまで）使えません。');
+      setAlertMessage('「探偵」は2周目になるまで（全員に1回手番が回るまで）使えません。');
       return;
     }
 
-    const needsTarget = ['detective', 'dog', 'witness', 'trade'].includes(card);
-    if (needsTarget) {
-      setSelectedCardIdx(idx);
-      setTargetModalOpen(true);
-    } else {
-      moves.playCard(idx, null);
-    }
-  };
-
-  const handleTargetSelect = (targetId) => {
-    moves.playCard(selectedCardIdx, targetId);
-    setTargetModalOpen(false);
-    setSelectedCardIdx(null);
+    setConfirmDialog({ type: 'play', cardIdx: idx, card });
   };
 
   if (G.winner) {
@@ -635,48 +623,194 @@ export const HanninBoard = ({ G, ctx, moves, playerID, events, matchData }) => {
         </div>
       </div>
 
-      {/* TARGET SELECTION MODAL */}
-      {targetModalOpen && (
+      {/* CONFIRM DIALOG */}
+      {confirmDialog && (() => {
+        const { type, cardIdx, card } = confirmDialog;
+        const cardInfo = CARD_TYPES[card.toUpperCase()];
+        const needsTarget = type === 'play' && ['detective', 'dog', 'witness', 'trade'].includes(card);
+
+        let dialogTitle = '';
+        let dialogSubtitle = '';
+        let headerBg = '#333';
+
+        if (type === 'play') {
+          dialogTitle = '🎯【自分のターン】カードを使用します';
+          dialogSubtitle = needsTarget ? '対象のプレイヤーを選んでください' : 'このカードを場に出しますか？';
+          headerBg = '#2e7d32';
+        } else if (type === 'info') {
+          dialogTitle = '🔀【情報操作】カードを渡します';
+          dialogSubtitle = `左隣（${getPlayerName(leftId)} さん）に渡すカードの確認`;
+          headerBg = '#3949ab';
+        } else if (type === 'trade') {
+          dialogTitle = '🤝【取り引き】カードを交換します';
+          dialogSubtitle = '交換に出すカードの確認';
+          headerBg = '#e65100';
+        }
+
+        return (
+          <div style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
+            background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+            padding: '20px'
+          }}>
+            <div style={{ 
+              background: '#fff', borderRadius: '12px', maxWidth: '420px', width: '100%', 
+              boxShadow: '0 10px 25px rgba(0,0,0,0.3)', overflow: 'hidden', textAlign: 'center'
+            }}>
+              {/* ダイアログヘッダー */}
+              <div style={{ background: headerBg, color: '#fff', padding: '16px 20px' }}>
+                <h3 style={{ margin: 0, fontSize: '18px' }}>{dialogTitle}</h3>
+                <div style={{ fontSize: '13px', opacity: 0.9, marginTop: '4px' }}>{dialogSubtitle}</div>
+              </div>
+
+              {/* ダイアログ本文（カード表示） */}
+              <div style={{ padding: '20px' }}>
+                <div style={{ 
+                  background: '#f9f9f9', border: '2px solid #ddd', borderRadius: '10px', 
+                  padding: '15px', margin: '0 auto 15px auto', maxWidth: '260px' 
+                }}>
+                  <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#333', marginBottom: '8px' }}>
+                    {cardInfo.name}
+                  </div>
+                  <div style={{ fontSize: '13px', color: '#555', lineHeight: 1.4 }}>
+                    {cardInfo.desc}
+                  </div>
+                </div>
+
+                {/* 対象選択が必要な場合（探偵・いぬ・目撃者・取り引き） */}
+                {needsTarget ? (
+                  <div>
+                    <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#444', marginBottom: '10px' }}>
+                      対象プレイヤーを選択してください：
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center', maxHeight: '180px', overflowY: 'auto', padding: '4px' }}>
+                      {Object.keys(G.players).map(id => {
+                        if (id === pid) return null;
+                        const p = G.players[id];
+                        const canSelect = p.hand.length > 0;
+                        const isLeft = id === leftId;
+                        const isRight = id === rightId;
+                        let relText = '';
+                        if (isLeft && isRight) relText = '（左右）';
+                        else if (isLeft) relText = '（👈 左隣）';
+                        else if (isRight) relText = '（👉 右隣）';
+
+                        return (
+                          <button 
+                            key={id} 
+                            onClick={() => {
+                              moves.playCard(cardIdx, id);
+                              setConfirmDialog(null);
+                            }}
+                            disabled={!canSelect}
+                            style={{ 
+                              padding: '10px 14px', fontSize: '14px', cursor: canSelect ? 'pointer' : 'not-allowed',
+                              background: canSelect ? (isLeft ? '#1976d2' : isRight ? '#f57c00' : '#455a64') : '#ccc',
+                              color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold',
+                              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', minWidth: '120px'
+                            }}
+                          >
+                            <span>{getPlayerName(id)} {relText}</span>
+                            <span style={{ fontSize: '11px', fontWeight: 'normal', opacity: 0.9 }}>
+                              {canSelect ? `手札 ${p.hand.length}枚` : '(手札なし)'}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  /* 対象選択が不要な場合（決定ボタン表示） */
+                  <div>
+                    {type === 'play' && (
+                      <button 
+                        onClick={() => {
+                          moves.playCard(cardIdx, null);
+                          setConfirmDialog(null);
+                        }}
+                        style={{ 
+                          width: '100%', padding: '14px', fontSize: '16px', background: '#2e7d32', color: '#fff', 
+                          border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold',
+                          marginBottom: '10px', boxShadow: '0 4px 6px rgba(46,125,50,0.3)'
+                        }}
+                      >
+                        ✅ このカードを場に出す
+                      </button>
+                    )}
+                    {type === 'info' && (
+                      <button 
+                        onClick={() => {
+                          moves.selectCardForInfo(cardIdx);
+                          setSelectedInfoCardIdx(cardIdx);
+                          setConfirmDialog(null);
+                        }}
+                        style={{ 
+                          width: '100%', padding: '14px', fontSize: '16px', background: '#3949ab', color: '#fff', 
+                          border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold',
+                          marginBottom: '10px', boxShadow: '0 4px 6px rgba(57,73,171,0.3)'
+                        }}
+                      >
+                        ✅ このカードを渡す（確定）
+                      </button>
+                    )}
+                    {type === 'trade' && (
+                      <button 
+                        onClick={() => {
+                          moves.selectCardForTrade(cardIdx);
+                          setSelectedTradeCardIdx(cardIdx);
+                          setConfirmDialog(null);
+                        }}
+                        style={{ 
+                          width: '100%', padding: '14px', fontSize: '16px', background: '#e65100', color: '#fff', 
+                          border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold',
+                          marginBottom: '10px', boxShadow: '0 4px 6px rgba(230,81,0,0.3)'
+                        }}
+                      >
+                        ✅ このカードを交換に出す
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* キャンセルボタン */}
+                <button 
+                  onClick={() => setConfirmDialog(null)}
+                  style={{ 
+                    width: '100%', padding: '10px', fontSize: '14px', background: '#f5f5f5', color: '#666', 
+                    border: '1px solid #ccc', borderRadius: '6px', cursor: 'pointer', marginTop: needsTarget ? '15px' : '0' 
+                  }}
+                >
+                  ✖ キャンセル（手札に戻る）
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ALERT DIALOG */}
+      {alertMessage && (
         <div style={{
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
-          background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+          background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100,
+          padding: '20px'
         }}>
-          <div style={{ background: '#fff', padding: '30px', borderRadius: '10px', minWidth: '300px', textAlign: 'center' }}>
-            <h3>対象プレイヤーを選んでください</h3>
-            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center', marginTop: '20px' }}>
-              {Object.keys(G.players).map(id => {
-                if (id === pid) return null;
-                const p = G.players[id];
-                const canSelect = p.hand.length > 0;
-                const isLeft = id === leftId;
-                const isRight = id === rightId;
-                let relText = '';
-                if (isLeft && isRight) relText = '（左右）';
-                else if (isLeft) relText = '（👈 左隣）';
-                else if (isRight) relText = '（👉 右隣）';
-
-                return (
-                  <button 
-                    key={id} 
-                    onClick={() => handleTargetSelect(id)}
-                    disabled={!canSelect}
-                    style={{ 
-                      padding: '12px 18px', fontSize: '15px', cursor: canSelect ? 'pointer' : 'not-allowed',
-                      background: canSelect ? (isLeft ? '#1976d2' : isRight ? '#f57c00' : '#455a64') : '#ccc',
-                      color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold',
-                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', minWidth: '130px'
-                    }}
-                  >
-                    <span>{getPlayerName(id)} {relText}</span>
-                    <span style={{ fontSize: '12px', fontWeight: 'normal', opacity: 0.9 }}>
-                      {canSelect ? `手札 ${p.hand.length}枚` : '(手札なし)'}
-                    </span>
-                  </button>
-                );
-              })}
+          <div style={{ 
+            background: '#fff', borderRadius: '12px', maxWidth: '360px', width: '100%', 
+            padding: '25px 20px', textAlign: 'center', boxShadow: '0 8px 25px rgba(0,0,0,0.25)' 
+          }}>
+            <div style={{ fontSize: '38px', marginBottom: '10px' }}>⚠️</div>
+            <div style={{ fontSize: '15px', color: '#333', lineHeight: 1.5, marginBottom: '20px', fontWeight: 'bold' }}>
+              {alertMessage}
             </div>
-            <button onClick={() => setTargetModalOpen(false)} style={{ marginTop: '20px', padding: '10px', width: '100%' }}>
-              キャンセル
+            <button 
+              onClick={() => setAlertMessage(null)}
+              style={{ 
+                padding: '10px 35px', fontSize: '15px', background: '#2196f3', color: '#fff', 
+                border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' 
+              }}
+            >
+              OK
             </button>
           </div>
         </div>

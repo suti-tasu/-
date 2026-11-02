@@ -5,6 +5,7 @@ import { Ito } from './ItoGame.js';
 import { Haa } from './HaaGame.js';
 import { Propose } from './ProposeGame.js';
 import { HanninGame } from './HanninGame.js';
+import { CrashIceGame } from './CrashIceGame.js';
 import serve from 'koa-static';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -13,7 +14,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const server = Server({
-  games: [Splendor, Ito, Haa, Propose, HanninGame],
+  games: [Splendor, Ito, Haa, Propose, HanninGame, CrashIceGame],
   origins: [Origins.ANY],
 });
 
