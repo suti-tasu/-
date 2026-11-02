@@ -265,39 +265,41 @@ const App = () => {
 
   if (playerID !== null && credentials !== null) {
     return (
-      <div style={{ padding: '10px' }}>
-        <div style={{ background: '#e3f2fd', padding: '15px', borderRadius: '8px', marginBottom: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <div style={{ display: 'flex', alignItems: 'center' }}>
-              <span style={{ fontWeight: 'bold', width: '90px' }}>部屋コード:</span>
-              <input type="text" readOnly value={matchID} style={{ width: '150px', padding: '5px', fontWeight: 'bold', fontSize: '1.1em', background: '#fff', border: '1px solid #ccc', borderRadius: '4px' }} onClick={e => e.target.select()} />
+      <div style={{ padding: '10px', display: 'flex', flexDirection: 'column', minHeight: '100vh', boxSizing: 'border-box' }}>
+        <div style={{ flex: 1 }}>
+          <ErrorBoundary>
+            {gameType === 'ito' ? (
+              <ItoClient matchID={matchID} playerID={playerID} credentials={credentials} />
+            ) : gameType === 'haa' ? (
+              <HaaClient matchID={matchID} playerID={playerID} credentials={credentials} />
+            ) : gameType === 'propose' ? (
+              <ProposeClient matchID={matchID} playerID={playerID} credentials={credentials} />
+            ) : gameType === 'hannin' ? (
+              <HanninClient matchID={matchID} playerID={playerID} credentials={credentials} />
+            ) : gameType === 'crashice' ? (
+              <CrashIceClient matchID={matchID} playerID={playerID} credentials={credentials} />
+            ) : (
+              <SplendorClient matchID={matchID} playerID={playerID} credentials={credentials} />
+            )}
+          </ErrorBoundary>
+        </div>
+
+        {/* 部屋コード・招待URL・退出バー（下側に配置） */}
+        <div style={{ background: '#e3f2fd', padding: '15px', borderRadius: '8px', marginTop: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', border: '1px solid #bbdefb' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontWeight: 'bold', fontSize: '13px' }}>部屋コード:</span>
+              <input type="text" readOnly value={matchID} style={{ width: '130px', padding: '4px 8px', fontWeight: 'bold', fontSize: '1em', background: '#fff', border: '1px solid #ccc', borderRadius: '4px' }} onClick={e => e.target.select()} />
+              <span style={{ fontWeight: 'bold', fontSize: '13px', marginLeft: '10px' }}>招待URL:</span>
+              <input type="text" readOnly value={window.location.href} style={{ width: '280px', padding: '4px 8px', background: '#fff', border: '1px solid #ccc', borderRadius: '4px', fontSize: '12px' }} onClick={e => e.target.select()} />
             </div>
-            <div style={{ display: 'flex', alignItems: 'center' }}>
-              <span style={{ fontWeight: 'bold', width: '90px' }}>招待URL:</span>
-              <input type="text" readOnly value={window.location.href} style={{ width: '300px', padding: '5px', background: '#fff', border: '1px solid #ccc', borderRadius: '4px' }} onClick={e => e.target.select()} />
-            </div>
-            <div style={{ fontSize: '0.85em', color: '#555' }}>友達にURLを送るか、部屋コードを伝えてください</div>
+            <div style={{ fontSize: '0.8em', color: '#666' }}>※友達に招待URLを送るか、部屋コードを伝えて参加してもらってください</div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-            <div>あなたの名前: <strong>{playerName}</strong></div>
-            <button onClick={leaveMatch} style={{ background: '#f44336', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>退出・リセット</button>
+            <div style={{ fontSize: '14px' }}>プレイヤー: <strong>{playerName}</strong></div>
+            <button onClick={leaveMatch} style={{ background: '#f44336', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>🚪 退出・リセット</button>
           </div>
         </div>
-        <ErrorBoundary>
-          {gameType === 'ito' ? (
-            <ItoClient matchID={matchID} playerID={playerID} credentials={credentials} />
-          ) : gameType === 'haa' ? (
-            <HaaClient matchID={matchID} playerID={playerID} credentials={credentials} />
-          ) : gameType === 'propose' ? (
-            <ProposeClient matchID={matchID} playerID={playerID} credentials={credentials} />
-          ) : gameType === 'hannin' ? (
-            <HanninClient matchID={matchID} playerID={playerID} credentials={credentials} />
-          ) : gameType === 'crashice' ? (
-            <CrashIceClient matchID={matchID} playerID={playerID} credentials={credentials} />
-          ) : (
-            <SplendorClient matchID={matchID} playerID={playerID} credentials={credentials} />
-          )}
-        </ErrorBoundary>
       </div>
     );
   }
