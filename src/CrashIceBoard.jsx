@@ -236,19 +236,21 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
   const missCount = G.missCount || 0;
   const thresholds = getPowerThresholds(missCount);
 
-  // パワーの色判定
+  // 連続グラデーションに応じた色判定
   const getPowerColor = (val) => {
-    if (val <= thresholds.missMax) return '#fbc02d'; // 弱すぎ (黄)
-    if (val <= thresholds.safeMax) return '#4caf50'; // 安全 (緑)
-    if (val <= thresholds.strongMax) return '#ff9800'; // 強打 (オレンジ)
-    return '#f44336'; // 超強打 (赤)
+    if (val < 25) return '#0284c7'; // シアン (微小)
+    if (val < 55) return '#16a34a'; // グリーン (適度)
+    if (val < 75) return '#d97706'; // アンバー (強打)
+    if (val < 90) return '#ea580c'; // オレンジ (激震)
+    return '#dc2626'; // レッド (最大撃)
   };
 
   const getPowerLabel = (val) => {
-    if (val <= thresholds.missMax) return '弱すぎ！ (不発の恐れ)';
-    if (val <= thresholds.safeMax) return '安全ゾーン (1個だけ落とす)';
-    if (val <= thresholds.strongMax) return '強打！ (周囲に衝撃)';
-    return '💥 超強打！ (大崩落の危険)';
+    if (val < 15) return 'ソフトタップ（極小打撃）';
+    if (val < 35) return 'ライトヒット（軽めの力）';
+    if (val < 65) return 'ノーマルヒット（標準打撃）';
+    if (val < 85) return 'ストロングヒット（強烈な衝撃波）';
+    return '💥 マックスパワー（最大衝撃撃）';
   };
 
   const isLoser = G.winner && G.loser === pid;
@@ -821,65 +823,95 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
 
       {/* STRIKE POWER GAUGE MODAL (氷を選択したときに画面中央に表示) */}
       {selectedBlockKey && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
-          <div style={{ background: '#fff', borderRadius: '15px', maxWidth: '420px', width: '100%', padding: '25px', textAlign: 'center', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
-            <h3 style={{ margin: '0 0 5px 0', fontSize: '20px', color: '#00838f' }}>🔨 ハンマーで叩く強さを決定！</h3>
-            <p style={{ margin: '0 0 10px 0', fontSize: '13px', color: '#666' }}>
-              ゲージが動いています！タイミングよく【叩く！】を押してください。
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
+          <div style={{ background: '#fff', borderRadius: '18px', maxWidth: '420px', width: '100%', padding: '24px', textAlign: 'center', boxShadow: '0 20px 40px rgba(0,0,0,0.35)', border: '1px solid #e2e8f0' }}>
+            <h3 style={{ margin: '0 0 6px 0', fontSize: '19px', color: '#0f172a' }}>🔨 ハンマーの打撃力を決定！</h3>
+            <p style={{ margin: '0 0 16px 0', fontSize: '13px', color: '#64748b' }}>
+              タイミングよく【叩く！】を押してブロックに与える力を決定してください。
             </p>
 
             {missCount > 0 && (
-              <div style={{ background: '#ffebee', color: '#c62828', border: '1px solid #ef9a9a', padding: '6px 12px', borderRadius: '6px', fontSize: '13px', fontWeight: 'bold', marginBottom: '12px' }}>
-                ⚠️ 弱すぎペナルティ中！強打ゾーンが拡大しています！（連続ミス {missCount} 回目）
+              <div style={{ background: '#fff7ed', color: '#c2410c', border: '1px solid #fed7aa', padding: '6px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 'bold', marginBottom: '14px' }}>
+                ⚠️ 力が弱く氷を打ち抜けませんでした。しっかり力を込めて叩いてください！（連続 {missCount} 回目）
               </div>
             )}
 
-            {/* パワーゲージ本体 */}
-            <div style={{ background: '#eee', borderRadius: '12px', height: '30px', position: 'relative', overflow: 'hidden', border: '2px solid #ccc', marginBottom: '10px' }}>
-              {/* ゾーン背景色分け */}
-              <div style={{ position: 'absolute', left: '0%', width: `${thresholds.missMax}%`, height: '100%', background: 'rgba(251, 192, 45, 0.4)' }} title={`弱すぎ (0-${thresholds.missMax}%)`}></div>
-              <div style={{ position: 'absolute', left: `${thresholds.missMax}%`, width: `${thresholds.safeMax - thresholds.missMax}%`, height: '100%', background: 'rgba(76, 175, 80, 0.4)' }} title={`安全ゾーン (${thresholds.missMax + 1}-${thresholds.safeMax}%)`}></div>
-              <div style={{ position: 'absolute', left: `${thresholds.safeMax}%`, width: `${thresholds.strongMax - thresholds.safeMax}%`, height: '100%', background: 'rgba(255, 152, 0, 0.4)' }} title={`強打 (${thresholds.safeMax + 1}-${thresholds.strongMax}%)`}></div>
-              <div style={{ position: 'absolute', left: `${thresholds.strongMax}%`, width: `${100 - thresholds.strongMax}%`, height: '100%', background: 'rgba(244, 67, 54, 0.4)' }} title={`超強打 (${thresholds.strongMax + 1}-100%)`}></div>
-
-              {/* 移動するインジケーター針 */}
+            {/* パワーゲージ本体（滑らかな連続グラデーションバー） */}
+            <div style={{
+              background: 'linear-gradient(to right, #38bdf8 0%, #4ade80 25%, #facc15 55%, #fb923c 80%, #ef4444 100%)',
+              borderRadius: '12px',
+              height: '32px',
+              position: 'relative',
+              overflow: 'visible',
+              boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2), 0 2px 8px rgba(0,0,0,0.1)',
+              border: '2px solid #cbd5e1'
+            }}>
+              {/* 移動するインジケーター針（ポインター） */}
               <div style={{
                 position: 'absolute',
-                top: 0,
-                bottom: 0,
+                top: '-6px',
+                bottom: '-6px',
                 left: `${power}%`,
                 width: '6px',
-                background: '#000',
+                background: '#0f172a',
+                borderRadius: '3px',
                 transform: 'translateX(-50%)',
-                boxShadow: '0 0 4px #fff'
-              }}></div>
+                boxShadow: '0 0 8px rgba(255,255,255,0.9), 0 2px 6px rgba(0,0,0,0.4)',
+                border: '1px solid #ffffff'
+              }}>
+                {/* 針の上の三角マーク */}
+                <div style={{
+                  position: 'absolute',
+                  top: '-7px',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  width: 0,
+                  height: 0,
+                  borderLeft: '5px solid transparent',
+                  borderRight: '5px solid transparent',
+                  borderTop: '7px solid #0f172a'
+                }} />
+              </div>
             </div>
 
-            {/* パワー値表示 */}
-            <div style={{ fontSize: '18px', fontWeight: 'bold', color: getPowerColor(power), marginBottom: '5px' }}>
-              {power}% - {getPowerLabel(power)}
+            {/* スケール数値表示 */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#94a3b8', fontWeight: 'bold', marginTop: '6px' }}>
+              <span>0 (微小)</span>
+              <span>25</span>
+              <span>50 (中)</span>
+              <span>75</span>
+              <span>100 (最大)</span>
             </div>
 
-            <div style={{ fontSize: '11px', color: '#888', marginBottom: '20px' }}>
-              🟡 0-{thresholds.missMax}%: 弱すぎ / 🟢 {thresholds.missMax + 1}-{thresholds.safeMax}%: 安全 / 🟠 {thresholds.safeMax + 1}-{thresholds.strongMax}%: 強打 / 🔴 {thresholds.strongMax + 1}-100%: 超強打
+            {/* リアルタイム数値＆強度ラベル */}
+            <div style={{ margin: '14px 0 16px', background: '#f8fafc', padding: '10px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+              <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 'bold' }}>ブロックに加える打撃力</div>
+              <div style={{ fontSize: '32px', fontWeight: '900', color: getPowerColor(power), fontFamily: 'monospace', lineHeight: 1.2 }}>
+                {power}
+                <span style={{ fontSize: '14px', color: '#94a3b8', fontWeight: 'normal', marginLeft: '4px' }}>/ 100</span>
+              </div>
+              <div style={{ fontSize: '13px', fontWeight: 'bold', color: getPowerColor(power), marginTop: '2px' }}>
+                {getPowerLabel(power)}
+              </div>
             </div>
 
             <div style={{ display: 'flex', gap: '10px' }}>
               <button 
                 onClick={() => setSelectedBlockKey(null)}
-                style={{ flex: 1, padding: '12px', background: '#eee', color: '#555', border: '1px solid #ccc', borderRadius: '8px', cursor: 'pointer', fontSize: '14px' }}
+                style={{ flex: 1, padding: '12px', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 'bold' }}
               >
                 キャンセル
               </button>
               <button 
                 onClick={handleStrike}
                 style={{ 
-                  flex: 2, padding: '12px', background: '#e65100', color: '#fff', 
-                  border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '18px',
-                  boxShadow: '0 4px 10px rgba(230,81,0,0.3)'
+                  flex: 2, padding: '12px', background: 'linear-gradient(135deg, #0284c7, #0369a1)', color: '#fff', 
+                  border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '17px',
+                  boxShadow: '0 4px 12px rgba(2, 132, 199, 0.4)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
                 }}
               >
-                🔨 叩く！（HIT）
+                🔨 叩く！（力: {power}）
               </button>
             </div>
           </div>

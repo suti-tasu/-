@@ -258,11 +258,11 @@ export const CrashIceGame = {
       const currentMiss = G.missCount || 0;
       const thresholds = getPowerThresholds(currentMiss);
 
-      // パワー判定 (0〜100)
-      if (power <= thresholds.missMax) {
+      // 打撃力の伝達判定: 静止摩擦力・嵌合抵抗（最低必要打撃力）
+      const minRequiredForce = Math.max(8, 15 - currentMiss * 3);
+      if (power < minRequiredForce) {
         G.missCount = currentMiss + 1;
-        G.logs.push(`【${pName}】力が弱すぎた！（パワー: ${power}%）焦りで強打の危険性が増大！（ミス${G.missCount}回目）`);
-        // 叩き直すチャンス (ターン終了せず続行)
+        G.logs.push(`【${pName}】打撃力 ${power} : 力が弱すぎて氷が抜けませんでした！（リトライできます）`);
         return;
       }
 
@@ -279,14 +279,14 @@ export const CrashIceGame = {
         // ==========================================
         // 方式A: 構造力学モード (Arch Equilibrium)
         // ==========================================
-        // 超強打の場合、衝撃で隣接ブロックも確率で1つ巻き込む
-        if (power > thresholds.strongMax) {
+        // 打撃数値に応じた衝撃波の横伝播（力に比例して隣接氷へ衝撃波及）
+        if (power > 70 && random.Die(100) <= (power - 65) * 2.5) {
           const neighbors = HEX_DIRECTIONS.map(d => `${tq + d.q},${tr + d.r}`).filter(k => G.board[k]);
           if (neighbors.length > 0) {
             const extraDrop = neighbors[random.Die(neighbors.length) - 1];
             delete G.board[extraDrop];
             dropped.push(extraDrop);
-            G.logs.push(`💥 超強打！（パワー: ${power}%）強烈な打撃で隣の氷も吹き飛んだ！`);
+            G.logs.push(`💥 打撃力 ${power}！強烈な打撃衝撃により隣接する氷も押し出されました！`);
           }
         }
 
@@ -304,8 +304,8 @@ export const CrashIceGame = {
         // ==========================================
         // 方式B: 衝撃波物理演算モード (Dynamic Shockwave)
         // ==========================================
-        // 叩いた衝撃波を周囲の氷に伝播（パワーに応じて波及）
-        const impact = Math.min(1.0, (power + currentMiss * 12) / 100);
+        // 叩いた衝撃波を周囲の氷に伝播（打撃力数値に応じて直接波及）
+        const impact = Math.min(1.0, power / 100);
         const queue = [{ q: tq, r: tr, force: impact }];
         const visited = new Set([blockKey]);
 
@@ -318,15 +318,12 @@ export const CrashIceGame = {
 
             if (G.board[nKey] && !visited.has(nKey)) {
               visited.add(nKey);
-              // 衝撃による耐久度減少 (距離に応じて減衰)
-              const dmg = Math.round(curr.force * 60);
+              // 衝撃による耐久度減少 (距離・力に応じて減衰)
+              const dmg = Math.round(curr.force * 65);
               G.board[nKey].stability -= dmg;
-              if (G.board[nKey].stability < 70) {
-                G.board[nKey].cracked = true;
-              }
 
               // 高衝撃波によって外枠でない氷が摩擦限界を超えて崩落
-              if (G.board[nKey].stability <= 0 || (curr.force > 0.65 && !G.board[nKey].isEdge && random.Die(100) < 50)) {
+              if (G.board[nKey].stability <= 0 || (curr.force > 0.65 && !G.board[nKey].isEdge && random.Die(100) < curr.force * 60)) {
                 dropped.push(nKey);
                 delete G.board[nKey];
               } else if (curr.force * 0.5 > 0.2) {
@@ -348,9 +345,9 @@ export const CrashIceGame = {
 
       G.lastDroppedKeys = dropped;
       if (dropped.length > 1) {
-        G.logs.push(`⚠️ アーチ支持崩壊！連鎖崩落により氷が合計 ${dropped.length} 個落下しました！`);
+        G.logs.push(`⚠️ 支持力不足！連鎖崩落により氷が崩れ落ちました（計 ${dropped.length} 個）！`);
       } else {
-        G.logs.push(`【${pName}】（パワー: ${power}%）で叩き、氷を1個落としました。`);
+        G.logs.push(`【${pName}】打撃力 ${power} で氷に衝撃を与えました。`);
       }
 
       // ペンギンの足元チェック

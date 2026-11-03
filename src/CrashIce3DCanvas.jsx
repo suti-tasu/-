@@ -173,77 +173,8 @@ export const CrashIce3DCanvas = ({
     pointLight.position.set(0, 4, 0);
     scene.add(pointLight);
 
-    // --- Environment / Table Frame Construction ---
-    const tableGroup = new THREE.Group();
-
-    // Table Floor / Abyss ground (catches shadows)
-    const floorGeo = new THREE.PlaneGeometry(60, 60);
-    const floorMat = new THREE.MeshStandardMaterial({
-      color: 0x07111e,
-      roughness: 0.9,
-      metalness: 0.1
-    });
-    const floorMesh = new THREE.Mesh(floorGeo, floorMat);
-    floorMesh.rotation.x = -Math.PI / 2;
-    floorMesh.position.y = -6.0;
-    floorMesh.receiveShadow = true;
-    tableGroup.add(floorMesh);
-
-    // Outer White Plastic Tray (Hexagonal Rim)
-    // 6 outer border wall segments matching the radius 3 hex boundary
-    const frameMat = new THREE.MeshStandardMaterial({
-      color: 0xffffff,
-      roughness: 0.25,
-      metalness: 0.05,
-    });
-    const rimRadius = 4.0;
-    const rimGeo = new THREE.CylinderGeometry(rimRadius * 1.04, rimRadius * 1.08, BLOCK_HEIGHT * 1.25, 6, 1, true);
-    const rimMesh = new THREE.Mesh(rimGeo, frameMat);
-    rimMesh.rotation.y = Math.PI / 6;
-    rimMesh.position.y = -0.05;
-    rimMesh.castShadow = true;
-    rimMesh.receiveShadow = true;
-    tableGroup.add(rimMesh);
-
-    // Outer Decorative Ring Border
-    const outerRimGeo = new THREE.TorusGeometry(rimRadius * 1.04, 0.15, 8, 6);
-    const outerRimMesh = new THREE.Mesh(outerRimGeo, frameMat);
-    outerRimMesh.rotation.x = Math.PI / 2;
-    outerRimMesh.rotation.z = Math.PI / 6;
-    outerRimMesh.position.y = BLOCK_HEIGHT * 0.55;
-    outerRimMesh.castShadow = true;
-    tableGroup.add(outerRimMesh);
-
-    // 4 Sturdy White Plastic Table Legs
-    const legRadius = 0.26;
-    const legHeight = 5.8;
-    const legGeo = new THREE.CylinderGeometry(legRadius * 0.9, legRadius, legHeight, 16);
-    const legPositions = [
-      { x: -3.3, z: -2.0 },
-      { x: 3.3, z: -2.0 },
-      { x: -3.3, z: 2.0 },
-      { x: 3.3, z: 2.0 }
-    ];
-
-    legPositions.forEach(pos => {
-      const leg = new THREE.Mesh(legGeo, frameMat);
-      leg.position.set(pos.x, -legHeight / 2 - 0.2, pos.z);
-      // Slight outward splay for classic toy table look
-      leg.rotation.z = pos.x > 0 ? -0.08 : 0.08;
-      leg.rotation.x = pos.z > 0 ? 0.08 : -0.08;
-      leg.castShadow = true;
-      leg.receiveShadow = true;
-
-      // Leg rubber foot pad
-      const footGeo = new THREE.CylinderGeometry(legRadius * 1.2, legRadius * 1.3, 0.25, 16);
-      const footMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.5 });
-      const foot = new THREE.Mesh(footGeo, footMat);
-      foot.position.y = -legHeight / 2;
-      leg.add(foot);
-
-      tableGroup.add(leg);
-    });
-
+    // --- Environment / Snug Table Frame Construction ---
+    const tableGroup = createSnugTableGroup();
     scene.add(tableGroup);
 
     // --- 3D Penguin Model Construction ---
@@ -363,14 +294,13 @@ export const CrashIce3DCanvas = ({
     const scene = sceneRef.current;
     if (!scene) return;
 
-    // Cylinder geometry with 6 segments, rotated by Math.PI / 6 for pointy-topped orientation
+    // Cylinder geometry with 6 segments, naturally oriented for pointy-topped axial grid
     const hexGeo = new THREE.CylinderGeometry(
-      HEX_RADIUS * 0.97,
-      HEX_RADIUS * 0.97,
+      HEX_RADIUS * 0.988,
+      HEX_RADIUS * 0.988,
       BLOCK_HEIGHT,
       6
     );
-    hexGeo.rotateY(Math.PI / 6);
 
     const currentKeys = new Set(Object.keys(board));
     const existingKeys = new Set(blocksMeshMapRef.current.keys());
@@ -507,8 +437,10 @@ export const CrashIce3DCanvas = ({
         const p = (progress - 0.75) / 0.25;
         hammer.position.y = BLOCK_HEIGHT + 0.3 + p * 0.8;
         if (p === 0) {
-          // Impact burst!
-          spawnIceParticles(x, BLOCK_HEIGHT / 2, z, 14);
+          // Impact burst scales with applied force!
+          const powerRatio = (strikeTarget?.power || 50) / 100;
+          const count = Math.round(8 + powerRatio * 20);
+          spawnIceParticles(x, BLOCK_HEIGHT / 2, z, count);
         }
       }
 
@@ -954,3 +886,174 @@ function createHammerMesh() {
 
   return group;
 }
+
+// Helper: Snug Molded Table Frame with Exact Interlocking Cutout for 37 Hexes
+function createSnugTableGroup() {
+  const tableGroup = new THREE.Group();
+
+  // 1. Table Floor / Abyss ground
+  const floorGeo = new THREE.PlaneGeometry(60, 60);
+  const floorMat = new THREE.MeshStandardMaterial({
+    color: 0x07111e,
+    roughness: 0.9,
+    metalness: 0.1
+  });
+  const floorMesh = new THREE.Mesh(floorGeo, floorMat);
+  floorMesh.rotation.x = -Math.PI / 2;
+  floorMesh.position.y = -6.0;
+  floorMesh.receiveShadow = true;
+  tableGroup.add(floorMesh);
+
+  // 2. Compute 42-point outer border of the 37 hexes
+  const HEX_DIRECTIONS = [
+    { q: 1, r: 0 },
+    { q: 1, r: -1 },
+    { q: 0, r: -1 },
+    { q: -1, r: 0 },
+    { q: -1, r: 1 },
+    { q: 0, r: 1 },
+  ];
+
+  const allBlocks = new Set();
+  for (let q = -BOARD_RADIUS; q <= BOARD_RADIUS; q++) {
+    const r1 = Math.max(-BOARD_RADIUS, -q - BOARD_RADIUS);
+    const r2 = Math.min(BOARD_RADIUS, -q + BOARD_RADIUS);
+    for (let r = r1; r <= r2; r++) {
+      allBlocks.add(`${q},${r}`);
+    }
+  }
+
+  const dirAngles = [
+    { a1: -30, a2: 30 },
+    { a1: 270, a2: 330 },
+    { a1: 210, a2: 270 },
+    { a1: 150, a2: 210 },
+    { a1: 90, a2: 150 },
+    { a1: 30, a2: 90 },
+  ];
+
+  const segments = [];
+  allBlocks.forEach(key => {
+    const [q, r] = key.split(',').map(Number);
+    const { x, z } = hexTo3D(q, r);
+
+    HEX_DIRECTIONS.forEach((dir, dirIdx) => {
+      const nKey = `${q + dir.q},${r + dir.r}`;
+      if (!allBlocks.has(nKey)) {
+        const a1 = (dirAngles[dirIdx].a1 * Math.PI) / 180;
+        const a2 = (dirAngles[dirIdx].a2 * Math.PI) / 180;
+        const FIT_R = HEX_RADIUS * 1.008;
+        const p1 = {
+          x: Number((x + FIT_R * Math.cos(a1)).toFixed(4)),
+          y: Number((z + FIT_R * Math.sin(a1)).toFixed(4))
+        };
+        const p2 = {
+          x: Number((x + FIT_R * Math.cos(a2)).toFixed(4)),
+          y: Number((z + FIT_R * Math.sin(a2)).toFixed(4))
+        };
+        segments.push({ p1, p2 });
+      }
+    });
+  });
+
+  const loop = [segments[0].p1, segments[0].p2];
+  const used = new Set([0]);
+
+  while (loop.length <= segments.length) {
+    const last = loop[loop.length - 1];
+    let found = false;
+    for (let i = 0; i < segments.length; i++) {
+      if (used.has(i)) continue;
+      const s = segments[i];
+      const d1 = Math.hypot(s.p1.x - last.x, s.p1.y - last.y);
+      const d2 = Math.hypot(s.p2.x - last.x, s.p2.y - last.y);
+      if (d1 < 0.001) {
+        loop.push(s.p2);
+        used.add(i);
+        found = true;
+        break;
+      } else if (d2 < 0.001) {
+        loop.push(s.p1);
+        used.add(i);
+        found = true;
+        break;
+      }
+    }
+    if (!found) break;
+  }
+
+  // 3. Molded Outer Table Frame with Interlocking Hex Notch Hole
+  const outerRadius = 7.4;
+  const frameShape = new THREE.Shape();
+  for (let i = 0; i < 6; i++) {
+    const angle = ((i * 60 + 30) * Math.PI) / 180;
+    const ox = outerRadius * Math.cos(angle);
+    const oy = outerRadius * Math.sin(angle);
+    if (i === 0) frameShape.moveTo(ox, oy);
+    else frameShape.lineTo(ox, oy);
+  }
+  frameShape.closePath();
+
+  // Hole matching the exact 42 outer edges of the 37 blocks
+  const holePath = new THREE.Path();
+  holePath.moveTo(loop[0].x, loop[0].y);
+  for (let i = 1; i < loop.length; i++) {
+    holePath.lineTo(loop[i].x, loop[i].y);
+  }
+  holePath.closePath();
+  frameShape.holes.push(holePath);
+
+  const frameDepth = BLOCK_HEIGHT + 0.18;
+  const frameGeo = new THREE.ExtrudeGeometry(frameShape, {
+    depth: frameDepth,
+    bevelEnabled: true,
+    bevelThickness: 0.06,
+    bevelSize: 0.06,
+    bevelSegments: 2
+  });
+
+  const frameMat = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    roughness: 0.25,
+    metalness: 0.06
+  });
+
+  const frameMesh = new THREE.Mesh(frameGeo, frameMat);
+  frameMesh.rotation.x = Math.PI / 2;
+  frameMesh.position.y = BLOCK_HEIGHT / 2 + 0.08;
+  frameMesh.castShadow = true;
+  frameMesh.receiveShadow = true;
+  tableGroup.add(frameMesh);
+
+  // 4. Sturdy White Plastic Table Legs at Outer Frame Corners
+  const legRadius = 0.32;
+  const legHeight = 5.8;
+  const legGeo = new THREE.CylinderGeometry(legRadius * 0.85, legRadius, legHeight, 16);
+  const legPositions = [
+    { x: 5.9, z: 3.4 },
+    { x: -5.9, z: 3.4 },
+    { x: -5.9, z: -3.4 },
+    { x: 5.9, z: -3.4 }
+  ];
+
+  legPositions.forEach(pos => {
+    const leg = new THREE.Mesh(legGeo, frameMat);
+    leg.position.set(pos.x, -legHeight / 2 - 0.1, pos.z);
+    leg.rotation.z = pos.x > 0 ? -0.06 : 0.06;
+    leg.rotation.x = pos.z > 0 ? 0.06 : -0.06;
+    leg.castShadow = true;
+    leg.receiveShadow = true;
+
+    // Leg rubber foot pad (cyan accent)
+    const footGeo = new THREE.CylinderGeometry(legRadius * 1.15, legRadius * 1.25, 0.25, 16);
+    const footMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.5 });
+    const foot = new THREE.Mesh(footGeo, footMat);
+    foot.position.y = -legHeight / 2;
+    leg.add(foot);
+
+    tableGroup.add(leg);
+  });
+
+  return tableGroup;
+}
+
