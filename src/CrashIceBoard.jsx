@@ -169,7 +169,7 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
   const [showRules, setShowRules] = useState(false);
   const [showBracketModal, setShowBracketModal] = useState(false);
   const [isSpinning, setIsSpinning] = useState(false);
-  const [needleAngle, setNeedleAngle] = useState(() => (G.rouletteResultIndex ?? 0) * 72);
+  const [needleAngle, setNeedleAngle] = useState(() => (G.rouletteResultIndex ?? 0) * 72 + 36);
   const [fallingBlocks, setFallingBlocks] = useState([]);
   const [isBoardShaking, setIsBoardShaking] = useState(false);
   const [drag2D, setDrag2D] = useState(null); // 2Dモード用ドラッグステート
@@ -283,7 +283,7 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
       return;
     }
     if (G.rouletteResultIndex !== undefined && G.rouletteResultIndex !== null && !isActivePlayer) {
-      const targetAngle = G.rouletteResultIndex * 72;
+      const targetAngle = G.rouletteResultIndex * 72 + 36;
       setNeedleAngle(prev => {
         const fullRotations = 720;
         const currentMod = ((prev % 360) + 360) % 360;
@@ -303,7 +303,7 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
     setIsSpinning(true);
 
     const targetIdx = Math.floor(Math.random() * ROULETTE_ITEMS.length);
-    const targetAngle = targetIdx * 72;
+    const targetAngle = targetIdx * 72 + 36;
 
     setNeedleAngle(prev => {
       const fullRotations = 1440; // 4周回転
@@ -332,6 +332,16 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
 
   // 2Dモード用：打点クリック＆ドラッグ処理
   const handle2DPointerDown = (e, key, blockX, blockY) => {
+    // 右クリックでキャンセル
+    if (e.button === 2) {
+      if (drag2D) {
+        e.preventDefault();
+        setDrag2D(null);
+      }
+      return;
+    }
+    if (e.button !== 0 && e.button !== undefined) return;
+
     e.preventDefault();
     if (!isActivePlayer || G.turnStep !== 'strike' || G.winner || isSpectator) return;
     const block = G.board[key];
@@ -364,26 +374,46 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
       const dy = e.clientY - drag2D.startY;
       const dist = Math.hypot(dx, dy);
       let power = 0;
-      if (dist >= 10) {
-        power = Math.min(100, Math.max(1, Math.round(((dist - 10) / 110) * 100)));
+      if (dist >= 8) {
+        power = Math.min(100, Math.max(1, Math.round(((dist - 8) / 280) * 100)));
       }
       const angle = Math.atan2(dy, dx);
       setDrag2D(prev => prev ? { ...prev, currentX: e.clientX, currentY: e.clientY, power, angle } : null);
     };
 
+    const handleWindowPointerDown = (e) => {
+      if (e.button === 2) {
+        e.preventDefault();
+        setDrag2D(null);
+      }
+    };
+
     const handleWindowPointerUp = (e) => {
+      if (e.button === 2) {
+        setDrag2D(null);
+        return;
+      }
       const current = drag2D;
       setDrag2D(null);
-      if (current && current.power >= 5) {
+      if (current && current.power >= 5 && (e.button === 0 || e.button === undefined)) {
         handleDirectStrike(current.key, current.power, current.angle);
       }
     };
 
+    const handleContextMenu = (e) => {
+      e.preventDefault();
+      setDrag2D(null);
+    };
+
     window.addEventListener('pointermove', handleWindowPointerMove);
     window.addEventListener('pointerup', handleWindowPointerUp);
+    window.addEventListener('pointerdown', handleWindowPointerDown);
+    window.addEventListener('contextmenu', handleContextMenu);
     return () => {
       window.removeEventListener('pointermove', handleWindowPointerMove);
       window.removeEventListener('pointerup', handleWindowPointerUp);
+      window.removeEventListener('pointerdown', handleWindowPointerDown);
+      window.removeEventListener('contextmenu', handleContextMenu);
     };
   }, [drag2D, isActivePlayer, G.turnStep, G.winner, isSpectator]);
 
@@ -715,6 +745,12 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
             /* FIELD WRAPPER (2D) */
             <div 
               className={isBoardShaking ? 'board-shaking' : ''}
+              onContextMenu={(e) => {
+                if (drag2D) {
+                  e.preventDefault();
+                  setDrag2D(null);
+                }
+              }}
               style={{ 
                 background: 'radial-gradient(circle, #ffffff 0%, #b2ebf2 70%, #80deea 100%)', 
                 borderRadius: '50%', padding: '25px', boxShadow: 'inset 0 4px 15px rgba(0,0,0,0.15), 0 10px 25px rgba(0,96,100,0.25)',
@@ -790,12 +826,11 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
                   );
                 })}
 
-                {/* 2Dドラッグ中の軌跡矢印・パワーHUD */}
+                {/* 2Dドラッグ中の軌跡矢印・パワーHUD (打点からマウスカーソル位置までダイレクトに延伸) */}
                 {drag2D && drag2D.power >= 5 && (() => {
                   const arrowColor = drag2D.power >= 80 ? '#ef4444' : (drag2D.power >= 55 ? '#fb923c' : (drag2D.power >= 15 ? '#4ade80' : '#38bdf8'));
-                  const pullLen = 15 + (drag2D.power / 100) * 45;
-                  const tipX = drag2D.blockX + Math.cos(drag2D.angle) * pullLen;
-                  const tipY = drag2D.blockY + Math.sin(drag2D.angle) * pullLen;
+                  const tipX = drag2D.blockX + (drag2D.currentX - drag2D.startX);
+                  const tipY = drag2D.blockY + (drag2D.currentY - drag2D.startY);
                   return (
                     <g pointerEvents="none">
                       {/* 打点リング */}
@@ -886,8 +921,12 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
                       <path
                         d={pathD}
                         fill={item.color}
-                        stroke={isSelected ? '#ffd54f' : '#ffffff'}
-                        strokeWidth={isSelected ? '2.5' : '1.5'}
+                        stroke={isSelected ? '#f59e0b' : '#ffffff'}
+                        strokeWidth={isSelected ? '4' : '1.5'}
+                        style={{
+                          filter: isSelected ? 'drop-shadow(0 0 6px rgba(245, 158, 11, 0.8))' : 'none',
+                          transition: 'all 0.2s'
+                        }}
                       />
                       <text
                         x={tx}

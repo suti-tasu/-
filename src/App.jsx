@@ -14,6 +14,10 @@ import { HanninGame } from './HanninGame';
 import { HanninBoard } from './HanninBoard';
 import { CrashIceGame } from './CrashIceGame';
 import { CrashIceBoard } from './CrashIceBoard';
+import { NimmtGame } from './NimmtGame';
+import { NimmtBoard } from './NimmtBoard';
+import { IndigoGame } from './IndigoGame';
+import { IndigoBoard } from './IndigoBoard';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -78,6 +82,20 @@ const ProposeClient = Client({
 const CrashIceClient = Client({
   game: CrashIceGame,
   board: CrashIceBoard,
+  multiplayer: SocketIO({ server }),
+  debug: false
+});
+
+const NimmtClient = Client({
+  game: NimmtGame,
+  board: NimmtBoard,
+  multiplayer: SocketIO({ server }),
+  debug: false
+});
+
+const IndigoClient = Client({
+  game: IndigoGame,
+  board: IndigoBoard,
   multiplayer: SocketIO({ server }),
   debug: false
 });
@@ -278,6 +296,10 @@ const App = () => {
               <HanninClient matchID={matchID} playerID={playerID} credentials={credentials} />
             ) : gameType === 'crashice' ? (
               <CrashIceClient matchID={matchID} playerID={playerID} credentials={credentials} />
+            ) : gameType === 'nimmt' ? (
+              <NimmtClient matchID={matchID} playerID={playerID} credentials={credentials} />
+            ) : gameType === 'indigo' ? (
+              <IndigoClient matchID={matchID} playerID={playerID} credentials={credentials} />
             ) : (
               <SplendorClient matchID={matchID} playerID={playerID} credentials={credentials} />
             )}
@@ -334,6 +356,8 @@ const App = () => {
                 <button onClick={() => handleGameTypeChange('propose')} style={{ flex: 1, minWidth: '150px', padding: '10px', background: gameType === 'propose' ? '#9c27b0' : '#e0e0e0', color: gameType === 'propose' ? 'white' : 'black', border: 'none', borderRadius: '5px', fontSize: '1.1em', cursor: 'pointer', fontWeight: 'bold' }}>💍 プロポーズを君に</button>
                 <button onClick={() => handleGameTypeChange('hannin')} style={{ flex: 1, minWidth: '150px', padding: '10px', background: gameType === 'hannin' ? '#000000' : '#e0e0e0', color: gameType === 'hannin' ? 'white' : 'black', border: 'none', borderRadius: '5px', fontSize: '1.1em', cursor: 'pointer', fontWeight: 'bold' }}>🕵️ 犯人は踊る</button>
                 <button onClick={() => handleGameTypeChange('crashice')} style={{ flex: 1, minWidth: '150px', padding: '10px', background: gameType === 'crashice' ? '#00838f' : '#e0e0e0', color: gameType === 'crashice' ? 'white' : 'black', border: 'none', borderRadius: '5px', fontSize: '1.1em', cursor: 'pointer', fontWeight: 'bold' }}>🐧 クラッシュアイス</button>
+                <button onClick={() => handleGameTypeChange('nimmt')} style={{ flex: 1, minWidth: '150px', padding: '10px', background: gameType === 'nimmt' ? '#dc2626' : '#e0e0e0', color: gameType === 'nimmt' ? 'white' : 'black', border: 'none', borderRadius: '5px', fontSize: '1.1em', cursor: 'pointer', fontWeight: 'bold' }}>🐂 ニムト (6 Nimmt!)</button>
+                <button onClick={() => handleGameTypeChange('indigo')} style={{ flex: 1, minWidth: '150px', padding: '10px', background: gameType === 'indigo' ? '#0284c7' : '#e0e0e0', color: gameType === 'indigo' ? 'white' : 'black', border: 'none', borderRadius: '5px', fontSize: '1.1em', cursor: 'pointer', fontWeight: 'bold' }}>🌊 インディゴ (Indigo)</button>
               </div>
             </div>
 
@@ -356,7 +380,9 @@ const App = () => {
             <div style={{ marginBottom: '20px' }}>
               <label style={{ display: 'block', marginBottom: '5px' }}>プレイ人数</label>
               <select value={numPlayers} onChange={e => setNumPlayers(Number(e.target.value))} style={{ width: '100%', padding: '10px', fontSize: '1.2em' }}>
-                {(gameType === 'ito' || gameType === 'haa' || gameType === 'crashice')
+                {gameType === 'nimmt'
+                  ? [2,3,4,5,6,7,8,9,10].map(n => <option key={n} value={n}>{n}人</option>)
+                  : (gameType === 'ito' || gameType === 'haa' || gameType === 'crashice')
                   ? [2,3,4,5,6,7,8].map(n => <option key={n} value={n}>{n}人</option>) 
                   : (gameType === 'propose' || gameType === 'hannin') ? [3,4,5,6,7,8].map(n => <option key={n} value={n}>{n}人</option>)
                   : [2,3,4].map(n => <option key={n} value={n}>{n}人</option>)}

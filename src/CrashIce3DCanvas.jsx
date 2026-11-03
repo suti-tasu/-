@@ -579,7 +579,57 @@ export const CrashIce3DCanvas = ({
     return null;
   };
 
+  // 打撃エイミングのキャンセル処理 (右クリック等)
+  const cancelAiming = useCallback(() => {
+    if (!isAimingRef.current) return;
+    isAimingRef.current = false;
+    aimTargetRef.current = null;
+    currentAimRef.current = { power: 0, angle: 0 };
+    setAimHUD(null);
+    if (controlsRef.current) controlsRef.current.enabled = true;
+    if (aimGroupRef.current && aimGroupRef.current.group) {
+      aimGroupRef.current.group.visible = false;
+    }
+    if (hammerMeshRef.current) {
+      hammerMeshRef.current.visible = false;
+    }
+  }, []);
+
+  // 右クリック等によるグローバルキャンセルリスナー
+  useEffect(() => {
+    const handleGlobalPointerDown = (e) => {
+      if (e.button === 2 && isAimingRef.current) {
+        e.preventDefault();
+        cancelAiming();
+      }
+    };
+    const handleGlobalContextMenu = (e) => {
+      if (isAimingRef.current) {
+        e.preventDefault();
+        cancelAiming();
+      }
+    };
+
+    window.addEventListener('pointerdown', handleGlobalPointerDown);
+    window.addEventListener('contextmenu', handleGlobalContextMenu);
+    return () => {
+      window.removeEventListener('pointerdown', handleGlobalPointerDown);
+      window.removeEventListener('contextmenu', handleGlobalContextMenu);
+    };
+  }, [cancelAiming]);
+
   const handlePointerDown = (e) => {
+    // 右クリックが押された場合：エイミング中なら即キャンセル
+    if (e.button === 2) {
+      if (isAimingRef.current) {
+        e.preventDefault();
+        cancelAiming();
+      }
+      return;
+    }
+    // 左クリック以外はドラッグ開始しない
+    if (e.button !== 0 && e.button !== undefined) return;
+
     if (!canInteract) return;
     const key = getIntersectedBlockKey(e);
     if (!key) return;
@@ -652,10 +702,10 @@ export const CrashIce3DCanvas = ({
         const worldDz = hitPoint.z - bz;
         const angle = Math.atan2(worldDz, worldDx);
 
-        // Power calculation from screen drag distance (10px to 140px)
+        // Power calculation from screen drag distance (ドラッグ幅を280pxに拡大)
         let power = 0;
-        if (screenDist >= 10) {
-          const ratio = Math.min(1.0, (screenDist - 10) / 130);
+        if (screenDist >= 8) {
+          const ratio = Math.min(1.0, (screenDist - 8) / 280);
           power = Math.max(1, Math.round(ratio * 100));
         }
         currentAimRef.current = { power, angle };
@@ -664,14 +714,14 @@ export const CrashIce3DCanvas = ({
         const hammer = hammerMeshRef.current;
         if (hammer) {
           const powerRatio = power / 100;
-          const pullDist = Math.min(2.5, Math.hypot(worldDx, worldDz));
-          const dirX = pullDist > 0.05 ? worldDx / Math.hypot(worldDx, worldDz) : Math.cos(angle);
-          const dirZ = pullDist > 0.05 ? worldDz / Math.hypot(worldDx, worldDz) : Math.sin(angle);
+          const pullDist = Math.hypot(worldDx, worldDz);
+          const dirX = pullDist > 0.05 ? worldDx / pullDist : Math.cos(angle);
+          const dirZ = pullDist > 0.05 ? worldDz / pullDist : Math.sin(angle);
 
           hammer.position.set(
-            bx + dirX * (0.4 + pullDist * 0.7),
+            bx + dirX * Math.min(pullDist, 0.4 + powerRatio * 3.5),
             BLOCK_HEIGHT + 0.6 + powerRatio * 2.2,
-            bz + dirZ * (0.4 + pullDist * 0.7)
+            bz + dirZ * Math.min(pullDist, 0.4 + powerRatio * 3.5)
           );
           hammer.rotation.set(
             -0.35 - powerRatio * 0.6,
@@ -680,7 +730,7 @@ export const CrashIce3DCanvas = ({
           );
         }
 
-        // Update 3D Aim Trajectory Arrow on Ice Surface
+        // Update 3D Aim Trajectory Arrow on Ice Surface (打点からマウス位置まで直線をダイレクトに延伸)
         const aimObj = aimGroupRef.current;
         if (aimObj && aimObj.group) {
           if (power >= 5) {
@@ -698,13 +748,14 @@ export const CrashIce3DCanvas = ({
             );
             aimObj.cone.rotation.y = -angle - Math.PI / 2;
 
-            // Shaft between hammer base and block
-            const shaftLen = Math.max(0.1, Math.min(2.5, Math.hypot(worldDx, worldDz)) - 0.5);
+            // Shaft between hammer base/mouse and block (制限なくマウス位置まで綺麗に延伸)
+            const totalWorldDist = Math.hypot(worldDx, worldDz);
+            const shaftLen = Math.max(0.1, totalWorldDist - 0.45);
             aimObj.shaft.scale.set(1, shaftLen, 1);
             aimObj.shaft.position.set(
-              bx + Math.cos(angle) * (0.55 + shaftLen / 2),
+              bx + Math.cos(angle) * (0.45 + shaftLen / 2),
               BLOCK_HEIGHT / 2 + 0.02,
-              bz + Math.sin(angle) * (0.55 + shaftLen / 2)
+              bz + Math.sin(angle) * (0.45 + shaftLen / 2)
             );
             aimObj.shaft.rotation.y = -angle - Math.PI / 2;
 
@@ -743,6 +794,13 @@ export const CrashIce3DCanvas = ({
 
   const handlePointerUp = (e) => {
     if (!isAimingRef.current) return;
+
+    // 右クリック解放や左クリック以外はキャンセル
+    if (e.button === 2 || (e.button !== 0 && e.button !== undefined)) {
+      e.preventDefault();
+      cancelAiming();
+      return;
+    }
 
     if (controlsRef.current) controlsRef.current.enabled = true;
     if (aimGroupRef.current && aimGroupRef.current.group) {
@@ -800,6 +858,12 @@ export const CrashIce3DCanvas = ({
       onPointerLeave={handlePointerLeave}
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
+      onContextMenu={(e) => {
+        if (isAimingRef.current) {
+          e.preventDefault();
+          cancelAiming();
+        }
+      }}
     >
       <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />
 
@@ -828,15 +892,6 @@ export const CrashIce3DCanvas = ({
         }}>
           <span>🔨</span>
           <span>{aimHUD.power}%</span>
-          {aimHUD.isWeak ? (
-            <span style={{ color: '#38bdf8', fontSize: '11px', background: 'rgba(56,189,248,0.2)', padding: '2px 6px', borderRadius: '10px' }}>
-              弱すぎ
-            </span>
-          ) : (
-            <span style={{ color: aimHUD.power >= 80 ? '#ef4444' : (aimHUD.power >= 55 ? '#fb923c' : '#4ade80'), fontSize: '11px', background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: '10px' }}>
-              {aimHUD.power >= 80 ? '強打' : (aimHUD.power >= 55 ? '中打' : '安全')}
-            </span>
-          )}
         </div>
       )}
 
@@ -974,6 +1029,7 @@ export const CrashIce3DCanvas = ({
         <span>🖱️ 背景ドラッグ: 360°回転</span>
         <span>🔍 ホイール: ズーム</span>
         <span>🔨 氷をドラッグ: 角度・強さを決めて打撃！</span>
+        <span>🚫 右クリック: キャンセル</span>
       </div>
     </div>
   );
