@@ -20,10 +20,9 @@ export const CrashIce3DCanvas = ({
   board, // G.board: { "q,r": { color } }
   penguinPos, // G.penguinPos: "0,0" or null
   winner, // G.winner
-  selectedBlockKey, // "q,r" or null
-  onSelectBlock, // (key) => void
+  onStrike, // (key, power, angle) => void (打点でクリック＆ドラッグして叩く)
   onMovePenguin, // (key) => void
-  strikeTarget, // { key, power, id } trigger for hammer swing animation
+  strikeTarget, // { key, power, angle, id } trigger for hammer swing animation
   lastDroppedKeys, // string[]
   canInteract, // boolean
   allowedColor, // 'white' | 'blue' | 'any' | 'penguin' | null
@@ -44,7 +43,15 @@ export const CrashIce3DCanvas = ({
   const penguinGroupRef = useRef(null);
   const penguinBodyRef = useRef(null);
   const hammerMeshRef = useRef(null);
+  const aimGroupRef = useRef(null);
   const particlesRef = useRef([]); // ice shards
+
+  // Drag-to-Strike (打点ドラッグ打撃) Aim State
+  const isAimingRef = useRef(false);
+  const aimTargetRef = useRef(null); // { key, q, r, bx, bz }
+  const aimStartPosRef = useRef({ x: 0, y: 0 });
+  const currentAimRef = useRef({ power: 0, angle: 0 });
+  const [aimHUD, setAimHUD] = useState(null); // { key, power, angle, isWeak, screenX, screenY }
 
   // Hover state
   const hoveredBlockKeyRef = useRef(null);
@@ -189,6 +196,11 @@ export const CrashIce3DCanvas = ({
     scene.add(hammer);
     hammerMeshRef.current = hammer;
 
+    // --- 3D Aim Trajectory Arrow Construction ---
+    const aimObj = createAimTrajectoryGroup();
+    scene.add(aimObj.group);
+    aimGroupRef.current = aimObj;
+
     // --- Resize Handler & Observer ---
     const handleResize = () => {
       if (!containerRef.current || !rendererRef.current || !cameraRef.current) return;
@@ -261,12 +273,12 @@ export const CrashIce3DCanvas = ({
         }
       }
 
-      // Highlight pulse on hovered/selected block
+      // Highlight pulse on hovered/aimed block
       blocksMeshMapRef.current.forEach((mesh, key) => {
         const isHovered = key === hoveredBlockKeyRef.current;
-        const isSelected = key === selectedBlockKey;
+        const isAimingThis = isAimingRef.current && aimTargetRef.current?.key === key;
 
-        if (isSelected) {
+        if (isAimingThis) {
           const pulse = (Math.sin(elapsedTime * 8) + 1) * 0.5;
           mesh.material.emissive.setHex(0xf59e0b); // Golden amber
           mesh.material.emissiveIntensity = 0.4 + pulse * 0.4;
@@ -415,38 +427,47 @@ export const CrashIce3DCanvas = ({
     const hammer = hammerMeshRef.current;
     if (!hammer) return;
 
+    // Approach angle from drag vector (defaults to diagonal 45 deg)
+    const angle = strikeTarget.angle ?? (Math.PI / 4);
+    const power = strikeTarget.power ?? 50;
+    const isWeak = strikeTarget.isWeak ?? (power < 15);
+    const powerRatio = power / 100;
+
+    const dirX = Math.cos(angle);
+    const dirZ = Math.sin(angle);
+    const pullDist = 0.7 + powerRatio * 1.5;
+    const startY = BLOCK_HEIGHT + 1.2 + powerRatio * 2.6;
+
     hammer.visible = true;
-    hammer.position.set(x + 0.8, 4.0, z + 0.8);
-    hammer.rotation.set(-0.6, 0.4, 0.5);
+    hammer.position.set(x + dirX * pullDist, startY, z + dirZ * pullDist);
+    hammer.rotation.set(-0.4 - powerRatio * 0.5, -angle + Math.PI / 2, 0);
 
     const startTime = performance.now();
-    const duration = 280; // Fast impact swing
+    const duration = isWeak ? 220 : Math.max(180, 320 - powerRatio * 100);
 
     const swingAnim = () => {
       const now = performance.now();
       const progress = Math.min((now - startTime) / duration, 1.0);
 
-      if (progress < 0.75) {
-        // Downward swing
-        const p = progress / 0.75;
+      if (progress < 0.72) {
+        // Accelerating downward swing along angle towards block (x, z)
+        const p = Math.pow(progress / 0.72, 2.2);
         hammer.position.set(
-          THREE.MathUtils.lerp(x + 0.8, x + 0.1, p),
-          THREE.MathUtils.lerp(4.0, BLOCK_HEIGHT + 0.3, p * p),
-          THREE.MathUtils.lerp(z + 0.8, z + 0.1, p)
+          THREE.MathUtils.lerp(x + dirX * pullDist, x + dirX * 0.05, p),
+          THREE.MathUtils.lerp(startY, BLOCK_HEIGHT + 0.35, p),
+          THREE.MathUtils.lerp(z + dirZ * pullDist, z + dirZ * 0.05, p)
         );
         hammer.rotation.set(
-          THREE.MathUtils.lerp(-0.6, 0.2, p),
-          THREE.MathUtils.lerp(0.4, 0.0, p),
-          THREE.MathUtils.lerp(0.5, -0.4, p)
+          THREE.MathUtils.lerp(-0.4 - powerRatio * 0.5, 0.25, p),
+          -angle + Math.PI / 2,
+          THREE.MathUtils.lerp(0, -0.3, p)
         );
       } else {
-        // Recoil and fade
-        const p = (progress - 0.75) / 0.25;
-        hammer.position.y = BLOCK_HEIGHT + 0.3 + p * 0.8;
+        // Recoil bounce after impact
+        const p = (progress - 0.72) / 0.28;
+        hammer.position.y = BLOCK_HEIGHT + 0.35 + p * 0.6;
         if (p === 0) {
-          // Impact burst scales with applied force!
-          const powerRatio = (strikeTarget?.power || 50) / 100;
-          const count = Math.round(8 + powerRatio * 20);
+          const count = isWeak ? 4 : Math.round(8 + powerRatio * 24);
           spawnIceParticles(x, BLOCK_HEIGHT / 2, z, count);
         }
       }
@@ -558,19 +579,6 @@ export const CrashIce3DCanvas = ({
     return null;
   };
 
-  const handlePointerMove = (e) => {
-    const key = getIntersectedBlockKey(e);
-    if (key !== hoveredBlockKeyRef.current) {
-      hoveredBlockKeyRef.current = key;
-      setHoveredKey(key);
-    }
-  };
-
-  const handlePointerLeave = () => {
-    hoveredBlockKeyRef.current = null;
-    setHoveredKey(null);
-  };
-
   const handlePointerDown = (e) => {
     if (!canInteract) return;
     const key = getIntersectedBlockKey(e);
@@ -592,8 +600,183 @@ export const CrashIce3DCanvas = ({
     // Cannot hit block directly underneath penguin
     if (penguinPos === key) return;
 
-    if (onSelectBlock) {
-      onSelectBlock(key);
+    // Start direct drag-to-strike aiming from this block (打点でクリック＆ドラッグ開始)
+    const [q, r] = key.split(',').map(Number);
+    const { x: bx, z: bz } = hexTo3D(q, r);
+    const clientX = e.clientX ?? e.touches?.[0]?.clientX;
+    const clientY = e.clientY ?? e.touches?.[0]?.clientY;
+
+    isAimingRef.current = true;
+    aimTargetRef.current = { key, q, r, bx, bz };
+    aimStartPosRef.current = { x: clientX, y: clientY };
+    currentAimRef.current = { power: 0, angle: 0 };
+
+    // Disable camera orbit controls while dragging to aim strike
+    if (controlsRef.current) controlsRef.current.enabled = false;
+
+    // Position 3D hammer above the block
+    if (hammerMeshRef.current) {
+      hammerMeshRef.current.visible = true;
+      hammerMeshRef.current.position.set(bx + 0.45, BLOCK_HEIGHT + 1.2, bz + 0.45);
+      hammerMeshRef.current.rotation.set(-0.35, Math.PI / 4, 0);
+    }
+
+    if (e.target.setPointerCapture) {
+      try { e.target.setPointerCapture(e.pointerId); } catch (_) {}
+    }
+  };
+
+  const handlePointerMove = (e) => {
+    const clientX = e.clientX ?? e.touches?.[0]?.clientX;
+    const clientY = e.clientY ?? e.touches?.[0]?.clientY;
+    if (clientX === undefined || clientY === undefined) return;
+
+    if (isAimingRef.current && aimTargetRef.current) {
+      const { bx, bz, key } = aimTargetRef.current;
+      const dx = clientX - aimStartPosRef.current.x;
+      const dy = clientY - aimStartPosRef.current.y;
+      const screenDist = Math.hypot(dx, dy);
+
+      const canvas = canvasRef.current;
+      if (canvas && cameraRef.current) {
+        const rect = canvas.getBoundingClientRect();
+        mouse.current.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+        mouse.current.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+        raycaster.current.setFromCamera(mouse.current, cameraRef.current);
+        const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -BLOCK_HEIGHT / 2);
+        const hitPoint = new THREE.Vector3();
+        raycaster.current.ray.intersectPlane(plane, hitPoint);
+
+        // 3D vector from block to pulled hammer point
+        const worldDx = hitPoint.x - bx;
+        const worldDz = hitPoint.z - bz;
+        const angle = Math.atan2(worldDz, worldDx);
+
+        // Power calculation from screen drag distance (10px to 140px)
+        let power = 0;
+        if (screenDist >= 10) {
+          const ratio = Math.min(1.0, (screenDist - 10) / 130);
+          power = Math.max(1, Math.round(ratio * 100));
+        }
+        currentAimRef.current = { power, angle };
+
+        // Position & Rotate 3D Hammer (pulls back and raises as power builds)
+        const hammer = hammerMeshRef.current;
+        if (hammer) {
+          const powerRatio = power / 100;
+          const pullDist = Math.min(2.5, Math.hypot(worldDx, worldDz));
+          const dirX = pullDist > 0.05 ? worldDx / Math.hypot(worldDx, worldDz) : Math.cos(angle);
+          const dirZ = pullDist > 0.05 ? worldDz / Math.hypot(worldDx, worldDz) : Math.sin(angle);
+
+          hammer.position.set(
+            bx + dirX * (0.4 + pullDist * 0.7),
+            BLOCK_HEIGHT + 0.6 + powerRatio * 2.2,
+            bz + dirZ * (0.4 + pullDist * 0.7)
+          );
+          hammer.rotation.set(
+            -0.35 - powerRatio * 0.6,
+            -angle + Math.PI / 2,
+            0
+          );
+        }
+
+        // Update 3D Aim Trajectory Arrow on Ice Surface
+        const aimObj = aimGroupRef.current;
+        if (aimObj && aimObj.group) {
+          if (power >= 5) {
+            aimObj.group.visible = true;
+
+            // Target ring at block
+            aimObj.ring.position.set(bx, BLOCK_HEIGHT / 2 + 0.02, bz);
+
+            // Arrow Cone pointing into block
+            const coneDist = 0.55;
+            aimObj.cone.position.set(
+              bx + Math.cos(angle) * coneDist,
+              BLOCK_HEIGHT / 2 + 0.03,
+              bz + Math.sin(angle) * coneDist
+            );
+            aimObj.cone.rotation.y = -angle - Math.PI / 2;
+
+            // Shaft between hammer base and block
+            const shaftLen = Math.max(0.1, Math.min(2.5, Math.hypot(worldDx, worldDz)) - 0.5);
+            aimObj.shaft.scale.set(1, shaftLen, 1);
+            aimObj.shaft.position.set(
+              bx + Math.cos(angle) * (0.55 + shaftLen / 2),
+              BLOCK_HEIGHT / 2 + 0.02,
+              bz + Math.sin(angle) * (0.55 + shaftLen / 2)
+            );
+            aimObj.shaft.rotation.y = -angle - Math.PI / 2;
+
+            let hexColor = 0x38bdf8; // Blue (< 15)
+            if (power >= 80) hexColor = 0xef4444; // Red
+            else if (power >= 55) hexColor = 0xfb923c; // Orange
+            else if (power >= 15) hexColor = 0x4ade80; // Green
+
+            for (const mat of aimObj.materials) {
+              mat.color.setHex(hexColor);
+            }
+          } else {
+            aimObj.group.visible = false;
+          }
+        }
+
+        // Update floating HUD
+        setAimHUD({
+          key,
+          power,
+          isWeak: power < 15,
+          screenX: clientX,
+          screenY: clientY
+        });
+      }
+      return;
+    }
+
+    // Normal hover detection
+    const key = getIntersectedBlockKey(e);
+    if (key !== hoveredBlockKeyRef.current) {
+      hoveredBlockKeyRef.current = key;
+      setHoveredKey(key);
+    }
+  };
+
+  const handlePointerUp = (e) => {
+    if (!isAimingRef.current) return;
+
+    if (controlsRef.current) controlsRef.current.enabled = true;
+    if (aimGroupRef.current && aimGroupRef.current.group) {
+      aimGroupRef.current.group.visible = false;
+    }
+    setAimHUD(null);
+    isAimingRef.current = false;
+
+    const target = aimTargetRef.current;
+    const { power, angle } = currentAimRef.current;
+    aimTargetRef.current = null;
+
+    if (e.target.releasePointerCapture) {
+      try { e.target.releasePointerCapture(e.pointerId); } catch (_) {}
+    }
+
+    if (!target) return;
+
+    // If dragged too little (< 5), cancel without striking
+    if (power < 5) {
+      if (hammerMeshRef.current) hammerMeshRef.current.visible = false;
+      return;
+    }
+
+    // Direct strike execution: trigger strike with determined key, power, and angle!
+    if (onStrike) {
+      onStrike(target.key, power, angle);
+    }
+  };
+
+  const handlePointerLeave = () => {
+    if (!isAimingRef.current) {
+      hoveredBlockKeyRef.current = null;
+      setHoveredKey(null);
     }
   };
 
@@ -616,8 +799,73 @@ export const CrashIce3DCanvas = ({
       onPointerMove={handlePointerMove}
       onPointerLeave={handlePointerLeave}
       onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
     >
       <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />
+
+      {/* ドラッグ打撃中の浮動パワー・角度HUD */}
+      {aimHUD && (
+        <div style={{
+          position: 'fixed',
+          left: aimHUD.screenX,
+          top: aimHUD.screenY - 50,
+          transform: 'translateX(-50%)',
+          background: 'rgba(15, 23, 42, 0.92)',
+          backdropFilter: 'blur(8px)',
+          border: `2px solid ${aimHUD.power < 15 ? '#38bdf8' : (aimHUD.power < 55 ? '#4ade80' : (aimHUD.power < 80 ? '#fb923c' : '#ef4444'))}`,
+          color: '#ffffff',
+          padding: '6px 14px',
+          borderRadius: '20px',
+          fontSize: '13px',
+          fontWeight: 'bold',
+          pointerEvents: 'none',
+          zIndex: 1000,
+          boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          whiteSpace: 'nowrap'
+        }}>
+          <span>🔨</span>
+          <span>{aimHUD.power}%</span>
+          {aimHUD.isWeak ? (
+            <span style={{ color: '#38bdf8', fontSize: '11px', background: 'rgba(56,189,248,0.2)', padding: '2px 6px', borderRadius: '10px' }}>
+              弱すぎ
+            </span>
+          ) : (
+            <span style={{ color: aimHUD.power >= 80 ? '#ef4444' : (aimHUD.power >= 55 ? '#fb923c' : '#4ade80'), fontSize: '11px', background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: '10px' }}>
+              {aimHUD.power >= 80 ? '強打' : (aimHUD.power >= 55 ? '中打' : '安全')}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* 手番中の打撃操作ガイダンス */}
+      {canInteract && !aimHUD && (
+        <div style={{
+          position: 'absolute',
+          top: '12px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: 'rgba(15, 23, 42, 0.8)',
+          backdropFilter: 'blur(6px)',
+          color: '#e0f2fe',
+          border: '1px solid rgba(56, 189, 248, 0.45)',
+          padding: '6px 16px',
+          borderRadius: '20px',
+          fontSize: '12px',
+          fontWeight: 'bold',
+          pointerEvents: 'none',
+          zIndex: 10,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
+        }}>
+          <span>🔨</span>
+          <span>氷をクリック＆ドラッグして角度と強さを決めて離してください！</span>
+        </div>
+      )}
 
       {/* 3D Camera Controls Overlay */}
       <div
@@ -723,35 +971,10 @@ export const CrashIce3DCanvas = ({
           gap: '8px'
         }}
       >
-        <span>🖱️ ドラッグ: 360°回転</span>
+        <span>🖱️ 背景ドラッグ: 360°回転</span>
         <span>🔍 ホイール: ズーム</span>
-        <span>🎯 クリック: 氷を選択</span>
+        <span>🔨 氷をドラッグ: 角度・強さを決めて打撃！</span>
       </div>
-
-      {/* Selected Block Info Indicator */}
-      {selectedBlockKey && (
-        <div
-          style={{
-            position: 'absolute',
-            bottom: '10px',
-            right: '12px',
-            background: 'rgba(245, 158, 11, 0.85)',
-            backdropFilter: 'blur(8px)',
-            color: '#000',
-            padding: '4px 10px',
-            borderRadius: '20px',
-            fontSize: '11px',
-            fontWeight: 'bold',
-            boxShadow: '0 2px 10px rgba(245, 158, 11, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-            pointerEvents: 'none'
-          }}
-        >
-          🔨 選択中: [{selectedBlockKey}]
-        </div>
-      )}
     </div>
   );
 };
@@ -894,6 +1117,60 @@ function createHammerMesh() {
   });
 
   return group;
+}
+
+// Helper: 3D Aim Trajectory Indicator (Arrow & Tension Line on Ice Surface)
+function createAimTrajectoryGroup() {
+  const group = new THREE.Group();
+  group.visible = false;
+
+  // Impact target ring at the block
+  const ringGeo = new THREE.RingGeometry(0.38, 0.46, 24);
+  ringGeo.rotateX(-Math.PI / 2);
+  const ringMat = new THREE.MeshBasicMaterial({
+    color: 0x4ade80,
+    transparent: true,
+    opacity: 0.9,
+    depthWrite: false,
+    side: THREE.DoubleSide
+  });
+  const ring = new THREE.Mesh(ringGeo, ringMat);
+  ring.position.y = BLOCK_HEIGHT / 2 + 0.02;
+  group.add(ring);
+
+  // Directional Arrow Cone pointing into the block
+  const coneGeo = new THREE.ConeGeometry(0.22, 0.5, 12);
+  coneGeo.rotateX(Math.PI / 2);
+  const coneMat = new THREE.MeshBasicMaterial({
+    color: 0x4ade80,
+    transparent: true,
+    opacity: 0.9,
+    depthWrite: false
+  });
+  const cone = new THREE.Mesh(coneGeo, coneMat);
+  cone.position.y = BLOCK_HEIGHT / 2 + 0.03;
+  group.add(cone);
+
+  // Tension shaft line from hammer base to block
+  const shaftGeo = new THREE.CylinderGeometry(0.05, 0.05, 1, 8);
+  shaftGeo.rotateX(Math.PI / 2);
+  const shaftMat = new THREE.MeshBasicMaterial({
+    color: 0x4ade80,
+    transparent: true,
+    opacity: 0.75,
+    depthWrite: false
+  });
+  const shaft = new THREE.Mesh(shaftGeo, shaftMat);
+  shaft.position.y = BLOCK_HEIGHT / 2 + 0.02;
+  group.add(shaft);
+
+  return {
+    group,
+    ring,
+    cone,
+    shaft,
+    materials: [ringMat, coneMat, shaftMat]
+  };
 }
 
 // Helper: Snug Molded Table Frame with Exact Interlocking Cutout for 37 Hexes

@@ -165,17 +165,14 @@ export const TournamentBracketView = ({ tournament, getPlayerName, activeMatchId
 
 export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
   const [viewMode, setViewMode] = useState('3d'); // '3d' | '2d'
-  const [strikeTrigger, setStrikeTrigger] = useState(null); // { key, power, id }
-  const [selectedBlockKey, setSelectedBlockKey] = useState(null);
-  const [power, setPower] = useState(50);
-  const [isDraggingPower, setIsDraggingPower] = useState(false);
-  const [isStrikingAnim, setIsStrikingAnim] = useState(false);
+  const [strikeTrigger, setStrikeTrigger] = useState(null); // { key, power, angle, id }
   const [showRules, setShowRules] = useState(false);
   const [showBracketModal, setShowBracketModal] = useState(false);
   const [isSpinning, setIsSpinning] = useState(false);
   const [needleAngle, setNeedleAngle] = useState(() => (G.rouletteResultIndex ?? 0) * 72);
   const [fallingBlocks, setFallingBlocks] = useState([]);
   const [isBoardShaking, setIsBoardShaking] = useState(false);
+  const [drag2D, setDrag2D] = useState(null); // 2Dモード用ドラッグステート
 
   // ダイアログ状態管理
   const [showGameOverModal, setShowGameOverModal] = useState(false);
@@ -185,8 +182,6 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
 
   const isFirstRender = useRef(true);
   const prevLastDroppedRef = useRef([]);
-
-  const powerBarRef = useRef(null);
 
   const pid = playerID || '0';
   const isActivePlayer = ctx.currentPlayer === pid;
@@ -274,6 +269,7 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
         setStrikeTrigger({
           key: G.lastStrikeEvent.key,
           power: G.lastStrikeEvent.power,
+          angle: G.lastStrikeEvent.angle ?? 0,
           id: G.lastStrikeEvent.id
         });
       }
@@ -301,46 +297,6 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
     }
   }, [G.rouletteResultIndex, isActivePlayer]);
 
-  // パワーゲージのマウスドラッグ操作処理 (動くゲージではなくドラッグで強さを決定)
-  const updatePowerFromPointer = useCallback((clientX) => {
-    if (!powerBarRef.current) return;
-    const rect = powerBarRef.current.getBoundingClientRect();
-    if (rect.width <= 0) return;
-    const rawRatio = (clientX - rect.left) / rect.width;
-    const clampedRatio = Math.max(0, Math.min(1, rawRatio));
-    const newPower = Math.round(clampedRatio * 100);
-    setPower(newPower);
-  }, []);
-
-  const handlePowerPointerDown = (e) => {
-    e.preventDefault();
-    setIsDraggingPower(true);
-    updatePowerFromPointer(e.clientX);
-    if (e.target.setPointerCapture) {
-      try { e.target.setPointerCapture(e.pointerId); } catch (_) {}
-    }
-  };
-
-  useEffect(() => {
-    if (!isDraggingPower) return;
-
-    const handleWindowPointerMove = (e) => {
-      updatePowerFromPointer(e.clientX);
-    };
-
-    const handleWindowPointerUp = (e) => {
-      setIsDraggingPower(false);
-      updatePowerFromPointer(e.clientX);
-    };
-
-    window.addEventListener('pointermove', handleWindowPointerMove);
-    window.addEventListener('pointerup', handleWindowPointerUp);
-    return () => {
-      window.removeEventListener('pointermove', handleWindowPointerMove);
-      window.removeEventListener('pointerup', handleWindowPointerUp);
-    };
-  }, [isDraggingPower, updatePowerFromPointer]);
-
   // ルーレット回転処理
   const handleSpinRoulette = () => {
     if (isSpinning || !isActivePlayer || G.turnStep !== 'spin' || G.winner || isSpectator) return;
@@ -363,49 +319,73 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
     }, 1400);
   };
 
-  // 氷クリック
-  const handleBlockClick = (key) => {
+  // 氷ブロックへの直接打撃処理 (3D & 2D 共通：打点ドラッグで角度と強さを指定して実行)
+  const handleDirectStrike = (key, strikePower, angle = 0) => {
+    if (!isActivePlayer || G.turnStep !== 'strike' || G.winner || isSpectator) return;
+
+    // 叩くアニメーションをトリガー
+    setStrikeTrigger({ key, power: strikePower, angle, id: Date.now() });
+
+    // boardgame.io move を呼び出し
+    moves.strikeBlock(key, strikePower, angle);
+  };
+
+  // 2Dモード用：打点クリック＆ドラッグ処理
+  const handle2DPointerDown = (e, key, blockX, blockY) => {
+    e.preventDefault();
     if (!isActivePlayer || G.turnStep !== 'strike' || G.winner || isSpectator) return;
     const block = G.board[key];
     if (!block) return;
+    if (G.rouletteResult && G.rouletteResult.targetColor !== 'any' && block.color !== G.rouletteResult.targetColor) return;
+    if (G.penguinPos && `${G.penguinPos.q},${G.penguinPos.r}` === key) return;
 
-    // 色指定チェック
-    if (G.rouletteResult && G.rouletteResult.targetColor !== 'any') {
-      if (block.color !== G.rouletteResult.targetColor) {
-        return;
+    setDrag2D({
+      key,
+      blockX,
+      blockY,
+      startX: e.clientX,
+      startY: e.clientY,
+      currentX: e.clientX,
+      currentY: e.clientY,
+      power: 0,
+      angle: 0
+    });
+
+    if (e.target.setPointerCapture) {
+      try { e.target.setPointerCapture(e.pointerId); } catch (_) {}
+    }
+  };
+
+  useEffect(() => {
+    if (!drag2D) return;
+
+    const handleWindowPointerMove = (e) => {
+      const dx = e.clientX - drag2D.startX;
+      const dy = e.clientY - drag2D.startY;
+      const dist = Math.hypot(dx, dy);
+      let power = 0;
+      if (dist >= 10) {
+        power = Math.min(100, Math.max(1, Math.round(((dist - 10) / 110) * 100)));
       }
-    }
+      const angle = Math.atan2(dy, dx);
+      setDrag2D(prev => prev ? { ...prev, currentX: e.clientX, currentY: e.clientY, power, angle } : null);
+    };
 
-    setSelectedBlockKey(key);
-    // 初期パワーを安全な位置（50%）にセット
-    setPower(50);
-  };
+    const handleWindowPointerUp = (e) => {
+      const current = drag2D;
+      setDrag2D(null);
+      if (current && current.power >= 5) {
+        handleDirectStrike(current.key, current.power, current.angle);
+      }
+    };
 
-  // 叩く実行（パワー確定）
-  const handleStrike = () => {
-    if (!selectedBlockKey || isStrikingAnim || !isActivePlayer || isSpectator) return;
-    setIsDraggingPower(false);
-
-    const targetKey = selectedBlockKey;
-    const strikePower = power;
-
-    // 叩くアニメーションをトリガー
-    setStrikeTrigger({ key: targetKey, power: strikePower, id: Date.now() });
-
-    if (strikePower < 15) {
-      // 力が弱すぎた場合: 一時的に演出を見せ、同じブロックで再開
-      setIsStrikingAnim(true);
-      moves.strikeBlock(targetKey, strikePower);
-
-      setTimeout(() => {
-        setIsStrikingAnim(false);
-      }, 420);
-    } else {
-      // 充分な力がある場合: ブロックが落ちて選択解除
-      setSelectedBlockKey(null);
-      moves.strikeBlock(targetKey, strikePower);
-    }
-  };
+    window.addEventListener('pointermove', handleWindowPointerMove);
+    window.addEventListener('pointerup', handleWindowPointerUp);
+    return () => {
+      window.removeEventListener('pointermove', handleWindowPointerMove);
+      window.removeEventListener('pointerup', handleWindowPointerUp);
+    };
+  }, [drag2D, isActivePlayer, G.turnStep, G.winner, isSpectator]);
 
   // ルールモーダル
   const rulesModal = showRules && (
@@ -425,10 +405,10 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
         <h3 style={{ color: '#00897b' }}>🔨 ゲームの流れ</h3>
         <ol style={{ lineHeight: 1.6 }}>
           <li>自分の番が来たら、まず**「ルーレット」**を回します。</li>
-          <li>ルーレットで指定された色（青、白、好きな色、2個）の氷ブロックをクリックします。</li>
-          <li>**動くパワーゲージ**がスタートします！タイミングよく**「叩く！」**ボタンを押して強さを決定します。</li>
-          <li>弱すぎると氷が抜けず（同じブロックを再打撃）、強すぎると周囲の氷も崩れてペンギンが落ちる危険が高まります！</li>
-          <li>ペンギンが落ちずに氷を落とせたら、相手にターンが移ります。</li>
+          <li>落としたい氷ブロック（打点）を**直接クリックしてマウスを引っ張り（ドラッグ）**ます。</li>
+          <li>引っ張る向きと距離で**叩く角度と強さ（パワー）**が決まります！狙いを定めて離すとハンマーを振り下ろします！</li>
+          <li>弱すぎると氷が抜けず（同じブロックを再打撃可能）、強すぎると周囲の氷も巻き込んでペンギンが落ちる危険が高まります！</li>
+          <li>ペンギンを落とさずに氷を落とせたら、相手にターンが移ります。</li>
         </ol>
 
         <button onClick={() => setShowRules(false)} style={{ width: '100%', padding: '12px', background: '#00bcd4', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px', marginTop: '15px' }}>
@@ -724,8 +704,7 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
                 board={G.board}
                 penguinPos={G.penguinFallen ? null : `${G.penguinPos.q},${G.penguinPos.r}`}
                 winner={G.winner}
-                selectedBlockKey={selectedBlockKey}
-                onSelectBlock={handleBlockClick}
+                onStrike={handleDirectStrike}
                 strikeTarget={strikeTrigger}
                 lastDroppedKeys={G.lastDroppedKeys}
                 canInteract={isCompetitor && isActivePlayer && G.turnStep === 'strike' && !G.winner && G.gameState === 'playing'}
@@ -773,7 +752,7 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
                   animation: boardShakeAnim 0.35s ease-in-out;
                 }
               `}</style>
-              <svg width="460" height="420" viewBox="-230 -210 460 420" style={{ overflow: 'visible' }}>
+              <svg width="460" height="420" viewBox="-230 -210 460 420" style={{ overflow: 'visible', userSelect: 'none' }}>
                 <defs>
                   <radialGradient id="blueIce" cx="30%" cy="30%" r="70%">
                     <stop offset="0%" stopColor="#81d4fa" />
@@ -790,26 +769,51 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
                 {/* 氷ブロック描画 */}
                 {Object.entries(G.board).map(([key, block]) => {
                   const { x, y } = hexToPixel(block.q, block.r);
-                  const isSelected = selectedBlockKey === key;
+                  const isBeingDragged = drag2D?.key === key;
                   const canSelect = isCompetitor && isActivePlayer && G.turnStep === 'strike' && !G.winner && G.gameState === 'playing' && (
                     !G.rouletteResult || G.rouletteResult.targetColor === 'any' || block.color === G.rouletteResult.targetColor
-                  );
+                  ) && (!G.penguinPos || `${G.penguinPos.q},${G.penguinPos.r}` !== key);
 
                   return (
                     <polygon
                       key={key}
                       points={getHexPolygonPoints(x, y, HEX_SIZE - 2)}
                       fill={block.color === 'blue' ? 'url(#blueIce)' : 'url(#whiteIce)'}
-                      stroke={isSelected ? '#ffd600' : (canSelect ? '#00e676' : '#ffffff')}
-                      strokeWidth={isSelected ? '4' : (canSelect ? '2' : '1')}
+                      stroke={isBeingDragged ? '#fbbf24' : (canSelect ? '#00e676' : '#ffffff')}
+                      strokeWidth={isBeingDragged ? '3.5' : (canSelect ? '2' : '1')}
                       style={{
-                        cursor: canSelect ? 'pointer' : 'default',
-                        transition: 'all 0.15s ease-out'
+                        cursor: canSelect ? (drag2D ? 'grabbing' : 'grab') : 'default',
+                        transition: isBeingDragged ? 'none' : 'all 0.15s ease-out'
                       }}
-                      onClick={() => canSelect && handleBlockClick(key)}
+                      onPointerDown={(e) => canSelect && handle2DPointerDown(e, key, x, y)}
                     />
                   );
                 })}
+
+                {/* 2Dドラッグ中の軌跡矢印・パワーHUD */}
+                {drag2D && drag2D.power >= 5 && (() => {
+                  const arrowColor = drag2D.power >= 80 ? '#ef4444' : (drag2D.power >= 55 ? '#fb923c' : (drag2D.power >= 15 ? '#4ade80' : '#38bdf8'));
+                  const pullLen = 15 + (drag2D.power / 100) * 45;
+                  const tipX = drag2D.blockX + Math.cos(drag2D.angle) * pullLen;
+                  const tipY = drag2D.blockY + Math.sin(drag2D.angle) * pullLen;
+                  return (
+                    <g pointerEvents="none">
+                      {/* 打点リング */}
+                      <circle cx={drag2D.blockX} cy={drag2D.blockY} r={HEX_SIZE} fill="none" stroke={arrowColor} strokeWidth="3" strokeDasharray="3 2" />
+                      {/* 引っ張りライン */}
+                      <line x1={drag2D.blockX} y1={drag2D.blockY} x2={tipX} y2={tipY} stroke={arrowColor} strokeWidth="4" strokeLinecap="round" />
+                      {/* 先端ノブ */}
+                      <circle cx={tipX} cy={tipY} r="6" fill={arrowColor} stroke="#fff" strokeWidth="1.5" />
+                      {/* パワーバッジ */}
+                      <g transform={`translate(${tipX}, ${tipY - 16})`}>
+                        <rect x="-32" y="-12" width="64" height="22" rx="11" fill="rgba(15,23,42,0.88)" stroke="#fff" strokeWidth="1.5" />
+                        <text textAnchor="middle" dominantBaseline="central" fill="#fff" fontSize="11" fontWeight="bold">
+                          🔨 {drag2D.power}%
+                        </text>
+                      </g>
+                    </g>
+                  );
+                })()}
 
                 {/* 落下中ブロック */}
                 {fallingBlocks.map(b => {
@@ -1027,165 +1031,7 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
 
       </div>
 
-      {/* POWER GAUGE MODAL (カラーバーのみで決定) */}
-      {selectedBlockKey && !isStrikingAnim && (
-        <div 
-          style={{ 
-            position: 'fixed', 
-            top: 0, 
-            left: 0, 
-            right: 0, 
-            bottom: 0, 
-            background: 'rgba(0,0,0,0.5)', 
-            backdropFilter: 'blur(3px)', 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center', 
-            zIndex: 1000, 
-            padding: '20px' 
-          }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget && !isDraggingPower) setSelectedBlockKey(null);
-          }}
-        >
-          <div style={{ 
-            background: '#ffffff', 
-            borderRadius: '20px', 
-            maxWidth: '380px', 
-            width: '100%', 
-            padding: '28px 20px 20px', 
-            textAlign: 'center', 
-            boxShadow: '0 20px 40px rgba(0,0,0,0.35)', 
-            border: '1px solid #cbd5e1',
-            userSelect: 'none'
-          }}>
-            {/* パワーゲージ本体（ドラッグで引っ張るカラーバー） */}
-            <div 
-              ref={powerBarRef}
-              onPointerDown={handlePowerPointerDown}
-              style={{
-                background: 'linear-gradient(to right, #38bdf8 0%, #4ade80 25%, #facc15 55%, #fb923c 80%, #ef4444 100%)',
-                borderRadius: '20px',
-                height: '40px',
-                position: 'relative',
-                boxShadow: 'inset 0 2px 6px rgba(0,0,0,0.25), 0 2px 8px rgba(0,0,0,0.1)',
-                border: '2px solid #94a3b8',
-                cursor: isDraggingPower ? 'grabbing' : 'grab',
-                marginBottom: '22px',
-                touchAction: 'none'
-              }}
-            >
-              {/* 未チャージ部分の暗めオーバーレイ（現在パワー以降を少し暗くしてチャージ量を際立たせる） */}
-              <div style={{
-                position: 'absolute',
-                top: 0,
-                bottom: 0,
-                right: 0,
-                left: `${power}%`,
-                background: 'rgba(15, 23, 42, 0.42)',
-                borderRadius: '0 18px 18px 0',
-                pointerEvents: 'none',
-                transition: isDraggingPower ? 'none' : 'left 0.1s ease-out'
-              }} />
 
-              {/* 移動するインジケーター針 & ドラッグ可能なハンマーハンドル */}
-              <div style={{
-                position: 'absolute',
-                top: '-10px',
-                bottom: '-10px',
-                left: `${power}%`,
-                width: '8px',
-                background: '#0f172a',
-                borderRadius: '4px',
-                transform: 'translateX(-50%)',
-                boxShadow: '0 0 12px rgba(255,255,255,0.95), 0 2px 8px rgba(0,0,0,0.5)',
-                border: '1.5px solid #ffffff',
-                pointerEvents: 'none',
-                transition: isDraggingPower ? 'none' : 'left 0.1s ease-out'
-              }}>
-                {/* ハンマーアイコン（ドラッグ中に少し傾いて力を溜める演出） */}
-                <div style={{
-                  position: 'absolute',
-                  top: '-26px',
-                  left: '50%',
-                  transform: `translateX(-50%) scale(${isDraggingPower ? 1.25 : 1.1}) rotate(${isDraggingPower ? -18 : -5}deg)`,
-                  fontSize: '22px',
-                  transition: 'transform 0.15s ease-out',
-                  filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))'
-                }}>
-                  🔨
-                </div>
-
-                {/* 針の上の三角マーク */}
-                <div style={{
-                  position: 'absolute',
-                  top: '-7px',
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  width: 0,
-                  height: 0,
-                  borderLeft: '6px solid transparent',
-                  borderRight: '6px solid transparent',
-                  borderTop: '8px solid #0f172a'
-                }} />
-                {/* 針の下の三角マーク */}
-                <div style={{
-                  position: 'absolute',
-                  bottom: '-7px',
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  width: 0,
-                  height: 0,
-                  borderLeft: '6px solid transparent',
-                  borderRight: '6px solid transparent',
-                  borderBottom: '8px solid #0f172a'
-                }} />
-              </div>
-            </div>
-
-            {/* アクションボタン */}
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <button 
-                onClick={() => setSelectedBlockKey(null)}
-                style={{ 
-                  flex: 1, 
-                  padding: '12px', 
-                  background: '#f1f5f9', 
-                  color: '#475569', 
-                  border: '1px solid #cbd5e1', 
-                  borderRadius: '10px', 
-                  cursor: 'pointer', 
-                  fontSize: '14px', 
-                  fontWeight: 'bold' 
-                }}
-              >
-                キャンセル
-              </button>
-              <button 
-                onClick={handleStrike}
-                style={{ 
-                  flex: 2, 
-                  padding: '12px', 
-                  background: 'linear-gradient(135deg, #0284c7, #0369a1)', 
-                  color: '#fff', 
-                  border: 'none', 
-                  borderRadius: '10px', 
-                  cursor: 'pointer', 
-                  fontWeight: 'bold', 
-                  fontSize: '18px',
-                  boxShadow: '0 4px 12px rgba(2, 132, 199, 0.4)',
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center', 
-                  gap: '6px'
-                }}
-              >
-                🔨 叩く
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* インターミッション中のフローティングバー（最小化時） */}
       {G.gameState === 'intermission' && isIntermissionDismissed && (

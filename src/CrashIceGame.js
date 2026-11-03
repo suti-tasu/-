@@ -833,8 +833,8 @@ export const CrashIceGame = {
     // 2. モード切り替え (Bモード固定のため互換用noop)
     switchMode: () => {},
 
-    // 3. 氷を叩く (カラーバーで決定したパワー値 0〜100)
-    strikeBlock: ({ G, ctx, random, events }, blockKey, power = 50) => {
+    // 3. 氷を叩く (ドラッグで決定したパワー値 0〜100 と角度 angle)
+    strikeBlock: ({ G, ctx, random, events }, blockKey, power = 50, angle = 0) => {
       if (G.gameState !== 'playing' || G.winner || G.turnStep !== 'strike') return INVALID_MOVE;
       if (!G.board[blockKey]) return INVALID_MOVE;
 
@@ -858,13 +858,13 @@ export const CrashIceGame = {
 
       // 力が弱すぎた場合 (power < 15): 氷が抜けず、同じブロックを再度叩く
       if (power < 15) {
-        G.lastStrikeEvent = { key: blockKey, power, isWeak: true, id: Date.now() };
+        G.lastStrikeEvent = { key: blockKey, power, angle, isWeak: true, id: Date.now() };
         G.logs.push(`【${pName}】打撃力が弱く、氷を打ち抜けませんでした！（同じブロックをもう一度叩いてください）`);
         return;
       }
 
       // 充分な打撃力がある場合 (power >= 15):
-      G.lastStrikeEvent = { key: blockKey, power, isWeak: false, id: Date.now() };
+      G.lastStrikeEvent = { key: blockKey, power, angle, isWeak: false, id: Date.now() };
       const dropped = [];
 
       // 狙ったブロックを落とす
