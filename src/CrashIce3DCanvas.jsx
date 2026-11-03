@@ -942,7 +942,7 @@ function createSnugTableGroup() {
       if (!allBlocks.has(nKey)) {
         const a1 = (dirAngles[dirIdx].a1 * Math.PI) / 180;
         const a2 = (dirAngles[dirIdx].a2 * Math.PI) / 180;
-        const FIT_R = HEX_RADIUS * 1.008;
+        const FIT_R = HEX_RADIUS * 1.015;
         const p1 = {
           x: Number((x + FIT_R * Math.cos(a1)).toFixed(4)),
           y: Number((z + FIT_R * Math.sin(a1)).toFixed(4))
@@ -967,12 +967,12 @@ function createSnugTableGroup() {
       const s = segments[i];
       const d1 = Math.hypot(s.p1.x - last.x, s.p1.y - last.y);
       const d2 = Math.hypot(s.p2.x - last.x, s.p2.y - last.y);
-      if (d1 < 0.001) {
+      if (d1 < 0.05) {
         loop.push(s.p2);
         used.add(i);
         found = true;
         break;
-      } else if (d2 < 0.001) {
+      } else if (d2 < 0.05) {
         loop.push(s.p1);
         used.add(i);
         found = true;
@@ -980,6 +980,11 @@ function createSnugTableGroup() {
       }
     }
     if (!found) break;
+  }
+
+  // Three.js Shape holes MUST have Clockwise winding (negative area)
+  if (THREE.ShapeUtils.area(loop) > 0) {
+    loop.reverse();
   }
 
   // 3. Molded Outer Table Frame with Interlocking Hex Notch Hole

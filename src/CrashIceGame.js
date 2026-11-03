@@ -12,11 +12,21 @@ export const HEX_DIRECTIONS = [
 
 export const BOARD_RADIUS = 3; // 半径3の六角形 (全37マス)
 
-// 六角形盤面の初期化
+// 六角形盤面の初期化 (全37マス：実物玩具に準拠し青19個・白18個の密な整列配置)
 export const createInitialBoard = (random) => {
   const blocks = {};
-  const colors = ['blue', 'white'];
   
+  // 青19個・白18個 (計37個) のカラー配列を作成しシャッフル
+  const colorList = [
+    ...Array(19).fill('blue'),
+    ...Array(18).fill('white')
+  ];
+  for (let i = colorList.length - 1; i > 0; i--) {
+    const j = random.Die(i + 1) - 1;
+    [colorList[i], colorList[j]] = [colorList[j], colorList[i]];
+  }
+
+  let colorIdx = 0;
   for (let q = -BOARD_RADIUS; q <= BOARD_RADIUS; q++) {
     const r1 = Math.max(-BOARD_RADIUS, -q - BOARD_RADIUS);
     const r2 = Math.min(BOARD_RADIUS, -q + BOARD_RADIUS);
@@ -29,13 +39,10 @@ export const createInitialBoard = (random) => {
         Math.abs(q + r) === BOARD_RADIUS
       );
 
-      // 白と青をほぼ半々でランダム配置
-      const color = colors[random.Die(2) - 1];
-      
       blocks[key] = {
         q,
         r,
-        color,
+        color: colorList[colorIdx++],
         isEdge,
         stability: 100, // 耐久度 (方式B用)
         cracked: false, // ヒビ状態
