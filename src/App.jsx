@@ -266,7 +266,7 @@ const App = () => {
   if (playerID !== null && credentials !== null) {
     return (
       <div style={{ padding: '10px', display: 'flex', flexDirection: 'column', minHeight: '100vh', boxSizing: 'border-box' }}>
-        <div style={{ flex: 1 }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
           <ErrorBoundary>
             {gameType === 'ito' ? (
               <ItoClient matchID={matchID} playerID={playerID} credentials={credentials} />

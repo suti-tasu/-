@@ -50,8 +50,8 @@ export const CrashIce3DCanvas = ({
   const hoveredBlockKeyRef = useRef(null);
   const [hoveredKey, setHoveredKey] = useState(null);
 
-  // Default camera position
-  const defaultCamPos = new THREE.Vector3(0, 15, 13);
+  // Default camera position (closer zoom for large, immersive 3D board view)
+  const defaultCamPos = new THREE.Vector3(0, 11, 9.5);
   const defaultCamTarget = new THREE.Vector3(0, 0, 0);
 
   // Camera presets
@@ -84,11 +84,11 @@ export const CrashIce3DCanvas = ({
     ctrl.target.set(0, 0, 0);
 
     if (type === 'top') {
-      cam.position.set(0, 20, 0.01);
+      cam.position.set(0, 15, 0.01);
     } else if (type === 'iso') {
-      cam.position.set(10, 13, 10);
+      cam.position.set(8.5, 9.5, 8.5);
     } else if (type === 'front') {
-      cam.position.set(0, 8, 16);
+      cam.position.set(0, 6, 12);
     }
     ctrl.update();
   }, []);
@@ -189,16 +189,22 @@ export const CrashIce3DCanvas = ({
     scene.add(hammer);
     hammerMeshRef.current = hammer;
 
-    // --- Resize Handler ---
+    // --- Resize Handler & Observer ---
     const handleResize = () => {
       if (!containerRef.current || !rendererRef.current || !cameraRef.current) return;
       const w = containerRef.current.clientWidth;
       const h = containerRef.current.clientHeight;
+      if (w <= 0 || h <= 0) return;
       cameraRef.current.aspect = w / h;
       cameraRef.current.updateProjectionMatrix();
       rendererRef.current.setSize(w, h);
     };
     window.addEventListener('resize', handleResize);
+
+    const resizeObserver = new ResizeObserver(() => {
+      handleResize();
+    });
+    resizeObserver.observe(container);
 
     // --- Animation & Physics Loop ---
     let reqId;
@@ -285,6 +291,7 @@ export const CrashIce3DCanvas = ({
     return () => {
       cancelAnimationFrame(reqId);
       window.removeEventListener('resize', handleResize);
+      resizeObserver.disconnect();
       renderer.dispose();
     };
   }, []);
@@ -596,7 +603,9 @@ export const CrashIce3DCanvas = ({
       style={{
         position: 'relative',
         width: '100%',
-        height: '520px',
+        height: '100%',
+        minHeight: '520px',
+        flex: 1,
         borderRadius: '16px',
         overflow: 'hidden',
         boxShadow: 'inset 0 0 40px rgba(0, 0, 0, 0.7), 0 8px 32px rgba(12, 25, 44, 0.5)',
