@@ -533,20 +533,52 @@ export const buildTournament = (playerIds) => {
   ];
 };
 
+// トーナメント各試合の個別ゲーム盤面・状態初期化
+export const initTournamentMatch = (match, random) => {
+  if (match.p1 !== null && match.p2 !== null) {
+    match.status = 'playing'; // 'waiting' | 'playing' | 'finished'
+    match.board = createInitialBoard(random);
+    match.penguinPos = { q: 0, r: 0 };
+    match.penguinFallen = false;
+    match.rouletteResult = null;
+    match.rouletteResultIndex = null;
+    match.remainingStrikes = 0;
+    match.turnStep = 'spin';
+    match.currentTurnPlayer = match.p1;
+    match.lastDroppedKeys = [];
+    match.lastStrikeEvent = null;
+    match.logs = [
+      `⚔️ 【${match.name}】が開始されました！ (Player ${match.p1} vs Player ${match.p2})`,
+      `【Player ${match.p1}】ルーレットを回してください。`
+    ];
+  } else {
+    match.status = 'waiting';
+    match.board = null;
+    match.penguinPos = { q: 0, r: 0 };
+    match.penguinFallen = false;
+    match.rouletteResult = null;
+    match.rouletteResultIndex = null;
+    match.remainingStrikes = 0;
+    match.turnStep = 'spin';
+    match.currentTurnPlayer = null;
+    match.lastDroppedKeys = [];
+    match.lastStrikeEvent = null;
+    match.logs = ['対戦カードの決定を待っています...'];
+  }
+  return match;
+};
+
 export const CrashIceGame = {
   name: 'crashice',
 
   setup: ({ ctx, random }) => {
     return {
-      gameState: 'lobby', // 'lobby' | 'playing' | 'intermission'
+      gameState: 'lobby', // 'lobby' | 'playing'
       gameFormat: 'standard', // 'standard' (通常対戦) | 'tournament' (1対1トーナメント)
       tournament: {
         seeds: [], // プレイヤーID順
         matches: [],
-        activeMatchId: null,
-        activeMatch: null,
         champion: null,
-        lastMatchResult: null,
       },
       board: createInitialBoard(random),
       penguinPos: { q: 0, r: 0 },
@@ -566,201 +598,70 @@ export const CrashIceGame = {
   },
 
   turn: {
+    activePlayers: { all: null },
     order: {
       first: () => 0,
-      next: ({ G, ctx }) => {
-        // トーナメントモード中は対戦中の2人（p1とp2）のみでターンを交互に回す
-        if (G.gameFormat === 'tournament' && G.tournament?.activeMatch) {
-          const { p1, p2 } = G.tournament.activeMatch;
-          const targetPlayerId = ctx.currentPlayer === p1 ? p2 : p1;
-          const targetPos = ctx.playOrder.indexOf(targetPlayerId);
-          return targetPos >= 0 ? targetPos : 0;
-        }
-        return (ctx.playOrderPos + 1) % ctx.numPlayers;
-      },
+      next: ({ ctx }) => (ctx.playOrderPos + 1) % ctx.numPlayers,
     },
-    onBegin: ({ G, events }) => {
-      if (G.gameState === 'lobby') {
-        events.setActivePlayers({ all: 'lobby' });
-      } else if (G.gameState === 'intermission') {
-        events.setActivePlayers({ all: 'intermission' });
-      } else if (G.winner) {
-        events.setActivePlayers({ all: 'gameover' });
-      }
-    },
-    stages: {
-      lobby: {
-        moves: {
-          startGame: ({ G, ctx, random, events }) => {
-            G.gameState = 'playing';
-            if (G.gameFormat === 'tournament') {
-              if (!G.tournament.seeds || G.tournament.seeds.length !== ctx.numPlayers) {
-                G.tournament.seeds = ctx.playOrder.slice();
-              }
-              G.tournament.matches = buildTournament(G.tournament.seeds);
-              const firstMatch = G.tournament.matches.find(m => m.p1 !== null && m.p2 !== null);
-              G.tournament.activeMatchId = firstMatch.id;
-              G.tournament.activeMatch = firstMatch;
-              G.tournament.champion = null;
-              G.tournament.lastMatchResult = null;
-              G.board = createInitialBoard(random);
-              G.penguinPos = { q: 0, r: 0 };
-              G.penguinFallen = false;
-              G.turnStep = 'spin';
-              G.logs.push('🏆 【1対1トーナメント】が開幕しました！');
-              G.logs.push(`⚔️ 【${firstMatch.name}】: Player ${firstMatch.p1} vs Player ${firstMatch.p2}`);
-              events.endTurn({ next: firstMatch.p1.toString() });
-            } else {
-              G.logs.push('ゲームを開始しました！最初のプレイヤーはルーレットを回してください。');
-              events.endTurn({ next: '0' });
-            }
-          },
-          setGameFormat: ({ G, ctx }, format) => {
-            if (G.gameState !== 'lobby') return;
-            G.gameFormat = format;
-            if (format === 'tournament') {
-              if (!G.tournament.seeds || G.tournament.seeds.length !== ctx.numPlayers) {
-                G.tournament.seeds = ctx.playOrder.slice();
-              }
-              G.tournament.matches = buildTournament(G.tournament.seeds);
-            }
-          },
-          shuffleTournamentSeeds: ({ G, ctx, random }) => {
-            if (G.gameState !== 'lobby') return;
-            const seeds = (G.tournament.seeds && G.tournament.seeds.length === ctx.numPlayers) 
-              ? [...G.tournament.seeds] 
-              : ctx.playOrder.slice();
-            for (let i = seeds.length - 1; i > 0; i--) {
-              const j = random.Die(i + 1) - 1;
-              [seeds[i], seeds[j]] = [seeds[j], seeds[i]];
-            }
-            G.tournament.seeds = seeds;
-            G.tournament.matches = buildTournament(seeds);
-            G.logs.push('🎲 トーナメントの組み合わせ（シード順）をシャッフルしました。');
-          },
-          switchMode: () => {},
-        }
-      },
-      intermission: {
-        moves: {
-          startNextTournamentMatch: ({ G, random, events }) => {
-            if (G.gameState !== 'intermission' || G.gameFormat !== 'tournament') return;
-            const nextMatch = G.tournament.matches.find(m => m.winner === null && m.p1 !== null && m.p2 !== null);
-            if (!nextMatch) return;
-
-            G.tournament.activeMatchId = nextMatch.id;
-            G.tournament.activeMatch = nextMatch;
-            G.board = createInitialBoard(random);
-            G.penguinPos = { q: 0, r: 0 };
-            G.penguinFallen = false;
-            G.rouletteResult = null;
-            G.rouletteResultIndex = null;
-            G.remainingStrikes = 0;
-            G.turnStep = 'spin';
-            G.lastDroppedKeys = [];
-            G.lastStrikeEvent = null;
-            G.gameState = 'playing';
-
-            G.logs.push(`⚔️ 【${nextMatch.name}】が始まります！ Player ${nextMatch.p1} vs Player ${nextMatch.p2}`);
-            events.endTurn({ next: nextMatch.p1.toString() });
-          },
-          rematchGame: ({ G, random, events }) => {
-            G.gameState = 'lobby';
-            G.board = createInitialBoard(random);
-            G.penguinPos = { q: 0, r: 0 };
-            G.penguinFallen = false;
-            G.rouletteResult = null;
-            G.rouletteResultIndex = null;
-            G.remainingStrikes = 0;
-            G.turnStep = 'spin';
-            G.lastDroppedKeys = [];
-            G.lastStrikeEvent = null;
-            G.winner = null;
-            G.loser = null;
-            G.winnerDetails = '';
-            G.tournament.matches = [];
-            G.tournament.activeMatchId = null;
-            G.tournament.activeMatch = null;
-            G.tournament.champion = null;
-            G.tournament.lastMatchResult = null;
-            G.logs = ['待機ルームに戻りました。全員が揃ったら開始してください。'];
-            events.endTurn({ next: '0' });
-            events.setActivePlayers({ all: 'lobby' });
-          }
-        }
-      },
-      gameover: {
-        moves: {
-          rematchGame: ({ G, random, events }) => {
-            G.gameState = 'lobby';
-            G.board = createInitialBoard(random);
-            G.penguinPos = { q: 0, r: 0 };
-            G.penguinFallen = false;
-            G.rouletteResult = null;
-            G.rouletteResultIndex = null;
-            G.remainingStrikes = 0;
-            G.turnStep = 'spin';
-            G.lastDroppedKeys = [];
-            G.lastStrikeEvent = null;
-            G.winner = null;
-            G.loser = null;
-            G.winnerDetails = '';
-            G.tournament.matches = [];
-            G.tournament.activeMatchId = null;
-            G.tournament.activeMatch = null;
-            G.tournament.champion = null;
-            G.tournament.lastMatchResult = null;
-            G.logs = ['待機ルームに戻りました。全員が揃ったら開始してください。'];
-            events.endTurn({ next: '0' });
-            events.setActivePlayers({ all: 'lobby' });
-          }
-        }
-      }
-    }
   },
 
   moves: {
     // 待機ルームからのゲーム開始
     startGame: ({ G, ctx, random, events }) => {
+      if (G.gameState !== 'lobby') return INVALID_MOVE;
       G.gameState = 'playing';
+
       if (G.gameFormat === 'tournament') {
         if (!G.tournament.seeds || G.tournament.seeds.length !== ctx.numPlayers) {
           G.tournament.seeds = ctx.playOrder.slice();
         }
-        G.tournament.matches = buildTournament(G.tournament.seeds);
-        const firstMatch = G.tournament.matches.find(m => m.p1 !== null && m.p2 !== null);
-        G.tournament.activeMatchId = firstMatch.id;
-        G.tournament.activeMatch = firstMatch;
+        const matches = buildTournament(G.tournament.seeds);
+        matches.forEach(m => initTournamentMatch(m, random));
+        G.tournament.matches = matches;
         G.tournament.champion = null;
-        G.tournament.lastMatchResult = null;
+        G.winner = null;
+        G.loser = null;
+        G.winnerDetails = '';
+        G.logs.push('🏆 【並行1対1トーナメント】が開幕しました！ 各テーブルで同時に試合が開始されます！');
+        const activeMatches = matches.filter(m => m.status === 'playing');
+        activeMatches.forEach(m => {
+          G.logs.push(`⚔️ 【${m.name}】: Player ${m.p1} vs Player ${m.p2}`);
+        });
+      } else {
         G.board = createInitialBoard(random);
         G.penguinPos = { q: 0, r: 0 };
         G.penguinFallen = false;
+        G.rouletteResult = null;
+        G.rouletteResultIndex = null;
+        G.remainingStrikes = 0;
         G.turnStep = 'spin';
-        G.logs.push('🏆 【1対1トーナメント】が開幕しました！');
-        G.logs.push(`⚔️ 【${firstMatch.name}】: Player ${firstMatch.p1} vs Player ${firstMatch.p2}`);
-        events.endTurn({ next: firstMatch.p1.toString() });
-      } else {
+        G.lastDroppedKeys = [];
+        G.lastStrikeEvent = null;
+        G.winner = null;
+        G.loser = null;
+        G.winnerDetails = '';
         G.logs.push('ゲームを開始しました！最初のプレイヤーはルーレットを回してください。');
-        events.endTurn({ next: '0' });
+        if (events) events.endTurn({ next: '0' });
       }
     },
 
     // ゲームフォーマット切替 (通常対戦 / 1対1トーナメント)
-    setGameFormat: ({ G, ctx }, format) => {
-      if (G.gameState !== 'lobby') return;
+    setGameFormat: ({ G, ctx, random }, format) => {
+      if (G.gameState !== 'lobby') return INVALID_MOVE;
       G.gameFormat = format;
       if (format === 'tournament') {
         if (!G.tournament.seeds || G.tournament.seeds.length !== ctx.numPlayers) {
           G.tournament.seeds = ctx.playOrder.slice();
         }
-        G.tournament.matches = buildTournament(G.tournament.seeds);
+        const matches = buildTournament(G.tournament.seeds);
+        matches.forEach(m => initTournamentMatch(m, random));
+        G.tournament.matches = matches;
       }
     },
 
     // トーナメントのシード順シャッフル
     shuffleTournamentSeeds: ({ G, ctx, random }) => {
-      if (G.gameState !== 'lobby') return;
+      if (G.gameState !== 'lobby') return INVALID_MOVE;
       const seeds = (G.tournament.seeds && G.tournament.seeds.length === ctx.numPlayers) 
         ? [...G.tournament.seeds] 
         : ctx.playOrder.slice();
@@ -769,42 +670,16 @@ export const CrashIceGame = {
         [seeds[i], seeds[j]] = [seeds[j], seeds[i]];
       }
       G.tournament.seeds = seeds;
-      G.tournament.matches = buildTournament(seeds);
+      const matches = buildTournament(seeds);
+      matches.forEach(m => initTournamentMatch(m, random));
+      G.tournament.matches = matches;
       G.logs.push('🎲 トーナメントの組み合わせ（シード順）をシャッフルしました。');
     },
 
-    // 次のトーナメント試合へ進む
-    startNextTournamentMatch: ({ G, random, events }) => {
-      if (G.gameState !== 'intermission' || G.gameFormat !== 'tournament') return;
-      const nextMatch = G.tournament.matches.find(m => m.winner === null && m.p1 !== null && m.p2 !== null);
-      if (!nextMatch) return;
-
-      G.tournament.activeMatchId = nextMatch.id;
-      G.tournament.activeMatch = nextMatch;
-      G.board = createInitialBoard(random);
-      G.penguinPos = { q: 0, r: 0 };
-      G.penguinFallen = false;
-      G.rouletteResult = null;
-      G.rouletteResultIndex = null;
-      G.remainingStrikes = 0;
-      G.turnStep = 'spin';
-      G.lastDroppedKeys = [];
-      G.lastStrikeEvent = null;
-      G.gameState = 'playing';
-
-      G.logs.push(`⚔️ 【${nextMatch.name}】が始まります！ Player ${nextMatch.p1} vs Player ${nextMatch.p2}`);
-      events.endTurn({ next: nextMatch.p1.toString() });
-    },
-
     // 1. ルーレットを回す
-    spinRoulette: ({ G, ctx, random, events }, targetIndex) => {
-      if (G.gameState !== 'playing' || G.turnStep !== 'spin' || G.winner) return INVALID_MOVE;
-
-      // トーナメント中の観戦者制限
-      if (G.gameFormat === 'tournament' && G.tournament?.activeMatch) {
-        const { p1, p2 } = G.tournament.activeMatch;
-        if (ctx.currentPlayer !== p1 && ctx.currentPlayer !== p2) return INVALID_MOVE;
-      }
+    spinRoulette: ({ G, ctx, playerID, random, events }, targetIndex) => {
+      if (G.gameState !== 'playing' || G.winner) return INVALID_MOVE;
+      const pid = playerID !== undefined ? playerID : ctx.currentPlayer;
 
       let idx;
       if (typeof targetIndex === 'number' && targetIndex >= 0 && targetIndex < ROULETTE_ITEMS.length) {
@@ -812,21 +687,42 @@ export const CrashIceGame = {
       } else {
         idx = random.Die(ROULETTE_ITEMS.length) - 1;
       }
-
       const result = ROULETTE_ITEMS[idx];
-      G.rouletteResult = result;
-      G.rouletteResultIndex = idx;
 
-      const pName = `Player ${ctx.currentPlayer}`;
-      G.logs.push(`【${pName}】ルーレット結果：[${result.label}]`);
+      if (G.gameFormat === 'tournament') {
+        const match = G.tournament?.matches?.find(m => m.status === 'playing' && (m.p1 === pid || m.p2 === pid));
+        if (!match || match.currentTurnPlayer !== pid || match.turnStep !== 'spin') return INVALID_MOVE;
 
-      if (result.id === 'skip') {
-        G.turnStep = 'spin';
-        G.remainingStrikes = 0;
-        events.endTurn();
+        match.rouletteResult = result;
+        match.rouletteResultIndex = idx;
+        match.logs.push(`【Player ${pid}】ルーレット結果：[${result.label}]`);
+
+        if (result.id === 'skip') {
+          match.turnStep = 'spin';
+          match.remainingStrikes = 0;
+          match.currentTurnPlayer = (match.currentTurnPlayer === match.p1 ? match.p2 : match.p1);
+          match.logs.push(`【Player ${match.currentTurnPlayer}】のターンです。ルーレットを回してください。`);
+        } else {
+          match.remainingStrikes = result.count;
+          match.turnStep = 'strike';
+        }
       } else {
-        G.remainingStrikes = result.count;
-        G.turnStep = 'strike';
+        // 通常対戦モード
+        if (pid !== ctx.currentPlayer || G.turnStep !== 'spin') return INVALID_MOVE;
+
+        G.rouletteResult = result;
+        G.rouletteResultIndex = idx;
+        const pName = `Player ${pid}`;
+        G.logs.push(`【${pName}】ルーレット結果：[${result.label}]`);
+
+        if (result.id === 'skip') {
+          G.turnStep = 'spin';
+          G.remainingStrikes = 0;
+          events.endTurn();
+        } else {
+          G.remainingStrikes = result.count;
+          G.turnStep = 'strike';
+        }
       }
     },
 
@@ -834,158 +730,209 @@ export const CrashIceGame = {
     switchMode: () => {},
 
     // 3. 氷を叩く (ドラッグで決定したパワー値 0〜100 と角度 angle)
-    strikeBlock: ({ G, ctx, random, events }, blockKey, power = 50, angle = 0) => {
-      if (G.gameState !== 'playing' || G.winner || G.turnStep !== 'strike') return INVALID_MOVE;
-      if (!G.board[blockKey]) return INVALID_MOVE;
+    strikeBlock: ({ G, ctx, playerID, random, events }, blockKey, power = 50, angle = 0) => {
+      if (G.gameState !== 'playing' || G.winner) return INVALID_MOVE;
+      const pid = playerID !== undefined ? playerID : ctx.currentPlayer;
 
-      // トーナメント中の観戦者制限
-      if (G.gameFormat === 'tournament' && G.tournament?.activeMatch) {
-        const { p1, p2 } = G.tournament.activeMatch;
-        if (ctx.currentPlayer !== p1 && ctx.currentPlayer !== p2) return INVALID_MOVE;
-      }
+      if (G.gameFormat === 'tournament') {
+        const match = G.tournament?.matches?.find(m => m.status === 'playing' && (m.p1 === pid || m.p2 === pid));
+        if (!match || match.currentTurnPlayer !== pid || match.turnStep !== 'strike') return INVALID_MOVE;
+        if (!match.board || !match.board[blockKey]) return INVALID_MOVE;
 
-      const targetBlock = G.board[blockKey];
-
-      // ルーレットの指定色チェック
-      if (G.rouletteResult) {
-        if (G.rouletteResult.targetColor !== 'any' && targetBlock.color !== G.rouletteResult.targetColor) {
+        const targetBlock = match.board[blockKey];
+        if (match.rouletteResult && match.rouletteResult.targetColor !== 'any' && targetBlock.color !== match.rouletteResult.targetColor) {
           return INVALID_MOVE;
         }
-      }
 
-      const pName = `Player ${ctx.currentPlayer}`;
-      G.lastDroppedKeys = [];
+        const pName = `Player ${pid}`;
+        match.lastDroppedKeys = [];
 
-      // 力が弱すぎた場合 (power < 15): 氷が抜けず、同じブロックを再度叩く
-      if (power < 15) {
-        G.lastStrikeEvent = { key: blockKey, power, angle, isWeak: true, id: Date.now() };
-        G.logs.push(`【${pName}】打撃力が弱く、氷を打ち抜けませんでした！（同じブロックをもう一度叩いてください）`);
-        return;
-      }
+        // 力が弱すぎた場合 (power < 15)
+        if (power < 15) {
+          match.lastStrikeEvent = { key: blockKey, power, angle, isWeak: true, id: Date.now() };
+          match.logs.push(`【${pName}】打撃力が弱く、氷を打ち抜けませんでした！（同じブロックをもう一度叩いてください）`);
+          return;
+        }
 
-      // 充分な打撃力がある場合 (power >= 15):
-      G.lastStrikeEvent = { key: blockKey, power, angle, isWeak: false, id: Date.now() };
-      const dropped = [];
+        // 充分な打撃力がある場合 (power >= 15)
+        match.lastStrikeEvent = { key: blockKey, power, angle, isWeak: false, id: Date.now() };
+        const dropped = [];
+        delete match.board[blockKey];
+        dropped.push(blockKey);
 
-      // 狙ったブロックを落とす
-      delete G.board[blockKey];
-      dropped.push(blockKey);
+        const [tq, tr] = blockKey.split(',').map(Number);
+        const impact = Math.min(1.0, Math.max(0.05, power / 100));
+        const queue = [{ q: tq, r: tr, force: impact }];
+        const visited = new Set([blockKey]);
 
-      const [tq, tr] = blockKey.split(',').map(Number);
+        while (queue.length > 0) {
+          const curr = queue.shift();
+          for (const dir of HEX_DIRECTIONS) {
+            const nq = curr.q + dir.q;
+            const nr = curr.r + dir.r;
+            const nKey = `${nq},${nr}`;
 
-      // ==========================================
-      // Bモード: 衝撃波物理演算 (Dynamic Shockwave Physics)
-      // ==========================================
-      // 叩いた衝撃波を周囲の氷に伝播（カラーバーのパワー値に応じて直接波及）
-      const impact = Math.min(1.0, Math.max(0.05, power / 100));
-      const queue = [{ q: tq, r: tr, force: impact }];
-      const visited = new Set([blockKey]);
+            if (match.board[nKey] && !visited.has(nKey)) {
+              visited.add(nKey);
+              const dmg = Math.round(curr.force * 65);
+              match.board[nKey].stability -= dmg;
 
-      while (queue.length > 0) {
-        const curr = queue.shift();
-        for (const dir of HEX_DIRECTIONS) {
-          const nq = curr.q + dir.q;
-          const nr = curr.r + dir.r;
-          const nKey = `${nq},${nr}`;
-
-          if (G.board[nKey] && !visited.has(nKey)) {
-            visited.add(nKey);
-            // 衝撃による耐久度減少 (距離・力に応じて減衰)
-            const dmg = Math.round(curr.force * 65);
-            G.board[nKey].stability -= dmg;
-
-            // 高衝撃波によって外枠でない氷が摩擦限界を超えて崩落
-            if (G.board[nKey].stability <= 0 || (curr.force > 0.65 && !G.board[nKey].isEdge && random.Die(100) < curr.force * 60)) {
-              dropped.push(nKey);
-              delete G.board[nKey];
-            } else if (curr.force * 0.5 > 0.2) {
-              queue.push({ q: nq, r: nr, force: curr.force * 0.5 });
+              if (match.board[nKey].stability <= 0 || (curr.force > 0.65 && !match.board[nKey].isEdge && random.Die(100) < curr.force * 60)) {
+                dropped.push(nKey);
+                delete match.board[nKey];
+              } else if (curr.force * 0.5 > 0.2) {
+                queue.push({ q: nq, r: nr, force: curr.force * 0.5 });
+              }
             }
           }
         }
-      }
 
-      // 衝撃波を受けた後の盤面で構造力学・アーチ安定性シミュレーションを実行
-      const collapses = simulateStructuralCollapses(G.board);
-      for (const k of collapses) {
-        if (G.board[k]) {
-          delete G.board[k];
-          dropped.push(k);
-        }
-      }
-
-      G.lastDroppedKeys = dropped;
-      if (dropped.length > 1) {
-        G.logs.push(`⚠️ 支持力不足！連鎖崩落により氷が崩れ落ちました（計 ${dropped.length} 個）！`);
-      } else {
-        G.logs.push(`【${pName}】氷を打ち抜きました。`);
-      }
-
-      // ペンギンの足元チェック
-      const pKey = `${G.penguinPos.q},${G.penguinPos.r}`;
-      if (!G.board[pKey]) {
-        // ペンギンの足場の氷が消失！ペンギン落下！
-        G.penguinFallen = true;
-        const loser = ctx.currentPlayer;
-
-        // トーナメントモードでの決着処理
-        if (G.gameFormat === 'tournament' && G.tournament?.activeMatch) {
-          const activeMatch = G.tournament.activeMatch;
-          const winner = (loser === activeMatch.p1) ? activeMatch.p2 : activeMatch.p1;
-          activeMatch.winner = winner;
-          activeMatch.loser = loser;
-
-          const m = G.tournament.matches.find(item => item.id === activeMatch.id);
-          if (m) {
-            m.winner = winner;
-            m.loser = loser;
+        const collapses = simulateStructuralCollapses(match.board);
+        for (const k of collapses) {
+          if (match.board[k]) {
+            delete match.board[k];
+            dropped.push(k);
           }
+        }
 
-          if (activeMatch.nextMatchId === null) {
-            // 決勝戦終了！トーナメント制覇！
+        match.lastDroppedKeys = dropped;
+        if (dropped.length > 1) {
+          match.logs.push(`⚠️ 支持力不足！連鎖崩落により氷が崩れ落ちました（計 ${dropped.length} 個）！`);
+        } else {
+          match.logs.push(`【${pName}】氷を打ち抜きました。`);
+        }
+
+        // ペンギンの足元チェック
+        const pKey = `${match.penguinPos.q},${match.penguinPos.r}`;
+        if (!match.board[pKey]) {
+          match.penguinFallen = true;
+          match.status = 'finished';
+          const loser = pid;
+          const winner = (loser === match.p1 ? match.p2 : match.p1);
+          match.winner = winner;
+          match.loser = loser;
+
+          match.logs.push(`🐧 ペンギン落下！ 【${match.name}】 勝者: Player ${winner} / 敗者: Player ${loser}`);
+          G.logs.push(`🐧 【${match.name}】 決着！ 勝者: Player ${winner} / 敗者: Player ${loser}`);
+
+          if (match.nextMatchId === null) {
+            // 決勝戦終了！
             G.tournament.champion = winner;
             G.winner = winner;
             G.loser = loser;
-            G.winnerDetails = `🏆 トーナメント制覇！ 【Player ${winner}】が全勝し、王者に輝きました！`;
-            G.logs.push(`🐧 ペンギン落下！ 【${activeMatch.name}】 勝者: Player ${winner} / 敗者: Player ${loser}`);
-            G.logs.push(`🎉 祝・優勝！！ 【Player ${winner}】がクラッシュアイス・トーナメントを制覇しました！`);
-            events.setActivePlayers({ all: 'gameover' });
+            G.winnerDetails = `🏆 トーナメント制覇！ 【Player ${winner}】が全勝優勝を果たしました！`;
+            G.gameState = 'gameover';
+            G.logs.push(`🎉 祝・全勝優勝！！ 【Player ${winner}】がクラッシュアイス・トーナメントを制覇しました！`);
             return;
           } else {
-            // 次のラウンドへ勝者進出
-            const nextMatch = G.tournament.matches.find(item => item.id === activeMatch.nextMatchId);
+            // 次の試合へ進出
+            const nextMatch = G.tournament.matches.find(item => item.id === match.nextMatchId);
             if (nextMatch) {
-              nextMatch[activeMatch.nextSlot] = winner;
+              nextMatch[match.nextSlot] = winner;
+              if (nextMatch.p1 !== null && nextMatch.p2 !== null) {
+                initTournamentMatch(nextMatch, random);
+                G.logs.push(`⚔️ 【${nextMatch.name}】の対戦カード決定！ Player ${nextMatch.p1} vs Player ${nextMatch.p2} (対戦可能)`);
+              } else {
+                nextMatch.logs = [`【Player ${winner}】が進出！ 対戦相手の決定を待機中です...`];
+                G.logs.push(`⏳ 【Player ${winner}】が【${nextMatch.name}】へ進出！ もう一方の対戦を待機中。`);
+              }
             }
-            G.tournament.lastMatchResult = {
-              matchId: activeMatch.id,
-              matchName: activeMatch.name,
-              winner,
-              loser,
-            };
-            G.tournament.activeMatch = null;
-            G.gameState = 'intermission';
-            G.logs.push(`🐧 ペンギン落下！ 【${activeMatch.name}】 勝者: Player ${winner} （勝ち抜け！）/ 敗者: Player ${loser}`);
-            events.setActivePlayers({ all: 'intermission' });
             return;
           }
-        } else {
-          // 通常対戦モード
-          G.loser = loser;
-          G.winner = 'survivors';
-          G.winnerDetails = `【Player ${ctx.currentPlayer}】がペンギンを落としてしまいました！`;
-          G.logs.push(`🐧 ペンギンが下に落ちた！！ ${G.winnerDetails}`);
-          events.setActivePlayers({ all: 'gameover' });
+        }
+
+        // 残り打撃数の処理
+        match.remainingStrikes -= 1;
+        if (match.remainingStrikes <= 0) {
+          match.turnStep = 'spin';
+          match.rouletteResult = null;
+          match.currentTurnPlayer = (match.currentTurnPlayer === match.p1 ? match.p2 : match.p1);
+          match.logs.push(`【Player ${match.currentTurnPlayer}】のターンです。ルーレットを回してください。`);
+        }
+      } else {
+        // 通常対戦モード
+        if (pid !== ctx.currentPlayer || G.turnStep !== 'strike') return INVALID_MOVE;
+        if (!G.board[blockKey]) return INVALID_MOVE;
+
+        const targetBlock = G.board[blockKey];
+        if (G.rouletteResult && G.rouletteResult.targetColor !== 'any' && targetBlock.color !== G.rouletteResult.targetColor) {
+          return INVALID_MOVE;
+        }
+
+        const pName = `Player ${pid}`;
+        G.lastDroppedKeys = [];
+
+        if (power < 15) {
+          G.lastStrikeEvent = { key: blockKey, power, angle, isWeak: true, id: Date.now() };
+          G.logs.push(`【${pName}】打撃力が弱く、氷を打ち抜けませんでした！（同じブロックをもう一度叩いてください）`);
           return;
         }
-      }
 
-      // 残り打撃数の処理
-      G.remainingStrikes -= 1;
-      if (G.remainingStrikes <= 0) {
-        G.turnStep = 'spin';
-        G.rouletteResult = null;
-        events.endTurn();
+        G.lastStrikeEvent = { key: blockKey, power, angle, isWeak: false, id: Date.now() };
+        const dropped = [];
+        delete G.board[blockKey];
+        dropped.push(blockKey);
+
+        const [tq, tr] = blockKey.split(',').map(Number);
+        const impact = Math.min(1.0, Math.max(0.05, power / 100));
+        const queue = [{ q: tq, r: tr, force: impact }];
+        const visited = new Set([blockKey]);
+
+        while (queue.length > 0) {
+          const curr = queue.shift();
+          for (const dir of HEX_DIRECTIONS) {
+            const nq = curr.q + dir.q;
+            const nr = curr.r + dir.r;
+            const nKey = `${nq},${nr}`;
+
+            if (G.board[nKey] && !visited.has(nKey)) {
+              visited.add(nKey);
+              const dmg = Math.round(curr.force * 65);
+              G.board[nKey].stability -= dmg;
+
+              if (G.board[nKey].stability <= 0 || (curr.force > 0.65 && !G.board[nKey].isEdge && random.Die(100) < curr.force * 60)) {
+                dropped.push(nKey);
+                delete G.board[nKey];
+              } else if (curr.force * 0.5 > 0.2) {
+                queue.push({ q: nq, r: nr, force: curr.force * 0.5 });
+              }
+            }
+          }
+        }
+
+        const collapses = simulateStructuralCollapses(G.board);
+        for (const k of collapses) {
+          if (G.board[k]) {
+            delete G.board[k];
+            dropped.push(k);
+          }
+        }
+
+        G.lastDroppedKeys = dropped;
+        if (dropped.length > 1) {
+          G.logs.push(`⚠️ 支持力不足！連鎖崩落により氷が崩れ落ちました（計 ${dropped.length} 個）！`);
+        } else {
+          G.logs.push(`【${pName}】氷を打ち抜きました。`);
+        }
+
+        // ペンギンの足元チェック
+        const pKey = `${G.penguinPos.q},${G.penguinPos.r}`;
+        if (!G.board[pKey]) {
+          G.penguinFallen = true;
+          G.loser = pid;
+          G.winner = 'survivors';
+          G.winnerDetails = `【Player ${pid}】がペンギンを落としてしまいました！`;
+          G.logs.push(`🐧 ペンギンが下に落ちた！！ ${G.winnerDetails}`);
+          G.gameState = 'gameover';
+          return;
+        }
+
+        G.remainingStrikes -= 1;
+        if (G.remainingStrikes <= 0) {
+          G.turnStep = 'spin';
+          G.rouletteResult = null;
+          events.endTurn();
+        }
       }
     },
 
@@ -1005,14 +952,10 @@ export const CrashIceGame = {
       G.loser = null;
       G.winnerDetails = '';
       G.tournament.matches = [];
-      G.tournament.activeMatchId = null;
-      G.tournament.activeMatch = null;
       G.tournament.champion = null;
-      G.tournament.lastMatchResult = null;
       G.logs = ['待機ルームに戻りました。全員が揃ったら開始してください。'];
       if (events) {
         events.endTurn({ next: '0' });
-        events.setActivePlayers({ all: 'lobby' });
       }
     }
   }

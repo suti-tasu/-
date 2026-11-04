@@ -1,5 +1,6 @@
 import React from 'react';
 import { LobbyClient } from 'boardgame.io/client';
+import { UnifiedLobby } from './UnifiedLobby';
 
 export default function HaaBoard({ G, ctx, moves, playerID, matchData }) {
   const isSpectator = playerID === null;
@@ -61,42 +62,45 @@ export default function HaaBoard({ G, ctx, moves, playerID, matchData }) {
 
   if (G.gameState === 'lobby') {
     return (
-      <div style={{ padding: "20px", fontFamily: "sans-serif", maxWidth: "600px", margin: "0 auto", textAlign: "center" }}>
-        {rulesModal}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2>はぁって言うゲーム - 待機ルーム</h2>
-          <button onClick={() => setShowRules(true)} style={{ background: '#3f51b5', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9em', display: 'flex', alignItems: 'center', gap: '5px', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
-            <span>📖</span> ルールブックを開く
-          </button>
-        </div>
-        <p>Discordなどで通話をつなぎ、全員が揃ったら開始してください。</p>
-        
-        <div style={{ background: "#f5f5f5", padding: "15px", borderRadius: "10px", margin: "20px 0" }}>
-          <h3 style={{ marginTop: 0 }}>参加者 ({Object.keys(G.players).length}人)</h3>
-          <div style={{ display: "flex", gap: "10px", justifyContent: "center", flexWrap: "wrap" }}>
-            {Object.keys(G.players).map(pid => (
-              <div key={pid} style={{ background: "#e0f7fa", padding: "5px 15px", borderRadius: "20px", fontWeight: "bold", border: "1px solid #b2ebf2" }}>
-                {getPlayerName(pid)}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div style={{ background: "#fff9c4", padding: "15px", borderRadius: "10px", margin: "20px 0", border: "2px solid #fbc02d" }}>
-          <h3 style={{ margin: "0 0 10px 0" }}>遊ぶラウンド数</h3>
-          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "20px" }}>
-            <button onClick={() => moves.setMaxRounds(Math.max(1, G.maxRounds - 1))} style={{ padding: "5px 20px", fontSize: "1.5em", cursor: "pointer", borderRadius: "5px", border: "1px solid #ccc" }}>-</button>
-            <span style={{ fontSize: "1.8em", fontWeight: "bold", minWidth: "60px" }}>{G.maxRounds} 回</span>
-            <button onClick={() => moves.setMaxRounds(G.maxRounds + 1)} style={{ padding: "5px 20px", fontSize: "1.5em", cursor: "pointer", borderRadius: "5px", border: "1px solid #ccc" }}>+</button>
-          </div>
-        </div>
-
-        <button 
-          onClick={() => moves.startGame()} 
-          style={{ padding: "15px 40px", fontSize: "1.5em", background: "#f44336", color: "white", border: "none", borderRadius: "10px", cursor: "pointer", fontWeight: "bold", boxShadow: "0 4px 6px rgba(0,0,0,0.2)", width: "100%" }}
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', padding: '20px' }}>
+        <UnifiedLobby
+          gameTitle="はぁって言うゲーム"
+          gameIcon="🗣️"
+          gameSubtitle="声と表情だけでニュアンスを演じ分けろ！大爆笑必至のコミュニケーションゲーム"
+          themeColor="#e11d48"
+          themeGradient="linear-gradient(135deg, #f43f5e, #be123c)"
+          numPlayers={Object.keys(G.players).length}
+          playerIds={Object.keys(G.players)}
+          pid={playerID}
+          getPlayerName={getPlayerName}
+          isHost={playerID === '0'}
+          onStart={() => moves.startGame()}
+          onShowRules={() => setShowRules(true)}
+          rulesModal={rulesModal}
         >
-          ゲームを開始する！
-        </button>
+          <div style={{ background: '#fff1f2', padding: '16px', borderRadius: '14px', marginBottom: '8px', border: '1px solid #fecdd3', textAlign: 'center' }}>
+            <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#9f1239', marginBottom: '8px' }}>
+              🎯 遊ぶラウンド数
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '20px' }}>
+              <button
+                onClick={() => moves.setMaxRounds(Math.max(1, G.maxRounds - 1))}
+                style={{ width: '42px', height: '42px', fontSize: '20px', cursor: 'pointer', borderRadius: '10px', border: '1px solid #fda4af', background: '#ffffff', color: '#be123c', fontWeight: 'bold' }}
+              >
+                -
+              </button>
+              <span style={{ fontSize: '24px', fontWeight: '900', minWidth: '80px', color: '#9f1239' }}>
+                {G.maxRounds} 回
+              </span>
+              <button
+                onClick={() => moves.setMaxRounds(G.maxRounds + 1)}
+                style={{ width: '42px', height: '42px', fontSize: '20px', cursor: 'pointer', borderRadius: '10px', border: '1px solid #fda4af', background: '#ffffff', color: '#be123c', fontWeight: 'bold' }}
+              >
+                +
+              </button>
+            </div>
+          </div>
+        </UnifiedLobby>
       </div>
     );
   }

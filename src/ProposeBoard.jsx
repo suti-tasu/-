@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { LobbyClient } from 'boardgame.io/client';
 import { BASIC_CARDS } from './ProposeGame';
+import { UnifiedLobby } from './UnifiedLobby';
 
 export default function ProposeBoard({ G, ctx, moves, playerID, matchData }) {
   const isSpectator = playerID === null;
@@ -195,45 +196,40 @@ export default function ProposeBoard({ G, ctx, moves, playerID, matchData }) {
 
   if (G.gameState === 'lobby') {
     return (
-      <div style={{ padding: "20px", fontFamily: "sans-serif", maxWidth: "600px", margin: "0 auto", textAlign: "center", color: "#333" }}>
-        {rulesModal}
-        {ruleButton}
-        <h2>たった今考えたプロポーズの言葉を君に捧ぐよ</h2>
-        <p>全員が揃ったら開始してください。（※3人以上を推奨します）</p>
-        
-        <div style={{ background: "#f5f5f5", padding: "15px", borderRadius: "10px", margin: "20px 0" }}>
-          <h3 style={{ marginTop: 0 }}>参加者 ({Object.keys(G.players).length}人)</h3>
-          <div style={{ display: "flex", gap: "10px", justifyContent: "center", flexWrap: "wrap" }}>
-            {Object.keys(G.players).map(pid => (
-              <div key={pid} style={{ background: "#e0f7fa", padding: "5px 15px", borderRadius: "20px", fontWeight: "bold", border: "1px solid #b2ebf2", color: "#333" }}>
-                {getPlayerName(pid)}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div style={{ background: "#fff9c4", padding: "15px", borderRadius: "10px", margin: "20px 0", border: "2px solid #fbc02d", textAlign: "left" }}>
-          <h3 style={{ marginTop: 0, textAlign: "center" }}>拡張セットを追加（任意）</h3>
-          <label style={{ display: "flex", alignItems: "center", gap: "10px", margin: "10px 0", cursor: "pointer", fontSize: "1.1em" }}>
-            <input type="checkbox" checked={G.selectedExpansions.includes('lovers')} onChange={() => moves.toggleExpansion('lovers')} style={{ transform: "scale(1.5)" }} />
-            💕 ラバーズピンク（少し大人な恋愛・セクシー）
-          </label>
-          <label style={{ display: "flex", alignItems: "center", gap: "10px", margin: "10px 0", cursor: "pointer", fontSize: "1.1em" }}>
-            <input type="checkbox" checked={G.selectedExpansions.includes('stalker')} onChange={() => moves.toggleExpansion('stalker')} style={{ transform: "scale(1.5)" }} />
-            🔪 ストーカーブラック（ヤンデレ・ホラー・重い愛）
-          </label>
-          <label style={{ display: "flex", alignItems: "center", gap: "10px", margin: "10px 0", cursor: "pointer", fontSize: "1.1em" }}>
-            <input type="checkbox" checked={G.selectedExpansions.includes('gesu')} onChange={() => moves.toggleExpansion('gesu')} style={{ transform: "scale(1.5)" }} />
-            💰 ゲスゲスゴールド（お金・浮気・クズ）
-          </label>
-        </div>
-
-        <button 
-          onClick={() => moves.startGame()} 
-          style={{ padding: "15px 40px", fontSize: "1.5em", background: "#f44336", color: "white", border: "none", borderRadius: "10px", cursor: "pointer", fontWeight: "bold", boxShadow: "0 4px 6px rgba(0,0,0,0.2)", width: "100%" }}
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', padding: '20px' }}>
+        <UnifiedLobby
+          gameTitle="たった今考えたプロポーズの言葉を君に捧ぐよ"
+          gameIcon="💍"
+          gameSubtitle="配られたカードを組み合わせて最高のプロポーズの言葉を作れ！（3人以上推奨）"
+          themeColor="#9333ea"
+          themeGradient="linear-gradient(135deg, #a855f7, #7e22ce)"
+          numPlayers={Object.keys(G.players).length}
+          playerIds={Object.keys(G.players)}
+          pid={playerID}
+          getPlayerName={getPlayerName}
+          isHost={playerID === '0'}
+          onStart={() => moves.startGame()}
+          onShowRules={() => setShowRules(true)}
+          rulesModal={rulesModal}
         >
-          ゲームを開始する！
-        </button>
+          <div style={{ background: '#faf5ff', padding: '16px', borderRadius: '14px', marginBottom: '8px', border: '1px solid #f3e8ff', textAlign: 'left' }}>
+            <div style={{ fontWeight: 'bold', color: '#6b21a8', marginBottom: '10px', fontSize: '13px' }}>
+              ✨ 拡張セットを追加（任意）
+            </div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '8px 0', cursor: 'pointer', fontSize: '13px', color: '#334155' }}>
+              <input type="checkbox" checked={G.selectedExpansions.includes('lovers')} onChange={() => moves.toggleExpansion('lovers')} style={{ width: '18px', height: '18px', cursor: 'pointer' }} />
+              <span>💕 <strong>ラバーズピンク</strong>（少し大人な恋愛・セクシー）</span>
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '8px 0', cursor: 'pointer', fontSize: '13px', color: '#334155' }}>
+              <input type="checkbox" checked={G.selectedExpansions.includes('stalker')} onChange={() => moves.toggleExpansion('stalker')} style={{ width: '18px', height: '18px', cursor: 'pointer' }} />
+              <span>🔪 <strong>ストーカーブラック</strong>（ヤンデレ・ホラー・重い愛）</span>
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '8px 0', cursor: 'pointer', fontSize: '13px', color: '#334155' }}>
+              <input type="checkbox" checked={G.selectedExpansions.includes('gesu')} onChange={() => moves.toggleExpansion('gesu')} style={{ width: '18px', height: '18px', cursor: 'pointer' }} />
+              <span>💰 <strong>ゲスゲスゴールド</strong>（お金・浮気・クズ）</span>
+            </label>
+          </div>
+        </UnifiedLobby>
       </div>
     );
   }

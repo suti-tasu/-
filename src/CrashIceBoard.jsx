@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ROULETTE_ITEMS, HEX_DIRECTIONS } from './CrashIceGame';
 import { CrashIce3DCanvas } from './CrashIce3DCanvas';
+import { UnifiedLobby } from './UnifiedLobby';
 
 // 六角形の描画計算用ヘルパー
 const HEX_SIZE = 34; // 六角形の半径 (px)
@@ -26,7 +27,7 @@ const getHexPolygonPoints = (cx, cy, r) => {
 // ==========================================
 // トーナメント表描画コンポーネント (Bracket Tree)
 // ==========================================
-export const TournamentBracketView = ({ tournament, getPlayerName, activeMatchId }) => {
+export const TournamentBracketView = ({ tournament, getPlayerName, activeMatchId, onSelectMatch, currentViewedId }) => {
   if (!tournament || !tournament.matches || tournament.matches.length === 0) {
     return (
       <div style={{ padding: '20px', color: '#666', textAlign: 'center' }}>
@@ -60,7 +61,7 @@ export const TournamentBracketView = ({ tournament, getPlayerName, activeMatchId
         const roundTitle = matchesInRound[0]?.roundName || `Round ${roundNum}`;
 
         return (
-          <div key={roundNum} style={{ display: 'flex', flexDirection: 'column', gap: '12px', minWidth: '180px' }}>
+          <div key={roundNum} style={{ display: 'flex', flexDirection: 'column', gap: '12px', minWidth: '190px' }}>
             <div style={{
               background: '#00838f',
               color: '#fff',
@@ -76,26 +77,43 @@ export const TournamentBracketView = ({ tournament, getPlayerName, activeMatchId
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', justifyContent: 'space-around', flex: 1 }}>
               {matchesInRound.map(match => {
-                const isActive = match.id === activeMatchId;
-                const isFinished = match.winner !== null;
+                const isViewed = match.id === currentViewedId;
+                const isLive = match.status === 'playing';
+                const isFinished = match.status === 'finished';
 
                 return (
                   <div
                     key={match.id}
+                    onClick={() => {
+                      if (onSelectMatch) onSelectMatch(match.id);
+                    }}
                     style={{
-                      background: isActive ? '#fffde7' : (isFinished ? '#f8fafc' : '#ffffff'),
-                      border: isActive ? '2px solid #ff9800' : (isFinished ? '1px solid #cbd5e1' : '1px solid #94a3b8'),
+                      background: isViewed ? '#fffbeb' : (isLive ? '#f0f9ff' : (isFinished ? '#f8fafc' : '#ffffff')),
+                      border: isViewed ? '2px solid #f59e0b' : (isLive ? '2px solid #0284c7' : (isFinished ? '1px solid #cbd5e1' : '1px solid #94a3b8')),
                       borderRadius: '10px',
                       padding: '10px 12px',
-                      boxShadow: isActive ? '0 0 12px rgba(255,152,0,0.45)' : '0 2px 6px rgba(0,0,0,0.06)',
+                      boxShadow: isViewed ? '0 0 12px rgba(245,158,11,0.5)' : (isLive ? '0 0 10px rgba(2,132,199,0.35)' : '0 2px 6px rgba(0,0,0,0.06)'),
                       transition: 'all 0.2s',
+                      cursor: onSelectMatch ? 'pointer' : 'default',
                       position: 'relative'
                     }}
                   >
-                    <div style={{ fontSize: '11px', color: isActive ? '#e65100' : '#64748b', fontWeight: 'bold', marginBottom: '6px', display: 'flex', justifyContent: 'space-between' }}>
+                    <div style={{ fontSize: '11px', color: isLive ? '#0284c7' : (isViewed ? '#b45309' : '#64748b'), fontWeight: 'bold', marginBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span>{match.name}</span>
-                      {isActive && <span style={{ color: '#e65100', fontWeight: 'bold' }}>⚡ 試合中</span>}
-                      {isFinished && <span style={{ color: '#16a34a' }}>✓ 決着</span>}
+                      <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                        {isLive && (
+                          <span style={{ color: '#0369a1', fontWeight: 'bold', background: '#e0f2fe', padding: '1px 6px', borderRadius: '10px', fontSize: '10px' }}>
+                            🔴 LIVE
+                          </span>
+                        )}
+                        {isViewed && (
+                          <span style={{ color: '#b45309', fontWeight: 'bold', background: '#fef3c7', padding: '1px 6px', borderRadius: '10px', fontSize: '10px' }}>
+                            👁️ 表示中
+                          </span>
+                        )}
+                        {isFinished && <span style={{ color: '#16a34a', fontSize: '10px' }}>✓ 決着</span>}
+                        {match.status === 'waiting' && <span style={{ color: '#94a3b8', fontSize: '10px' }}>⏳ 待機中</span>}
+                      </div>
                     </div>
 
                     {/* Slot 1 */}
@@ -132,6 +150,12 @@ export const TournamentBracketView = ({ tournament, getPlayerName, activeMatchId
                       <span>{match.p2 !== null ? getPlayerName(match.p2) : '勝者枠'}</span>
                       {match.winner === match.p2 && match.p2 !== null && <span style={{ color: '#16a34a', fontSize: '12px' }}>👑 勝</span>}
                     </div>
+
+                    {onSelectMatch && (
+                      <div style={{ fontSize: '10px', color: '#64748b', textAlign: 'right', marginTop: '4px' }}>
+                        クリックで盤面表示 ➔
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -177,14 +201,16 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
   // ダイアログ状態管理
   const [showGameOverModal, setShowGameOverModal] = useState(false);
   const [isGameOverDismissed, setIsGameOverDismissed] = useState(false);
-  const [showIntermissionModal, setShowIntermissionModal] = useState(false);
-  const [isIntermissionDismissed, setIsIntermissionDismissed] = useState(false);
+
+  // トーナメント表示・観戦用ステート
+  const [viewedMatchId, setViewedMatchId] = useState(null);
+  const [dismissedMatchEndIds, setDismissedMatchEndIds] = useState(() => new Set());
 
   const isFirstRender = useRef(true);
   const prevLastDroppedRef = useRef([]);
 
   const pid = playerID || '0';
-  const isActivePlayer = ctx.currentPlayer === pid;
+  const isTournament = G.gameFormat === 'tournament';
 
   const getPlayerName = (id) => {
     if (id === null || id === undefined) return '未定';
@@ -201,12 +227,77 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
     orderedPlayerIds.push(targetIdx.toString());
   }
 
-  // トーナメント中のアクティブ対戦者判定
-  const activeMatch = G.gameFormat === 'tournament' ? G.tournament?.activeMatch : null;
-  const isCompetitor = G.gameFormat !== 'tournament' || !activeMatch || (activeMatch.p1 === pid || activeMatch.p2 === pid);
-  const isSpectator = G.gameFormat === 'tournament' && activeMatch && !isCompetitor;
+  // プレイヤー自身が現在対戦中（playing）のマッチ
+  const myTournamentMatch = useMemo(() => {
+    if (!isTournament || !G.tournament?.matches) return null;
+    return G.tournament.matches.find(m => m.status === 'playing' && (m.p1 === pid || m.p2 === pid)) || null;
+  }, [isTournament, G.tournament?.matches, pid]);
 
-  // 決着時：演出（崩落・ペンギン転落）を最後まで見届けてから結果ダイアログを表示
+  // 新しい対戦（決勝進出など）が始まったら、自動で自身の対戦カードをフォーカス
+  const prevMyMatchIdRef = useRef(null);
+  useEffect(() => {
+    if (myTournamentMatch && myTournamentMatch.id !== prevMyMatchIdRef.current) {
+      prevMyMatchIdRef.current = myTournamentMatch.id;
+      setViewedMatchId(myTournamentMatch.id);
+    }
+  }, [myTournamentMatch]);
+
+  // 現在盤面に表示するマッチ（選択中 > 自身の対戦 > 最初の対戦中マッチ > 最初のマッチ）
+  const currentViewMatch = useMemo(() => {
+    if (!isTournament || !G.tournament?.matches || G.tournament.matches.length === 0) return null;
+    if (viewedMatchId !== null) {
+      const found = G.tournament.matches.find(m => m.id === viewedMatchId);
+      if (found) return found;
+    }
+    if (myTournamentMatch) return myTournamentMatch;
+    const firstPlaying = G.tournament.matches.find(m => m.status === 'playing');
+    if (firstPlaying) return firstPlaying;
+    const lastFinished = [...G.tournament.matches].reverse().find(m => m.status === 'finished');
+    return lastFinished || G.tournament.matches[0];
+  }, [isTournament, G.tournament?.matches, viewedMatchId, myTournamentMatch]);
+
+  // 表示中マッチにおける対戦者／観戦者判定
+  const isCompetitorInView = isTournament
+    ? Boolean(currentViewMatch && (currentViewMatch.p1 === pid || currentViewMatch.p2 === pid))
+    : true;
+  const isMyTurnInMatch = isTournament
+    ? Boolean(isCompetitorInView && currentViewMatch?.currentTurnPlayer === pid && currentViewMatch?.status === 'playing')
+    : (ctx.currentPlayer === pid);
+  const isSpectatorInView = isTournament
+    ? (!isCompetitorInView || currentViewMatch?.status !== 'playing')
+    : false;
+
+  const canSpin = isTournament
+    ? (isMyTurnInMatch && currentViewMatch?.turnStep === 'spin')
+    : (isMyTurnInMatch && G.turnStep === 'spin' && !G.winner && G.gameState === 'playing');
+
+  const canInteract = isTournament
+    ? (isMyTurnInMatch && currentViewMatch?.turnStep === 'strike')
+    : (isMyTurnInMatch && G.turnStep === 'strike' && !G.winner && G.gameState === 'playing');
+
+  // 表示用データ (トーナメント時は表示中マッチの盤面、通常時はグローバルG)
+  const displayedBoard = isTournament ? (currentViewMatch?.board || {}) : G.board;
+  const displayedPenguinPos = isTournament ? (currentViewMatch?.penguinPos || { q: 0, r: 0 }) : G.penguinPos;
+  const displayedPenguinFallen = isTournament ? (currentViewMatch?.penguinFallen || false) : G.penguinFallen;
+  const displayedRouletteResult = isTournament ? currentViewMatch?.rouletteResult : G.rouletteResult;
+  const displayedRouletteResultIndex = isTournament ? currentViewMatch?.rouletteResultIndex : G.rouletteResultIndex;
+  const displayedRemainingStrikes = isTournament ? (currentViewMatch?.remainingStrikes || 0) : G.remainingStrikes;
+  const displayedTurnStep = isTournament ? (currentViewMatch?.turnStep || 'spin') : G.turnStep;
+  const displayedLogs = isTournament ? (currentViewMatch?.logs || G.logs) : G.logs;
+  const displayedLastDroppedKeys = isTournament ? (currentViewMatch?.lastDroppedKeys || []) : G.lastDroppedKeys;
+  const displayedLastStrikeEvent = isTournament ? currentViewMatch?.lastStrikeEvent : G.lastStrikeEvent;
+
+  // 自身が直前に終えたマッチ（未確認の決着ダイアログ）
+  const myFinishedMatch = useMemo(() => {
+    if (!isTournament || !G.tournament?.matches || G.winner) return null;
+    return G.tournament.matches.find(m =>
+      m.status === 'finished' &&
+      (m.p1 === pid || m.p2 === pid) &&
+      !dismissedMatchEndIds.has(m.id)
+    ) || null;
+  }, [isTournament, G.tournament?.matches, pid, dismissedMatchEndIds, G.winner]);
+
+  // 大会制覇・通常決着時：演出を最後まで見届けてから結果ダイアログを表示
   useEffect(() => {
     if (G.winner) {
       const timer = setTimeout(() => {
@@ -219,29 +310,16 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
     }
   }, [G.winner]);
 
-  // トーナメント戦：各試合終了後のインターミッションダイアログ
-  useEffect(() => {
-    if (G.gameState === 'intermission' && G.gameFormat === 'tournament') {
-      const timer = setTimeout(() => {
-        setShowIntermissionModal(true);
-      }, 1600);
-      return () => clearTimeout(timer);
-    } else {
-      setShowIntermissionModal(false);
-      setIsIntermissionDismissed(false);
-    }
-  }, [G.gameState, G.gameFormat]);
-
   // 落下ブロックの物理アニメーション & 盤面揺れ演出
   useEffect(() => {
-    if (G.lastDroppedKeys && G.lastDroppedKeys.length > 0) {
-      if (G.lastDroppedKeys !== prevLastDroppedRef.current) {
-        prevLastDroppedRef.current = G.lastDroppedKeys;
-        setStrikeTrigger({ key: G.lastDroppedKeys[0], power: 65, id: Date.now() });
+    if (displayedLastDroppedKeys && displayedLastDroppedKeys.length > 0) {
+      if (displayedLastDroppedKeys !== prevLastDroppedRef.current) {
+        prevLastDroppedRef.current = displayedLastDroppedKeys;
+        setStrikeTrigger({ key: displayedLastDroppedKeys[0], power: 65, id: Date.now() });
         setIsBoardShaking(true);
         const shakeTimer = setTimeout(() => setIsBoardShaking(false), 350);
 
-        const newFalling = G.lastDroppedKeys.map(k => {
+        const newFalling = displayedLastDroppedKeys.map(k => {
           const [q, r] = k.split(',').map(Number);
           return { key: k, q, r, id: `${k}-${Date.now()}` };
         });
@@ -258,32 +336,32 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
         };
       }
     }
-  }, [G.lastDroppedKeys]);
+  }, [displayedLastDroppedKeys]);
 
-  // 相手の手番での打撃アニメーション同期 (弱打撃含む)
+  // 相手の手番または観戦中での打撃アニメーション同期 (弱打撃含む)
   const prevStrikeEventIdRef = useRef(null);
   useEffect(() => {
-    if (G.lastStrikeEvent && G.lastStrikeEvent.id !== prevStrikeEventIdRef.current) {
-      prevStrikeEventIdRef.current = G.lastStrikeEvent.id;
-      if (!isActivePlayer) {
+    if (displayedLastStrikeEvent && displayedLastStrikeEvent.id !== prevStrikeEventIdRef.current) {
+      prevStrikeEventIdRef.current = displayedLastStrikeEvent.id;
+      if (!isMyTurnInMatch) {
         setStrikeTrigger({
-          key: G.lastStrikeEvent.key,
-          power: G.lastStrikeEvent.power,
-          angle: G.lastStrikeEvent.angle ?? 0,
-          id: G.lastStrikeEvent.id
+          key: displayedLastStrikeEvent.key,
+          power: displayedLastStrikeEvent.power,
+          angle: displayedLastStrikeEvent.angle ?? 0,
+          id: displayedLastStrikeEvent.id
         });
       }
     }
-  }, [G.lastStrikeEvent, isActivePlayer]);
+  }, [displayedLastStrikeEvent, isMyTurnInMatch]);
 
-  // 相手の手番でのルーレット回転同期
+  // 相手の手番または観戦中でのルーレット回転同期
   useEffect(() => {
     if (isFirstRender.current) {
       isFirstRender.current = false;
       return;
     }
-    if (G.rouletteResultIndex !== undefined && G.rouletteResultIndex !== null && !isActivePlayer) {
-      const targetAngle = G.rouletteResultIndex * 72 + 36;
+    if (displayedRouletteResultIndex !== undefined && displayedRouletteResultIndex !== null && !isMyTurnInMatch) {
+      const targetAngle = displayedRouletteResultIndex * 72 + 36;
       setNeedleAngle(prev => {
         const fullRotations = 720;
         const currentMod = ((prev % 360) + 360) % 360;
@@ -295,11 +373,11 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
       const timer = setTimeout(() => setIsSpinning(false), 1200);
       return () => clearTimeout(timer);
     }
-  }, [G.rouletteResultIndex, isActivePlayer]);
+  }, [displayedRouletteResultIndex, isMyTurnInMatch]);
 
   // ルーレット回転処理
   const handleSpinRoulette = () => {
-    if (isSpinning || !isActivePlayer || G.turnStep !== 'spin' || G.winner || isSpectator) return;
+    if (isSpinning || !canSpin || G.winner) return;
     setIsSpinning(true);
 
     const targetIdx = Math.floor(Math.random() * ROULETTE_ITEMS.length);
@@ -319,9 +397,9 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
     }, 1400);
   };
 
-  // 氷ブロックへの直接打撃処理 (3D & 2D 共通：打点ドラッグで角度と強さを指定して実行)
+  // 氷ブロックへの直接打撃処理 (3D & 2D 共通)
   const handleDirectStrike = (key, strikePower, angle = 0) => {
-    if (!isActivePlayer || G.turnStep !== 'strike' || G.winner || isSpectator) return;
+    if (!canInteract || G.winner) return;
 
     // 叩くアニメーションをトリガー
     setStrikeTrigger({ key, power: strikePower, angle, id: Date.now() });
@@ -343,11 +421,11 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
     if (e.button !== 0 && e.button !== undefined) return;
 
     e.preventDefault();
-    if (!isActivePlayer || G.turnStep !== 'strike' || G.winner || isSpectator) return;
-    const block = G.board[key];
+    if (!canInteract || G.winner) return;
+    const block = displayedBoard[key];
     if (!block) return;
-    if (G.rouletteResult && G.rouletteResult.targetColor !== 'any' && block.color !== G.rouletteResult.targetColor) return;
-    if (G.penguinPos && `${G.penguinPos.q},${G.penguinPos.r}` === key) return;
+    if (displayedRouletteResult && displayedRouletteResult.targetColor !== 'any' && block.color !== displayedRouletteResult.targetColor) return;
+    if (displayedPenguinPos && `${displayedPenguinPos.q},${displayedPenguinPos.r}` === key) return;
 
     setDrag2D({
       key,
@@ -415,7 +493,7 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
       window.removeEventListener('pointerdown', handleWindowPointerDown);
       window.removeEventListener('contextmenu', handleContextMenu);
     };
-  }, [drag2D, isActivePlayer, G.turnStep, G.winner, isSpectator]);
+  }, [drag2D, canInteract, G.winner]);
 
   // ルールモーダル
   const rulesModal = showRules && (
@@ -429,7 +507,7 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
         <h3 style={{ color: '#00897b' }}>🏆 2つの対戦モード</h3>
         <ul style={{ lineHeight: 1.6 }}>
           <li>**通常サバイバル対戦:** 参加者全員で1つの氷盤面を囲み、ペンギンを落とした1名が即敗北、生き残った全員が勝利となります。</li>
-          <li>**1対1トーナメント:** 2人〜8人対応の本格トーナメント戦！ 各試合2名が対戦し、他のプレイヤーはリアルタイムに3D盤面を観戦。勝ち抜いた勝者が決勝へ進出し王者を決定します。</li>
+          <li>**並行1対1トーナメント:** 2人〜8人対応！ 全ての試合が**同時並行で一斉に進行**します。早く終わったグループは他の対戦テーブルを自由にリアルタイム観戦できます。決勝戦は全員で見守り王者を決定します！</li>
         </ul>
 
         <h3 style={{ color: '#00897b' }}>🔨 ゲームの流れ</h3>
@@ -462,7 +540,12 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
         <TournamentBracketView
           tournament={G.tournament}
           getPlayerName={getPlayerName}
-          activeMatchId={G.tournament?.activeMatchId}
+          activeMatchId={currentViewMatch?.id}
+          currentViewedId={currentViewMatch?.id}
+          onSelectMatch={(matchId) => {
+            setViewedMatchId(matchId);
+            setShowBracketModal(false);
+          }}
         />
 
         <button onClick={() => setShowBracketModal(false)} style={{ width: '100%', padding: '12px', background: '#00838f', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px', marginTop: '16px' }}>
@@ -477,111 +560,92 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
     const isTournament = G.gameFormat === 'tournament';
 
     return (
-      <div style={{ padding: '24px 20px', fontFamily: 'sans-serif', maxWidth: '680px', margin: '30px auto', textAlign: 'center', background: '#fff', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
-        {rulesModal}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #00bcd4', paddingBottom: '12px' }}>
-          <h2 style={{ margin: 0, color: '#00838f', fontSize: '22px' }}>🐧 クラッシュアイス - 待機ルーム</h2>
-          <button onClick={() => setShowRules(true)} style={{ background: '#00838f', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9em' }}>
-            📖 ルール
-          </button>
-        </div>
-
-        {/* ゲームモード切り替えタブ */}
-        <div style={{ marginTop: '20px', textAlign: 'left' }}>
-          <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#555', marginBottom: '8px' }}>🎮 対戦モード選択:</div>
-          <div style={{ display: 'flex', gap: '12px' }}>
-            <button
-              onClick={() => moves.setGameFormat('standard')}
-              style={{
-                flex: 1, padding: '12px 14px', borderRadius: '12px', cursor: 'pointer', textAlign: 'center',
-                background: !isTournament ? 'linear-gradient(135deg, #0284c7, #0369a1)' : '#f8fafc',
-                color: !isTournament ? '#fff' : '#475569',
-                border: !isTournament ? '2px solid #0284c7' : '1px solid #cbd5e1',
-                boxShadow: !isTournament ? '0 4px 12px rgba(2, 132, 199, 0.35)' : 'none',
-                transition: 'all 0.2s',
-              }}
-            >
-              <div style={{ fontSize: '15px', fontWeight: 'bold' }}>🧊 通常サバイバル対戦</div>
-              <div style={{ fontSize: '11px', marginTop: '4px', opacity: 0.9 }}>全員参加・ペンギンを落とした人が即敗北</div>
-            </button>
-
-            <button
-              onClick={() => moves.setGameFormat('tournament')}
-              style={{
-                flex: 1, padding: '12px 14px', borderRadius: '12px', cursor: 'pointer', textAlign: 'center',
-                background: isTournament ? 'linear-gradient(135deg, #f59e0b, #d97706)' : '#f8fafc',
-                color: isTournament ? '#fff' : '#475569',
-                border: isTournament ? '2px solid #d97706' : '1px solid #cbd5e1',
-                boxShadow: isTournament ? '0 4px 12px rgba(217, 119, 6, 0.35)' : 'none',
-                transition: 'all 0.2s',
-              }}
-            >
-              <div style={{ fontSize: '15px', fontWeight: 'bold' }}>🏆 1対1トーナメント</div>
-              <div style={{ fontSize: '11px', marginTop: '4px', opacity: 0.9 }}>2人〜8人対応の本格勝ち抜き戦</div>
-            </button>
-          </div>
-        </div>
-
-        {/* トーナメントプレビュー */}
-        {isTournament && (
-          <div style={{ background: '#fffbeb', padding: '16px', borderRadius: '12px', border: '1px solid #fde68a', margin: '20px 0', textAlign: 'left' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-              <div style={{ fontWeight: 'bold', color: '#92400e', fontSize: '14px' }}>
-                🏆 トーナメント組み合わせプレビュー
-              </div>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', padding: '20px' }}>
+        <UnifiedLobby
+          gameTitle="クラッシュアイス (Crash Ice)"
+          gameIcon="🐧"
+          gameSubtitle="氷を叩き落としてペンギンを守れ！リアル3D物理対戦アクション"
+          themeColor="#0284c7"
+          themeGradient={isTournament ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'linear-gradient(135deg, #0284c7, #0369a1)'}
+          numPlayers={numPlayers}
+          playerIds={orderedPlayerIds}
+          pid={pid}
+          getPlayerName={getPlayerName}
+          isHost={pid === '0'}
+          onStart={() => moves.startGame()}
+          startText={isTournament ? '🏆 トーナメントを開幕する！' : '🚀 ゲームを開始する！'}
+          onShowRules={() => setShowRules(true)}
+          rulesModal={rulesModal}
+        >
+          {/* ゲームモード切り替えタブ */}
+          <div style={{ textAlign: 'left', marginBottom: '16px' }}>
+            <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#475569', marginBottom: '8px' }}>🎮 対戦モード選択:</div>
+            <div style={{ display: 'flex', gap: '12px' }}>
               <button
-                onClick={() => moves.shuffleTournamentSeeds()}
+                onClick={() => moves.setGameFormat('standard')}
                 style={{
-                  background: '#f59e0b', color: '#fff', border: 'none', padding: '5px 12px',
-                  borderRadius: '6px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer',
-                  boxShadow: '0 2px 4px rgba(245, 158, 11, 0.3)'
+                  flex: 1, padding: '12px 14px', borderRadius: '12px', cursor: 'pointer', textAlign: 'center',
+                  background: !isTournament ? 'linear-gradient(135deg, #0284c7, #0369a1)' : '#f8fafc',
+                  color: !isTournament ? '#fff' : '#475569',
+                  border: !isTournament ? '2px solid #0284c7' : '1px solid #cbd5e1',
+                  boxShadow: !isTournament ? '0 4px 12px rgba(2, 132, 199, 0.35)' : 'none',
+                  transition: 'all 0.2s',
                 }}
               >
-                🎲 組み合わせシャッフル
+                <div style={{ fontSize: '14px', fontWeight: 'bold' }}>🧊 通常サバイバル対戦</div>
+                <div style={{ fontSize: '11px', marginTop: '3px', opacity: 0.9 }}>全員参加・ペンギンを落とした人が即敗北</div>
+              </button>
+
+              <button
+                onClick={() => moves.setGameFormat('tournament')}
+                style={{
+                  flex: 1, padding: '12px 14px', borderRadius: '12px', cursor: 'pointer', textAlign: 'center',
+                  background: isTournament ? 'linear-gradient(135deg, #f59e0b, #d97706)' : '#f8fafc',
+                  color: isTournament ? '#fff' : '#475569',
+                  border: isTournament ? '2px solid #d97706' : '1px solid #cbd5e1',
+                  boxShadow: isTournament ? '0 4px 12px rgba(217, 119, 6, 0.35)' : 'none',
+                  transition: 'all 0.2s',
+                }}
+              >
+                <div style={{ fontSize: '14px', fontWeight: 'bold' }}>🏆 1対1トーナメント</div>
+                <div style={{ fontSize: '11px', marginTop: '3px', opacity: 0.9 }}>2人〜8人対応・全卓同時並行の勝ち抜き戦</div>
               </button>
             </div>
-            
-            <div style={{ fontSize: '12px', color: '#78350f', marginBottom: '12px', lineHeight: 1.5 }}>
-              ※ 試合ごとに2名が1対1で対戦し、他のプレイヤーはリアルタイムに3D盤面を観戦します。勝者が次戦に進出します。
-            </div>
-
-            <div style={{ background: '#ffffff', borderRadius: '10px', padding: '10px', border: '1px solid #fef3c7', overflowX: 'auto' }}>
-              <TournamentBracketView
-                tournament={G.tournament?.matches?.length > 0 ? G.tournament : { matches: G.tournament?.matches || [] }}
-                getPlayerName={getPlayerName}
-                activeMatchId={null}
-              />
-            </div>
           </div>
-        )}
 
-        {/* 参加者リスト */}
-        <div style={{ background: '#f5f5f5', padding: '15px', borderRadius: '10px', margin: '20px 0' }}>
-          <h3 style={{ marginTop: 0, fontSize: '14px', color: '#555' }}>参加者 ({numPlayers}人)</h3>
-          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
-            {orderedPlayerIds.map(id => (
-              <div key={id} style={{ background: id === pid ? '#b2dfdb' : '#e0f7fa', padding: '6px 16px', borderRadius: '20px', fontWeight: 'bold', border: '1px solid #80deea', color: '#006064' }}>
-                {getPlayerName(id)} {id === pid ? '(あなた)' : ''}
+          {/* トーナメントプレビュー */}
+          {isTournament && (
+            <div style={{ background: '#fffbeb', padding: '16px', borderRadius: '12px', border: '1px solid #fde68a', margin: '16px 0', textAlign: 'left' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <div style={{ fontWeight: 'bold', color: '#92400e', fontSize: '13px' }}>
+                  🏆 トーナメント組み合わせプレビュー
+                </div>
+                <button
+                  onClick={() => moves.shuffleTournamentSeeds()}
+                  style={{
+                    background: '#f59e0b', color: '#fff', border: 'none', padding: '5px 12px',
+                    borderRadius: '6px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer',
+                    boxShadow: '0 2px 4px rgba(245, 158, 11, 0.3)'
+                  }}
+                >
+                  🎲 組み合わせシャッフル
+                </button>
               </div>
-            ))}
-          </div>
-        </div>
+              
+              <div style={{ fontSize: '11px', color: '#78350f', marginBottom: '10px', lineHeight: 1.4 }}>
+                ※ 試合ごとに2名が1対1で対戦し、他の対戦も同時並行で進行します。勝者が次戦に進出します。
+              </div>
 
-        <button 
-          onClick={() => moves.startGame()} 
-          style={{
-            padding: '16px 40px', fontSize: '1.3em',
-            background: isTournament ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'linear-gradient(135deg, #e65100, #f57c00)',
-            color: 'white', border: 'none', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold',
-            boxShadow: isTournament ? '0 4px 15px rgba(217,119,6,0.35)' : '0 4px 15px rgba(230,81,0,0.35)',
-            width: '100%', transition: 'all 0.2s'
-          }}
-        >
-          {isTournament ? '🏆 トーナメントを開幕する！' : '🚀 ゲームを開始する！'}
-        </button>
-        <div style={{ marginTop: '8px', fontSize: '12px', color: '#666' }}>
-          ホスト（{getPlayerName('0')}）または参加者のどなたでも開始できます
-        </div>
+              <div style={{ background: '#ffffff', borderRadius: '10px', padding: '10px', border: '1px solid #fef3c7', overflowX: 'auto' }}>
+                <TournamentBracketView
+                  tournament={G.tournament?.matches?.length > 0 ? G.tournament : { matches: G.tournament?.matches || [] }}
+                  getPlayerName={getPlayerName}
+                  activeMatchId={null}
+                />
+              </div>
+            </div>
+          )}
+        </UnifiedLobby>
       </div>
     );
   }
@@ -599,7 +663,7 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
           <button onClick={() => setShowRules(true)} style={{ background: '#00838f', color: '#fff', border: 'none', padding: '5px 12px', borderRadius: '5px', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
             📖 ルール
           </button>
-          {G.gameFormat === 'tournament' && (
+          {isTournament && (
             <button onClick={() => setShowBracketModal(true)} style={{ background: '#f59e0b', color: '#fff', border: 'none', padding: '5px 12px', borderRadius: '5px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
               🏆 トーナメント表
             </button>
@@ -608,20 +672,20 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
 
         {/* 手番ステータス */}
         <div>
-          {G.gameFormat === 'tournament' && activeMatch ? (
-            isCompetitor ? (
-              isActivePlayer ? (
+          {isTournament ? (
+            myTournamentMatch ? (
+              isMyTurnInMatch ? (
                 <span style={{ background: '#ffeb3b', color: '#333', padding: '4px 12px', borderRadius: '15px', fontWeight: 'bold', fontSize: '14px', boxShadow: '0 0 8px rgba(255,235,59,0.7)' }}>
-                  🎯 あなたの手番！（vs {getPlayerName(activeMatch.p1 === pid ? activeMatch.p2 : activeMatch.p1)}）
+                  🎯 あなたの手番！（【{myTournamentMatch.name}】）
                 </span>
               ) : (
-                <span style={{ background: 'rgba(255,255,255,0.2)', color: '#fff', padding: '4px 10px', borderRadius: '15px', fontSize: '14px' }}>
-                  ⏳ 相手の手番待ち（vs {getPlayerName(activeMatch.p1 === pid ? activeMatch.p2 : activeMatch.p1)}）
+                <span style={{ background: 'rgba(255,255,255,0.2)', color: '#fff', padding: '4px 12px', borderRadius: '15px', fontSize: '14px' }}>
+                  ⏳ 相手の手番待ち（【{myTournamentMatch.name}】）
                 </span>
               )
             ) : (
               <span style={{ background: '#0284c7', color: '#fff', padding: '4px 12px', borderRadius: '15px', fontWeight: 'bold', fontSize: '13px' }}>
-                👀 観戦中: {getPlayerName(activeMatch.p1)} vs {getPlayerName(activeMatch.p2)}
+                👀 リアルタイム観戦中
               </span>
             )
           ) : (
@@ -636,37 +700,141 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
         </div>
       </div>
 
+      {/* 自身の次の試合が開始された際の通知バナー */}
+      {isTournament && myTournamentMatch && viewedMatchId !== null && viewedMatchId !== myTournamentMatch.id && (
+        <div style={{
+          background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+          color: '#fff',
+          padding: '8px 20px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          borderBottom: '2px solid #b45309',
+          boxShadow: '0 2px 8px rgba(245,158,11,0.4)'
+        }}>
+          <span style={{ fontWeight: 'bold', fontSize: '13px' }}>
+            🔔 あなたの対戦【{myTournamentMatch.name}】の準備が整いました！（対戦相手: {getPlayerName(myTournamentMatch.p1 === pid ? myTournamentMatch.p2 : myTournamentMatch.p1)}）
+          </span>
+          <button
+            onClick={() => setViewedMatchId(myTournamentMatch.id)}
+            style={{
+              background: '#fff',
+              color: '#92400e',
+              border: 'none',
+              padding: '4px 14px',
+              borderRadius: '16px',
+              fontWeight: 'bold',
+              fontSize: '12px',
+              cursor: 'pointer',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.15)'
+            }}
+          >
+            ⚔️ 今すぐ対戦へ移動する
+          </button>
+        </div>
+      )}
+
       {/* SEATING ORDER / MATCH BAR */}
-      <div style={{ background: 'rgba(255,255,255,0.9)', padding: '8px 20px', borderBottom: '1px solid #b2ebf2', display: 'flex', alignItems: 'center', gap: '10px', overflowX: 'auto' }}>
-        {G.gameFormat === 'tournament' && activeMatch ? (
+      <div style={{ background: 'rgba(255,255,255,0.95)', padding: '8px 16px', borderBottom: '1px solid #b2ebf2', display: 'flex', alignItems: 'center', gap: '8px', overflowX: 'auto', minHeight: '44px', boxSizing: 'border-box' }}>
+        {isTournament ? (
           <>
-            <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#b45309', whiteSpace: 'nowrap' }}>
-              🏆 【{activeMatch.name}】:
+            <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#00838f', whiteSpace: 'nowrap' }}>
+              🏆 テーブル切替:
             </span>
-            <div style={{
-              background: ctx.currentPlayer === activeMatch.p1 ? '#ff9800' : '#e0f2fe',
-              color: ctx.currentPlayer === activeMatch.p1 ? '#fff' : '#0369a1',
-              padding: '4px 12px', borderRadius: '15px', fontSize: '12px', fontWeight: 'bold',
-              border: ctx.currentPlayer === activeMatch.p1 ? '2px solid #e65100' : '1px solid #bae6fd',
-              whiteSpace: 'nowrap'
-            }}>
-              {getPlayerName(activeMatch.p1)} {activeMatch.p1 === pid ? '(あなた)' : ''} {ctx.currentPlayer === activeMatch.p1 ? '⚡手番' : ''}
-            </div>
-            <span style={{ fontWeight: 'bold', color: '#64748b' }}>VS</span>
-            <div style={{
-              background: ctx.currentPlayer === activeMatch.p2 ? '#ff9800' : '#e0f2fe',
-              color: ctx.currentPlayer === activeMatch.p2 ? '#fff' : '#0369a1',
-              padding: '4px 12px', borderRadius: '15px', fontSize: '12px', fontWeight: 'bold',
-              border: ctx.currentPlayer === activeMatch.p2 ? '2px solid #e65100' : '1px solid #bae6fd',
-              whiteSpace: 'nowrap'
-            }}>
-              {getPlayerName(activeMatch.p2)} {activeMatch.p2 === pid ? '(あなた)' : ''} {ctx.currentPlayer === activeMatch.p2 ? '⚡手番' : ''}
-            </div>
-            {isSpectator && (
-              <span style={{ fontSize: '12px', background: '#f1f5f9', color: '#64748b', padding: '3px 10px', borderRadius: '12px', marginLeft: 'auto', fontWeight: 'bold' }}>
-                👀 あなたは観戦中です
-              </span>
-            )}
+
+            {/* 対戦中（playing）のマッチ一覧 */}
+            {G.tournament?.matches?.filter(m => m.status === 'playing').map(m => {
+              const isMine = m.p1 === pid || m.p2 === pid;
+              const isSelected = currentViewMatch?.id === m.id;
+              const isMyTurnInThisMatch = isMine && m.currentTurnPlayer === pid;
+
+              return (
+                <button
+                  key={m.id}
+                  onClick={() => setViewedMatchId(m.id)}
+                  style={{
+                    background: isSelected 
+                      ? (isMine ? 'linear-gradient(135deg, #e65100, #f57c00)' : 'linear-gradient(135deg, #0284c7, #0369a1)')
+                      : (isMine ? '#fff7ed' : '#f0f9ff'),
+                    color: isSelected ? '#fff' : (isMine ? '#c2410c' : '#0369a1'),
+                    border: isSelected 
+                      ? (isMine ? '2px solid #ea580c' : '2px solid #0284c7')
+                      : (isMine ? '1px solid #fdba74' : '1px solid #bae6fd'),
+                    borderRadius: '18px',
+                    padding: '5px 12px',
+                    fontSize: '12px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    whiteSpace: 'nowrap',
+                    boxShadow: isSelected ? '0 2px 8px rgba(0,0,0,0.2)' : 'none',
+                    transition: 'all 0.15s'
+                  }}
+                >
+                  <span>{isMine ? '⚔️ あなたの試合' : '👁️ 観戦'}</span>
+                  <span>【{m.name}】</span>
+                  <span style={{ fontSize: '11px', opacity: 0.9 }}>
+                    ({getPlayerName(m.p1)} vs {getPlayerName(m.p2)})
+                  </span>
+                  <span style={{
+                    background: isSelected ? 'rgba(255,255,255,0.3)' : (isMine ? '#fed7aa' : '#e0f2fe'),
+                    color: isSelected ? '#fff' : (isMine ? '#9a3412' : '#0369a1'),
+                    padding: '1px 6px',
+                    borderRadius: '10px',
+                    fontSize: '10px'
+                  }}>
+                    {isMine ? (isMyTurnInThisMatch ? '⚡手番！' : '相手の手番') : '🔴 LIVE'}
+                  </span>
+                </button>
+              );
+            })}
+
+            {/* 終了済みマッチ (確認用) */}
+            {G.tournament?.matches?.filter(m => m.status === 'finished').map(m => {
+              const isSelected = currentViewMatch?.id === m.id;
+              return (
+                <button
+                  key={m.id}
+                  onClick={() => setViewedMatchId(m.id)}
+                  style={{
+                    background: isSelected ? '#64748b' : '#f8fafc',
+                    color: isSelected ? '#fff' : '#64748b',
+                    border: isSelected ? '2px solid #475569' : '1px solid #cbd5e1',
+                    borderRadius: '18px',
+                    padding: '4px 10px',
+                    fontSize: '11px',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  ✓ 【{m.name}】勝者: {getPlayerName(m.winner)}
+                </button>
+              );
+            })}
+
+            <button
+              onClick={() => setShowBracketModal(true)}
+              style={{
+                marginLeft: 'auto',
+                background: '#f59e0b',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '18px',
+                padding: '5px 12px',
+                fontSize: '12px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                boxShadow: '0 2px 6px rgba(245,158,11,0.3)'
+              }}
+            >
+              📊 トーナメント表
+            </button>
           </>
         ) : (
           <>
@@ -704,7 +872,11 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
           <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
             <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#006064', display: 'flex', alignItems: 'center', gap: '6px' }}>
               🧊 盤面エリア {viewMode === '3d' ? '(3D物理シミュレーション)' : '(2Dフラット表示)'}
-              {isSpectator && <span style={{ color: '#0284c7', fontSize: '12px', fontWeight: 'normal' }}>[リアルタイム観戦中]</span>}
+              {isTournament && currentViewMatch && (
+                <span style={{ color: isSpectatorInView ? '#0284c7' : '#e65100', fontSize: '12px', fontWeight: 'bold' }}>
+                  [{isSpectatorInView ? '👀 リアルタイム観戦中' : '🔥 対戦中'}: 【{currentViewMatch.name}】]
+                </span>
+              )}
             </span>
             <button
               onClick={() => setViewMode(prev => prev === '3d' ? '2d' : '3d')}
@@ -728,17 +900,81 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
             </button>
           </div>
 
+          {/* トーナメント時の対戦カード詳細バー */}
+          {isTournament && currentViewMatch && (
+            <div style={{
+              width: '100%',
+              background: isSpectatorInView ? '#f0f9ff' : '#fff7ed',
+              border: isSpectatorInView ? '1px solid #bae6fd' : '1px solid #fed7aa',
+              borderRadius: '8px',
+              padding: '6px 14px',
+              marginBottom: '8px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              boxSizing: 'border-box'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}>
+                <span style={{
+                  background: isSpectatorInView ? '#0284c7' : '#ea580c',
+                  color: '#fff',
+                  fontSize: '11px',
+                  fontWeight: 'bold',
+                  padding: '2px 8px',
+                  borderRadius: '10px'
+                }}>
+                  {isSpectatorInView ? '👀 観戦' : '⚔️ 対戦中'}
+                </span>
+                <span style={{ fontWeight: 'bold', color: '#1e293b' }}>
+                  【{currentViewMatch.name}】
+                </span>
+                <span style={{ color: '#475569' }}>
+                  {getPlayerName(currentViewMatch.p1)} {currentViewMatch.p1 === pid ? '(あなた)' : ''} 🆚 {getPlayerName(currentViewMatch.p2)} {currentViewMatch.p2 === pid ? '(あなた)' : ''}
+                </span>
+              </div>
+
+              <div>
+                {currentViewMatch.status === 'playing' ? (
+                  <span style={{
+                    background: isMyTurnInMatch ? '#fef08a' : '#f1f5f9',
+                    color: isMyTurnInMatch ? '#854d0e' : '#475569',
+                    border: isMyTurnInMatch ? '1px solid #eab308' : '1px solid #cbd5e1',
+                    padding: '3px 10px',
+                    borderRadius: '12px',
+                    fontWeight: 'bold',
+                    fontSize: '12px'
+                  }}>
+                    {isMyTurnInMatch
+                      ? '🎯 あなたの手番です！'
+                      : `⏳ ${getPlayerName(currentViewMatch.currentTurnPlayer)} の手番`}
+                  </span>
+                ) : (
+                  <span style={{
+                    background: '#dcfce7',
+                    color: '#15803d',
+                    padding: '3px 10px',
+                    borderRadius: '12px',
+                    fontWeight: 'bold',
+                    fontSize: '12px'
+                  }}>
+                    ✓ 決着（勝者: {getPlayerName(currentViewMatch.winner)}）
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
           {viewMode === '3d' ? (
             <div style={{ width: '100%', height: '100%', flex: 1, minHeight: '520px', position: 'relative', display: 'flex' }}>
               <CrashIce3DCanvas
-                board={G.board}
-                penguinPos={G.penguinFallen ? null : `${G.penguinPos.q},${G.penguinPos.r}`}
-                winner={G.winner}
+                board={displayedBoard}
+                penguinPos={displayedPenguinFallen ? null : `${displayedPenguinPos.q},${displayedPenguinPos.r}`}
+                winner={isTournament ? (currentViewMatch?.winner || null) : G.winner}
                 onStrike={handleDirectStrike}
                 strikeTarget={strikeTrigger}
-                lastDroppedKeys={G.lastDroppedKeys}
-                canInteract={isCompetitor && isActivePlayer && G.turnStep === 'strike' && !G.winner && G.gameState === 'playing'}
-                allowedColor={G.rouletteResult ? G.rouletteResult.targetColor : null}
+                lastDroppedKeys={displayedLastDroppedKeys}
+                canInteract={canInteract}
+                allowedColor={displayedRouletteResult ? displayedRouletteResult.targetColor : null}
               />
             </div>
           ) : (
@@ -803,12 +1039,12 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
                 </defs>
 
                 {/* 氷ブロック描画 */}
-                {Object.entries(G.board).map(([key, block]) => {
+                {Object.entries(displayedBoard).map(([key, block]) => {
                   const { x, y } = hexToPixel(block.q, block.r);
                   const isBeingDragged = drag2D?.key === key;
-                  const canSelect = isCompetitor && isActivePlayer && G.turnStep === 'strike' && !G.winner && G.gameState === 'playing' && (
-                    !G.rouletteResult || G.rouletteResult.targetColor === 'any' || block.color === G.rouletteResult.targetColor
-                  ) && (!G.penguinPos || `${G.penguinPos.q},${G.penguinPos.r}` !== key);
+                  const canSelect = canInteract && (
+                    !displayedRouletteResult || displayedRouletteResult.targetColor === 'any' || block.color === displayedRouletteResult.targetColor
+                  ) && (!displayedPenguinPos || `${displayedPenguinPos.q},${displayedPenguinPos.r}` !== key);
 
                   return (
                     <polygon
@@ -826,7 +1062,7 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
                   );
                 })}
 
-                {/* 2Dドラッグ中の軌跡矢印・パワーHUD (打点からマウスカーソル位置までダイレクトに延伸) */}
+                {/* 2Dドラッグ中の軌跡矢印・パワーHUD */}
                 {drag2D && drag2D.power >= 5 && (() => {
                   const arrowColor = drag2D.power >= 80 ? '#ef4444' : (drag2D.power >= 55 ? '#fb923c' : (drag2D.power >= 15 ? '#4ade80' : '#38bdf8'));
                   const tipX = drag2D.blockX + (drag2D.currentX - drag2D.startX);
@@ -839,13 +1075,6 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
                       <line x1={drag2D.blockX} y1={drag2D.blockY} x2={tipX} y2={tipY} stroke={arrowColor} strokeWidth="4" strokeLinecap="round" />
                       {/* 先端ノブ */}
                       <circle cx={tipX} cy={tipY} r="6" fill={arrowColor} stroke="#fff" strokeWidth="1.5" />
-                      {/* パワーバッジ */}
-                      <g transform={`translate(${tipX}, ${tipY - 16})`}>
-                        <rect x="-32" y="-12" width="64" height="22" rx="11" fill="rgba(15,23,42,0.88)" stroke="#fff" strokeWidth="1.5" />
-                        <text textAnchor="middle" dominantBaseline="central" fill="#fff" fontSize="11" fontWeight="bold">
-                          🔨 {drag2D.power}%
-                        </text>
-                      </g>
                     </g>
                   );
                 })()}
@@ -866,8 +1095,8 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
                 })}
 
                 {/* ペンギン */}
-                {!G.penguinFallen && (
-                  <g transform={`translate(${hexToPixel(G.penguinPos.q, G.penguinPos.r).x}, ${hexToPixel(G.penguinPos.q, G.penguinPos.r).y})`}>
+                {!displayedPenguinFallen && (
+                  <g transform={`translate(${hexToPixel(displayedPenguinPos.q, displayedPenguinPos.r).x}, ${hexToPixel(displayedPenguinPos.q, displayedPenguinPos.r).y})`}>
                     <text textAnchor="middle" dominantBaseline="central" fontSize="36" style={{ userSelect: 'none', pointerEvents: 'none' }}>
                       🐧
                     </text>
@@ -914,7 +1143,7 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
                   const tx = 90 + 54 * Math.cos(midAngle);
                   const ty = 90 + 54 * Math.sin(midAngle);
 
-                  const isSelected = G.rouletteResultIndex === i;
+                  const isSelected = displayedRouletteResultIndex === i;
 
                   return (
                     <g key={item.id}>
@@ -996,53 +1225,53 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
             <div style={{ marginTop: '12px' }}>
               <button
                 onClick={handleSpinRoulette}
-                disabled={!isActivePlayer || G.turnStep !== 'spin' || isSpinning || isSpectator || G.winner}
+                disabled={!canSpin || isSpinning}
                 style={{
                   width: '100%',
                   padding: '12px',
                   fontSize: '15px',
                   fontWeight: 'bold',
-                  background: (!isActivePlayer || G.turnStep !== 'spin' || isSpinning || isSpectator || G.winner) ? '#cfd8dc' : 'linear-gradient(135deg, #ff9800, #f57c00)',
-                  color: (!isActivePlayer || G.turnStep !== 'spin' || isSpinning || isSpectator || G.winner) ? '#78909c' : '#fff',
+                  background: (!canSpin || isSpinning) ? '#cfd8dc' : 'linear-gradient(135deg, #ff9800, #f57c00)',
+                  color: (!canSpin || isSpinning) ? '#78909c' : '#fff',
                   border: 'none',
                   borderRadius: '8px',
-                  cursor: (!isActivePlayer || G.turnStep !== 'spin' || isSpinning || isSpectator || G.winner) ? 'not-allowed' : 'pointer',
-                  boxShadow: (!isActivePlayer || G.turnStep !== 'spin' || isSpinning || isSpectator || G.winner) ? 'none' : '0 4px 10px rgba(255,152,0,0.3)',
+                  cursor: (!canSpin || isSpinning) ? 'not-allowed' : 'pointer',
+                  boxShadow: (!canSpin || isSpinning) ? 'none' : '0 4px 10px rgba(255,152,0,0.3)',
                   transition: 'all 0.2s',
                 }}
               >
                 {isSpinning 
                   ? '🎯 回転中...' 
-                  : (G.winner 
-                      ? '🏆 ゲーム終了'
-                      : (isSpectator 
+                  : (G.winner || (isTournament && currentViewMatch?.status === 'finished')
+                      ? '🏆 試合終了'
+                      : (isSpectatorInView 
                           ? '👀 観戦中（対戦者の手番）'
-                          : (isActivePlayer && G.turnStep === 'spin' 
+                          : (canSpin 
                               ? '🎲 ルーレットを回す！' 
-                              : (G.turnStep === 'strike' ? '🔨 氷を叩く手番' : '⏳ 相手の手番待ち'))))}
+                              : (displayedTurnStep === 'strike' ? '🔨 氷を叩く手番' : '⏳ 相手の手番待ち'))))}
               </button>
             </div>
 
             {/* 出目結果バッジ */}
-            {G.rouletteResult ? (
+            {displayedRouletteResult ? (
               <div style={{ 
                 marginTop: '10px', 
                 background: '#fff', 
                 padding: '8px 12px', 
                 borderRadius: '8px', 
-                border: `2px solid ${G.rouletteResult.color}`, 
+                border: `2px solid ${displayedRouletteResult.color}`, 
                 fontWeight: 'bold', 
                 fontSize: '13px',
                 color: '#333',
                 boxShadow: '0 2px 6px rgba(0,0,0,0.06)'
               }}>
-                <span style={{ fontSize: '15px', marginRight: '6px' }}>{G.rouletteResult.icon}</span>
-                <span style={{ color: G.rouletteResult.color === '#cfd8dc' || G.rouletteResult.color === '#b0bec5' ? '#37474f' : G.rouletteResult.color }}>
-                  {G.rouletteResult.label}
+                <span style={{ fontSize: '15px', marginRight: '6px' }}>{displayedRouletteResult.icon}</span>
+                <span style={{ color: displayedRouletteResult.color === '#cfd8dc' || displayedRouletteResult.color === '#b0bec5' ? '#37474f' : displayedRouletteResult.color }}>
+                  {displayedRouletteResult.label}
                 </span>
-                {G.turnStep === 'strike' && G.remainingStrikes > 0 && (
+                {displayedTurnStep === 'strike' && displayedRemainingStrikes > 0 && (
                   <span style={{ marginLeft: '6px', fontSize: '12px', background: '#e0f2f1', color: '#00796b', padding: '2px 6px', borderRadius: '4px' }}>
-                    残り {G.remainingStrikes} 個
+                    残り {displayedRemainingStrikes} 個
                   </span>
                 )}
               </div>
@@ -1056,10 +1285,10 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
           {/* SYSTEM LOGS */}
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#fafafa', borderRadius: '8px', border: '1px solid #ddd', overflow: 'hidden' }}>
             <div style={{ background: '#f0f0f0', padding: '8px 12px', fontWeight: 'bold', fontSize: '13px', color: '#555' }}>
-              📜 プレイ履歴
+              📜 プレイ履歴 {isTournament && currentViewMatch ? `(【${currentViewMatch.name}】)` : ''}
             </div>
             <div style={{ flex: 1, padding: '10px', overflowY: 'auto', fontSize: '13px', lineHeight: 1.5, color: '#444' }}>
-              {G.logs.slice().reverse().map((log, i) => (
+              {displayedLogs.slice().reverse().map((log, i) => (
                 <div key={i} style={{ marginBottom: '6px', borderBottom: '1px dashed #eee', paddingBottom: '4px' }}>
                   {log.replace(/Player (\d+)/g, (match, id) => getPlayerName(id))}
                 </div>
@@ -1072,49 +1301,8 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
 
 
 
-      {/* インターミッション中のフローティングバー（最小化時） */}
-      {G.gameState === 'intermission' && isIntermissionDismissed && (
-        <div style={{
-          position: 'fixed',
-          top: '55px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          background: 'rgba(255, 255, 255, 0.95)',
-          padding: '10px 22px',
-          borderRadius: '30px',
-          boxShadow: '0 4px 15px rgba(0,0,0,0.25)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '15px',
-          zIndex: 1100,
-          border: '2px solid #f59e0b'
-        }}>
-          <span style={{ fontWeight: 'bold', color: '#92400e', fontSize: '14px' }}>
-            ⚔️ 【{G.tournament?.lastMatchResult?.matchName}】 勝者: {getPlayerName(G.tournament?.lastMatchResult?.winner)}
-          </span>
-          <button
-            onClick={() => moves.startNextTournamentMatch()}
-            style={{
-              padding: '6px 14px', background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#fff',
-              border: 'none', borderRadius: '15px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px'
-            }}
-          >
-            ⚔️ 次の試合を開始する
-          </button>
-          <button
-            onClick={() => setIsIntermissionDismissed(false)}
-            style={{
-              padding: '6px 14px', background: '#00838f', color: '#fff',
-              border: 'none', borderRadius: '15px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px'
-            }}
-          >
-            📊 結果ダイアログを表示
-          </button>
-        </div>
-      )}
-
-      {/* TOURNAMENT INTERMISSION MODAL (各試合終了後のインターミッション) */}
-      {showIntermissionModal && !isIntermissionDismissed && (
+      {/* 自身のマッチ終了時（勝者勝ち抜け・敗者観戦移行）モーダル */}
+      {isTournament && myFinishedMatch && !G.winner && (
         <div style={{
           position: 'fixed',
           top: 0,
@@ -1129,74 +1317,80 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
           padding: '20px'
         }}>
           <div style={{
-            background: '#fffbeb',
+            background: myFinishedMatch.winner === pid ? '#f0fdf4' : '#fff5f5',
             borderRadius: '20px',
             maxWidth: '520px',
             width: '100%',
             padding: '28px',
             textAlign: 'center',
             boxShadow: '0 15px 40px rgba(0,0,0,0.4)',
-            border: '3px solid #f59e0b'
+            border: myFinishedMatch.winner === pid ? '3px solid #16a34a' : '3px solid #ef5350'
           }}>
             <div style={{ fontSize: '50px', marginBottom: '8px' }}>
-              ⚔️🐧💥
+              {myFinishedMatch.winner === pid ? '👑🎉' : '💀🐧💦'}
             </div>
 
-            <h2 style={{ fontSize: '22px', margin: '0 0 10px 0', color: '#92400e' }}>
-              【{G.tournament?.lastMatchResult?.matchName}】 決着！
+            <h2 style={{ fontSize: '22px', margin: '0 0 10px 0', color: myFinishedMatch.winner === pid ? '#166534' : '#991b1b' }}>
+              【{myFinishedMatch.name}】 決着！
             </h2>
 
             <div style={{ background: '#fff', padding: '16px 20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', marginBottom: '20px', textAlign: 'left' }}>
               <div style={{ color: '#16a34a', fontWeight: 'bold', fontSize: '16px', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <span>👑 勝者:</span>
-                <span>{getPlayerName(G.tournament?.lastMatchResult?.winner)}</span>
+                <span>{getPlayerName(myFinishedMatch.winner)}</span>
                 <span style={{ fontSize: '12px', background: '#dcfce7', padding: '2px 8px', borderRadius: '10px' }}>勝ち抜け！</span>
               </div>
               <div style={{ color: '#dc2626', fontWeight: 'bold', fontSize: '14px' }}>
-                💀 敗者（ペンギン落下）: {getPlayerName(G.tournament?.lastMatchResult?.loser)}
+                💀 敗者（ペンギン落下）: {getPlayerName(myFinishedMatch.loser)}
               </div>
             </div>
 
-            {/* 次の試合プレビュー */}
-            {(() => {
-              const nextM = G.tournament?.matches?.find(m => m.winner === null && m.p1 !== null && m.p2 !== null);
-              if (nextM) {
-                return (
-                  <div style={{ background: '#fef3c7', padding: '12px 16px', borderRadius: '10px', border: '1px solid #fde68a', marginBottom: '20px', fontSize: '14px', fontWeight: 'bold', color: '#78350f' }}>
-                    次戦 ➔ 【{nextM.name}】 {getPlayerName(nextM.p1)} 🆚 {getPlayerName(nextM.p2)}
-                  </div>
-                );
-              }
-              return null;
-            })()}
+            <div style={{ marginBottom: '20px', fontSize: '14px', color: '#4b5563', lineHeight: 1.6 }}>
+              {myFinishedMatch.winner === pid ? (
+                <span>🎉 見事勝ち抜けました！次の対戦カードが決まるまで、他の試合をリアルタイム観戦できます。</span>
+              ) : (
+                <span>ペンギンが落下してしまいました…！他のプレイヤーの対戦テーブルをリアルタイム観戦しましょう！</span>
+              )}
+            </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <button
-                onClick={() => moves.startNextTournamentMatch()}
+                onClick={() => {
+                  setDismissedMatchEndIds(prev => new Set(prev).add(myFinishedMatch.id));
+                  const playingMatch = G.tournament?.matches?.find(m => m.status === 'playing' && m.id !== myFinishedMatch.id);
+                  if (playingMatch) {
+                    setViewedMatchId(playingMatch.id);
+                  }
+                }}
                 style={{
-                  width: '100%', padding: '14px', background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                  width: '100%', padding: '14px', background: 'linear-gradient(135deg, #0284c7, #0369a1)',
                   color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer',
-                  fontWeight: 'bold', fontSize: '16px', boxShadow: '0 4px 12px rgba(217,119,6,0.35)'
+                  fontWeight: 'bold', fontSize: '16px', boxShadow: '0 4px 12px rgba(2,132,199,0.35)'
                 }}
               >
-                ⚔️ 次の試合へ進む ➔
+                👀 進行中の試合を観戦する ➔
               </button>
 
               <div style={{ display: 'flex', gap: '10px' }}>
                 <button
-                  onClick={() => setIsIntermissionDismissed(true)}
+                  onClick={() => {
+                    setDismissedMatchEndIds(prev => new Set(prev).add(myFinishedMatch.id));
+                  }}
                   style={{
                     flex: 1, padding: '10px', background: '#f1f5f9', color: '#475569',
                     border: '1px solid #cbd5e1', borderRadius: '8px', cursor: 'pointer',
                     fontWeight: 'bold', fontSize: '13px'
                   }}
                 >
-                  👁️ 盤面を確認する
+                  👁️ この盤面を確認する
                 </button>
                 <button
-                  onClick={() => setShowBracketModal(true)}
+                  onClick={() => {
+                    setDismissedMatchEndIds(prev => new Set(prev).add(myFinishedMatch.id));
+                    setShowBracketModal(true);
+                  }}
                   style={{
-                    flex: 1, padding: '10px', background: '#00838f', color: '#fff',
+                    flex: 1, padding: '10px', background: '#f59e0b', color: '#fff',
                     border: 'none', borderRadius: '8px', cursor: 'pointer',
                     fontWeight: 'bold', fontSize: '13px'
                   }}
@@ -1260,6 +1454,11 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
                   tournament={G.tournament}
                   getPlayerName={getPlayerName}
                   activeMatchId={null}
+                  currentViewedId={currentViewMatch?.id}
+                  onSelectMatch={(matchId) => {
+                    setViewedMatchId(matchId);
+                    setIsGameOverDismissed(true);
+                  }}
                 />
               </div>
             )}

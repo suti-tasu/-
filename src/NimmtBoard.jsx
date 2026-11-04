@@ -1,6 +1,7 @@
 // NimmtBoard.jsx - 6 Nimmt! (ニムト) Board UI
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { getBullheads } from './NimmtGame';
+import { UnifiedLobby } from './UnifiedLobby';
 
 // カードの牛数に応じたカラースタイル
 const getCardStyle = (bullheads) => {
@@ -140,7 +141,8 @@ const NimmtCard = ({
 export const NimmtBoard = ({ G, ctx, moves, playerID, matchData }) => {
   const [selectedNum, setSelectedNum] = useState(null);
   const [showRules, setShowRules] = useState(false);
-  const [showBustNotice, setShowBustNotice] = useState(null);
+  const [burstAnim, setBurstAnim] = useState(null); // { event, phase: 'placed' | 'collecting' }
+  const lastBustNoticeIdRef = useRef(null);
 
   const pid = playerID || '0';
   const myPlayer = G.players[pid] || { hand: [], totalPenalty: 0, roundPenalty: 0, penaltyCards: [] };
@@ -151,16 +153,33 @@ export const NimmtBoard = ({ G, ctx, moves, playerID, matchData }) => {
     return p && p.name ? p.name : `Player ${id}`;
   };
 
-  // バーストイベントのトースト通知
+  // バーストイベントの演出制御（「置いてから回収する」2段階アニメーション）
   useEffect(() => {
-    if (G.recentBustEvent) {
-      setShowBustNotice(G.recentBustEvent);
-      const timer = setTimeout(() => {
-        setShowBustNotice(null);
-      }, 3500);
-      return () => clearTimeout(timer);
+    const bustEvent = G.recentBustEvent;
+    if (bustEvent && bustEvent.id && bustEvent.id !== lastBustNoticeIdRef.current) {
+      lastBustNoticeIdRef.current = bustEvent.id;
+
+      // 1段階目: 6枚目（または全滅引取カード）がその列に置かれた状態を明示表示
+      setBurstAnim({ event: bustEvent, phase: 'placed' });
+
+      // 2段階目: 1.8秒後に回収演出へ移行（対象カードがフェードアウト）
+      const collectTimer = setTimeout(() => {
+        setBurstAnim(prev => (prev && prev.event.id === bustEvent.id ? { ...prev, phase: 'collecting' } : null));
+      }, 1800);
+
+      // 3段階目: 2.7秒後に通常表示（回収完了）へ移行
+      const doneTimer = setTimeout(() => {
+        setBurstAnim(prev => (prev && prev.event.id === bustEvent.id ? null : prev));
+      }, 2700);
+
+      return () => {
+        clearTimeout(collectTimer);
+        clearTimeout(doneTimer);
+      };
+    } else if (!bustEvent) {
+      setBurstAnim(null);
     }
-  }, [G.recentBustEvent]);
+  }, [G.recentBustEvent?.id]);
 
   // 手札カードの配置予測ヒントを計算
   const getCardTargetHint = (cardNum) => {
@@ -257,86 +276,57 @@ export const NimmtBoard = ({ G, ctx, moves, playerID, matchData }) => {
   // 1. 待機ロビー画面
   if (G.gameState === 'lobby') {
     return (
-      <div style={{ maxWidth: '640px', margin: '30px auto', padding: '24px', background: '#fff', borderRadius: '16px', boxShadow: '0 8px 30px rgba(0,0,0,0.1)', textAlign: 'center', fontFamily: 'sans-serif' }}>
-        {rulesModal}
-        <div style={{ fontSize: '48px', marginBottom: '8px' }}>🐂</div>
-        <h1 style={{ margin: '0 0 8px', color: '#dc2626', fontSize: '28px' }}>6 Nimmt! (ニムト)</h1>
-        <p style={{ color: '#64748b', fontSize: '14px', margin: '0 0 20px' }}>
-          1〜104のカードで心理戦！ 6枚目を置いたらアウトの名作パーティーゲーム
-        </p>
-
-        {/* ルール確認ボタン */}
-        <button
-          onClick={() => setShowRules(true)}
-          style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', color: '#475569', padding: '8px 18px', borderRadius: '20px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px', marginBottom: '20px' }}
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', padding: '20px' }}>
+        <UnifiedLobby
+          gameTitle="6 Nimmt! (ニムト)"
+          gameIcon="🐂"
+          gameSubtitle="1〜104のカードで心理戦！ 6枚目を置いたらアウトの名作パーティーゲーム"
+          themeColor="#dc2626"
+          themeGradient="linear-gradient(135deg, #dc2626, #991b1b)"
+          numPlayers={ctx.numPlayers}
+          playerIds={Object.keys(G.players)}
+          pid={pid}
+          getPlayerName={getPlayerName}
+          isHost={pid === '0'}
+          onStart={() => moves.startGame()}
+          onShowRules={() => setShowRules(true)}
+          rulesModal={rulesModal}
         >
-          📖 ルールブックを読む
-        </button>
-
-        {/* ゲームモード設定 */}
-        <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '20px', textAlign: 'left' }}>
-          <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#475569', marginBottom: '8px' }}>🎮 ゲーム方式:</div>
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button
-              onClick={() => moves.setGameMode('standard')}
-              style={{
-                flex: 1, padding: '10px', borderRadius: '8px', cursor: 'pointer', textAlign: 'center',
-                background: G.gameMode === 'standard' ? '#dc2626' : '#fff',
-                color: G.gameMode === 'standard' ? '#fff' : '#475569',
-                border: G.gameMode === 'standard' ? '2px solid #b91c1c' : '1px solid #cbd5e1',
-                fontWeight: 'bold', fontSize: '14px'
-              }}
-            >
-              <div>🔥 通常マッチ (66牛先取)</div>
-              <div style={{ fontSize: '11px', opacity: 0.85, marginTop: '2px' }}>誰かが66失点に達するまで連戦</div>
-            </button>
-            <button
-              onClick={() => moves.setGameMode('quick')}
-              style={{
-                flex: 1, padding: '10px', borderRadius: '8px', cursor: 'pointer', textAlign: 'center',
-                background: G.gameMode === 'quick' ? '#dc2626' : '#fff',
-                color: G.gameMode === 'quick' ? '#fff' : '#475569',
-                border: G.gameMode === 'quick' ? '2px solid #b91c1c' : '1px solid #cbd5e1',
-                fontWeight: 'bold', fontSize: '14px'
-              }}
-            >
-              <div>⚡ 1ラウンド勝負</div>
-              <div style={{ fontSize: '11px', opacity: 0.85, marginTop: '2px' }}>10ターン1戦のみで即決着</div>
-            </button>
+          {/* ゲームモード設定 */}
+          <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '14px', border: '1px solid #e2e8f0', marginBottom: '8px', textAlign: 'left' }}>
+            <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#475569', marginBottom: '8px' }}>🎮 ゲーム方式:</div>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={() => moves.setGameMode('standard')}
+                style={{
+                  flex: 1, padding: '10px', borderRadius: '10px', cursor: 'pointer', textAlign: 'center',
+                  background: G.gameMode === 'standard' ? '#dc2626' : '#fff',
+                  color: G.gameMode === 'standard' ? '#fff' : '#475569',
+                  border: G.gameMode === 'standard' ? '2px solid #b91c1c' : '1px solid #cbd5e1',
+                  boxShadow: G.gameMode === 'standard' ? '0 4px 10px rgba(220, 38, 38, 0.3)' : 'none',
+                  fontWeight: 'bold', fontSize: '13px', transition: 'all 0.15s'
+                }}
+              >
+                <div>🔥 通常マッチ (66牛先取)</div>
+                <div style={{ fontSize: '11px', opacity: 0.85, marginTop: '2px' }}>誰かが66失点に達するまで連戦</div>
+              </button>
+              <button
+                onClick={() => moves.setGameMode('quick')}
+                style={{
+                  flex: 1, padding: '10px', borderRadius: '10px', cursor: 'pointer', textAlign: 'center',
+                  background: G.gameMode === 'quick' ? '#dc2626' : '#fff',
+                  color: G.gameMode === 'quick' ? '#fff' : '#475569',
+                  border: G.gameMode === 'quick' ? '2px solid #b91c1c' : '1px solid #cbd5e1',
+                  boxShadow: G.gameMode === 'quick' ? '0 4px 10px rgba(220, 38, 38, 0.3)' : 'none',
+                  fontWeight: 'bold', fontSize: '13px', transition: 'all 0.15s'
+                }}
+              >
+                <div>⚡ 1ラウンド勝負</div>
+                <div style={{ fontSize: '11px', opacity: 0.85, marginTop: '2px' }}>10ターン1戦のみで即決着</div>
+              </button>
+            </div>
           </div>
-        </div>
-
-        {/* 参加者リスト */}
-        <div style={{ background: '#f1f5f9', padding: '14px', borderRadius: '10px', marginBottom: '24px' }}>
-          <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#64748b', marginBottom: '8px' }}>
-            参加プレイヤー ({ctx.numPlayers}人):
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            {Object.keys(G.players).map(id => (
-              <div key={id} style={{ background: id === pid ? '#fee2e2' : '#ffffff', border: id === pid ? '1px solid #fca5a5' : '1px solid #e2e8f0', color: id === pid ? '#b91c1c' : '#334155', padding: '6px 14px', borderRadius: '20px', fontWeight: 'bold', fontSize: '13px' }}>
-                {getPlayerName(id)} {id === pid ? '(あなた)' : ''}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <button
-          onClick={() => moves.startGame()}
-          style={{
-            width: '100%',
-            padding: '14px',
-            background: 'linear-gradient(135deg, #dc2626, #b91c1c)',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '10px',
-            fontSize: '18px',
-            fontWeight: 'bold',
-            cursor: 'pointer',
-            boxShadow: '0 4px 15px rgba(220, 38, 38, 0.4)'
-          }}
-        >
-          🚀 ゲームを開始する！
-        </button>
+        </UnifiedLobby>
       </div>
     );
   }
@@ -344,34 +334,64 @@ export const NimmtBoard = ({ G, ctx, moves, playerID, matchData }) => {
   // 2. プレイ中・ラウンド終了・ゲームオーバー画面
   return (
     <div style={{ maxWidth: '980px', margin: '0 auto', padding: '12px', fontFamily: 'sans-serif', boxSizing: 'border-box' }}>
+      <style>{`
+        @keyframes bounceIn {
+          0% { transform: scale(0.6) translateY(-15px); opacity: 0; }
+          60% { transform: scale(1.08) translateY(2px); opacity: 1; }
+          100% { transform: scale(1) translateY(0); opacity: 1; }
+        }
+      `}</style>
       {rulesModal}
 
-      {/* バースト発生トースト通知 */}
-      {showBustNotice && (
-        <div style={{
-          position: 'fixed',
-          top: '20px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          background: 'linear-gradient(135deg, #dc2626, #991b1b)',
-          color: '#ffffff',
-          padding: '12px 24px',
-          borderRadius: '30px',
-          boxShadow: '0 8px 30px rgba(220, 38, 38, 0.6)',
-          zIndex: 1100,
-          fontWeight: 'bold',
-          fontSize: '15px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          border: '2px solid #fca5a5',
-          animation: 'bounceIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)'
-        }}>
-          <span style={{ fontSize: '24px' }}>💥</span>
-          <span>
-            {showBustNotice.isManualTake ? '⚡' : '💥 6枚目バースト！'} 
-            <strong> {getPlayerName(showBustNotice.playerID)}</strong> が列 {showBustNotice.rowIdx + 1} のカードを引き取りました（+{showBustNotice.penaltyPoints}牛）！
+      {/* バースト発生トースト通知（置いてから回収する2段階通知） */}
+      {burstAnim && (
+        <div
+          onClick={() => setBurstAnim(null)}
+          title="クリックして閉じる"
+          style={{
+            position: 'fixed',
+            top: '20px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: burstAnim.phase === 'placed'
+              ? 'linear-gradient(135deg, #ef4444, #b91c1c)'
+              : 'linear-gradient(135deg, #f59e0b, #d97706)',
+            color: '#ffffff',
+            padding: '12px 24px',
+            borderRadius: '30px',
+            boxShadow: '0 8px 30px rgba(0, 0, 0, 0.4)',
+            zIndex: 1100,
+            fontWeight: 'bold',
+            fontSize: '15px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            border: '2px solid #fff',
+            animation: 'bounceIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+            cursor: 'pointer'
+          }}
+        >
+          <span style={{ fontSize: '24px' }}>
+            {burstAnim.phase === 'placed' ? '💥' : '🐂'}
           </span>
+          <span>
+            {burstAnim.phase === 'placed' ? (
+              burstAnim.event.isManualTake ? (
+                <>
+                  ⚡<strong>【列 {burstAnim.event.rowIdx + 1}】</strong> に <strong>{getPlayerName(burstAnim.event.playerID)}</strong> が全滅カード [<strong>{burstAnim.event.placedCard.number}</strong>] を配置！
+                </>
+              ) : (
+                <>
+                  💥<strong>【列 {burstAnim.event.rowIdx + 1}】</strong> に <strong>{getPlayerName(burstAnim.event.playerID)}</strong> が [<strong>{burstAnim.event.placedCard.number}</strong>] を配置！（<strong>6枚目バースト！</strong>）
+                </>
+              )
+            ) : (
+              <>
+                🐂 <strong>{getPlayerName(burstAnim.event.playerID)}</strong> が列 {burstAnim.event.rowIdx + 1} のカードを回収しました！（+{burstAnim.event.penaltyPoints}牛）
+              </>
+            )}
+          </span>
+          <span style={{ marginLeft: '10px', fontSize: '13px', opacity: 0.8 }}>✕</span>
         </div>
       )}
 
@@ -424,7 +444,7 @@ export const NimmtBoard = ({ G, ctx, moves, playerID, matchData }) => {
                   🐂 {p.totalPenalty + p.roundPenalty}牛
                 </span>
                 <span style={{ fontSize: '11px', color: '#64748b' }}>
-                  (今: +{p.roundPenalty})
+                  (今ラウンド: +{p.roundPenalty}牛)
                 </span>
               </div>
               <div style={{ marginTop: '4px', fontSize: '11px', fontWeight: 'bold' }}>
@@ -464,6 +484,10 @@ export const NimmtBoard = ({ G, ctx, moves, playerID, matchData }) => {
         {/* 4列のレンダリング */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {G.rows.map((row, rowIdx) => {
+            const isThisRowBursting = burstAnim && burstAnim.event.rowIdx === rowIdx;
+            const burstEvent = isThisRowBursting ? burstAnim.event : null;
+            const burstPhase = isThisRowBursting ? burstAnim.phase : null;
+
             const isRowFull = row.length === 5;
             const totalBullheadsInRow = row.reduce((sum, c) => sum + c.bullheads, 0);
             const canChooseThisRow = G.turnStep === 'choose_row' && G.waitingForPlayer === pid;
@@ -473,89 +497,170 @@ export const NimmtBoard = ({ G, ctx, moves, playerID, matchData }) => {
                 key={rowIdx}
                 onClick={() => canChooseThisRow && moves.chooseRow(pid, rowIdx)}
                 style={{
-                  background: canChooseThisRow ? 'rgba(245, 158, 11, 0.15)' : 'rgba(15, 23, 42, 0.65)',
-                  border: canChooseThisRow ? '2px dashed #f59e0b' : '1px solid #334155',
+                  background: isThisRowBursting
+                    ? (burstPhase === 'placed' ? 'rgba(239, 68, 68, 0.22)' : 'rgba(245, 158, 11, 0.18)')
+                    : (canChooseThisRow ? 'rgba(245, 158, 11, 0.15)' : 'rgba(15, 23, 42, 0.65)'),
+                  border: isThisRowBursting
+                    ? (burstPhase === 'placed' ? '2px solid #ef4444' : '2px solid #f59e0b')
+                    : (canChooseThisRow ? '2px dashed #f59e0b' : '1px solid #334155'),
+                  boxShadow: isThisRowBursting
+                    ? (burstPhase === 'placed' ? '0 0 25px rgba(239, 68, 68, 0.6)' : '0 0 20px rgba(245, 158, 11, 0.4)')
+                    : 'none',
                   borderRadius: '12px',
                   padding: '8px 12px',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '10px',
                   cursor: canChooseThisRow ? 'pointer' : 'default',
-                  transition: 'all 0.15s ease',
+                  transition: 'all 0.25s ease',
                   position: 'relative'
                 }}
               >
                 {/* 行番号 & 失点情報バッジ */}
-                <div style={{ minWidth: '70px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                <div style={{ minWidth: '85px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
                   <span style={{ color: '#94a3b8', fontSize: '12px', fontWeight: 'bold' }}>列 {rowIdx + 1}</span>
-                  <span style={{ color: '#f87171', fontSize: '12px', fontWeight: 'bold' }}>
-                    🐂 {totalBullheadsInRow}牛
-                  </span>
-                  <span style={{ color: isRowFull ? '#ef4444' : '#38bdf8', fontSize: '11px', fontWeight: isRowFull ? 'bold' : 'normal' }}>
-                    {row.length} / 5枚
-                  </span>
-                </div>
-
-                {/* 1〜5枚目のカード */}
-                <div style={{ display: 'flex', gap: '8px', flex: 1, overflowX: 'auto', alignItems: 'center' }}>
-                  {row.map((card, cIdx) => (
-                    <NimmtCard
-                      key={`${rowIdx}-${cIdx}-${card.number}`}
-                      number={card.number}
-                      bullheads={card.bullheads}
-                      playedBy={card.playedBy}
-                      getPlayerName={getPlayerName}
-                      isSmall={false}
-                    />
-                  ))}
-
-                  {/* 危険な6枚目スロット（警告表示） */}
-                  {row.length === 5 ? (
-                    <div style={{
-                      width: '72px',
-                      height: '102px',
-                      borderRadius: '10px',
-                      border: '2px dashed #ef4444',
-                      background: 'rgba(239, 68, 68, 0.15)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: '#f87171',
-                      fontWeight: 'bold',
-                      fontSize: '11px',
-                      textAlign: 'center',
-                      padding: '4px',
-                      boxSizing: 'border-box',
-                      animation: 'pulse 1.2s infinite'
-                    }}>
-                      <span style={{ fontSize: '18px' }}>💥</span>
-                      <span>6枚目</span>
-                      <span style={{ fontSize: '9px' }}>バースト!</span>
-                    </div>
+                  {isThisRowBursting ? (
+                    <span style={{ color: burstPhase === 'placed' ? '#ef4444' : '#f59e0b', fontSize: '11px', fontWeight: 'bold' }}>
+                      {burstPhase === 'placed' ? '💥 バースト！' : '🐂 回収中...'}
+                    </span>
                   ) : (
-                    /* 空きスロット枠 */
-                    Array.from({ length: 5 - row.length }).map((_, emptyIdx) => (
-                      <div
-                        key={emptyIdx}
-                        style={{
-                          width: '72px',
-                          height: '102px',
-                          borderRadius: '10px',
-                          border: '1px dashed #334155',
-                          background: 'rgba(255, 255, 255, 0.02)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: '#475569',
-                          fontSize: '12px'
-                        }}
-                      >
-                        {row.length + emptyIdx + 1}
-                      </div>
-                    ))
+                    <>
+                      <span style={{ color: '#f87171', fontSize: '12px', fontWeight: 'bold' }}>
+                        🐂 {totalBullheadsInRow}牛
+                      </span>
+                      <span style={{ color: isRowFull ? '#ef4444' : '#38bdf8', fontSize: '11px', fontWeight: isRowFull ? 'bold' : 'normal' }}>
+                        {row.length} / 5枚
+                      </span>
+                    </>
                   )}
                 </div>
+
+                {/* カード一覧 */}
+                {isThisRowBursting ? (
+                  /* バーストアニメーション表示：まず置いてから回収 */
+                  <div style={{ display: 'flex', gap: '8px', flex: 1, overflowX: 'auto', alignItems: 'center' }}>
+                    {/* 回収対象カード（5枚） */}
+                    {burstEvent.takenCards.map((card, cIdx) => (
+                      <div
+                        key={`burst-taken-${cIdx}-${card.number}`}
+                        style={{
+                          transition: 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
+                          opacity: burstPhase === 'collecting' ? 0 : 1,
+                          transform: burstPhase === 'collecting' ? 'scale(0.6) translateY(-30px)' : 'none',
+                          filter: burstPhase === 'collecting' ? 'blur(2px)' : 'none',
+                          pointerEvents: 'none'
+                        }}
+                      >
+                        <NimmtCard
+                          number={card.number}
+                          bullheads={card.bullheads}
+                          playedBy={card.playedBy}
+                          getPlayerName={getPlayerName}
+                          isSmall={false}
+                        />
+                      </div>
+                    ))}
+
+                    {/* 配置された6枚目カード */}
+                    <div
+                      style={{
+                        position: 'relative',
+                        animation: 'bounceIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                        transform: burstPhase === 'collecting' ? 'scale(1.05)' : 'none',
+                        transition: 'all 0.3s ease'
+                      }}
+                    >
+                      <div style={{
+                        position: 'absolute',
+                        top: '-10px',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        background: burstEvent.isManualTake ? '#d97706' : '#dc2626',
+                        color: '#ffffff',
+                        fontSize: '10px',
+                        fontWeight: '900',
+                        padding: '2px 8px',
+                        borderRadius: '10px',
+                        whiteSpace: 'nowrap',
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
+                        zIndex: 5,
+                        border: '1px solid #fff'
+                      }}>
+                        {burstEvent.isManualTake ? '⚡ 引取配置' : '💥 6枚目！'}
+                      </div>
+
+                      <NimmtCard
+                        number={burstEvent.placedCard.number}
+                        bullheads={burstEvent.placedCard.bullheads}
+                        playedBy={burstEvent.playerID}
+                        getPlayerName={getPlayerName}
+                        isSelected={true}
+                        isSmall={false}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  /* 通常の行カード表示 */
+                  <div style={{ display: 'flex', gap: '8px', flex: 1, overflowX: 'auto', alignItems: 'center' }}>
+                    {row.map((card, cIdx) => (
+                      <NimmtCard
+                        key={`${rowIdx}-${cIdx}-${card.number}`}
+                        number={card.number}
+                        bullheads={card.bullheads}
+                        playedBy={card.playedBy}
+                        getPlayerName={getPlayerName}
+                        isSmall={false}
+                      />
+                    ))}
+
+                    {/* 危険な6枚目スロット（警告表示） */}
+                    {row.length === 5 ? (
+                      <div style={{
+                        width: '72px',
+                        height: '102px',
+                        borderRadius: '10px',
+                        border: '2px dashed #ef4444',
+                        background: 'rgba(239, 68, 68, 0.15)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#f87171',
+                        fontWeight: 'bold',
+                        fontSize: '11px',
+                        textAlign: 'center',
+                        padding: '4px',
+                        boxSizing: 'border-box',
+                        animation: 'pulse 1.2s infinite'
+                      }}>
+                        <span style={{ fontSize: '18px' }}>💥</span>
+                        <span>6枚目</span>
+                        <span style={{ fontSize: '9px' }}>バースト!</span>
+                      </div>
+                    ) : (
+                      /* 空きスロット枠 */
+                      Array.from({ length: 5 - row.length }).map((_, emptyIdx) => (
+                        <div
+                          key={emptyIdx}
+                          style={{
+                            width: '72px',
+                            height: '102px',
+                            borderRadius: '10px',
+                            border: '1px dashed #334155',
+                            background: 'rgba(255, 255, 255, 0.02)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#475569',
+                            fontSize: '12px'
+                          }}
+                        >
+                          {row.length + emptyIdx + 1}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
 
                 {/* 引き取り選択ボタン（引き取り時のみ表示） */}
                 {canChooseThisRow && (

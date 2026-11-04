@@ -1,5 +1,6 @@
 // IndigoBoard.jsx - Indigo (インディゴ) Board UI
 import React, { useState } from 'react';
+import { UnifiedLobby } from './UnifiedLobby';
 import {
   HEX_DIRECTIONS,
   CORNER_ISLANDS,
@@ -149,52 +150,22 @@ export const IndigoBoard = ({ G, ctx, moves, playerID, matchData }) => {
   // 1. ロビー画面
   if (G.gameState === 'lobby') {
     return (
-      <div style={{ maxWidth: '640px', margin: '30px auto', padding: '24px', background: '#fff', borderRadius: '16px', boxShadow: '0 8px 30px rgba(0,0,0,0.1)', textAlign: 'center', fontFamily: 'sans-serif' }}>
-        {rulesModal}
-        <div style={{ fontSize: '48px', marginBottom: '8px' }}>🌊</div>
-        <h1 style={{ margin: '0 0 8px', color: '#0284c7', fontSize: '28px' }}>インディゴ (Indigo)</h1>
-        <p style={{ color: '#64748b', fontSize: '14px', margin: '0 0 20px' }}>
-          タイルを敷いて美しい宝石を導く！ クニツィアの六角形ルート構築名作
-        </p>
-
-        <button
-          onClick={() => setShowRules(true)}
-          style={{ background: '#f0f9ff', border: '1px solid #bae6fd', color: '#0369a1', padding: '8px 18px', borderRadius: '20px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px', marginBottom: '24px' }}
-        >
-          📖 ルールブックを読む
-        </button>
-
-        {/* 参加者情報 */}
-        <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '24px' }}>
-          <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#64748b', marginBottom: '10px' }}>
-            参加プレイヤー ({ctx.numPlayers}人):
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            {Object.keys(G.players).map((id, idx) => (
-              <div key={id} style={{ background: PLAYER_BG[idx % 4], border: `1px solid ${PLAYER_COLORS[idx % 4]}`, color: PLAYER_COLORS[idx % 4], padding: '6px 14px', borderRadius: '20px', fontWeight: 'bold', fontSize: '13px' }}>
-                {getPlayerName(id)} {id === pid ? '(あなた)' : ''}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <button
-          onClick={() => moves.startGame()}
-          style={{
-            width: '100%',
-            padding: '14px',
-            background: 'linear-gradient(135deg, #0284c7, #0369a1)',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '10px',
-            fontSize: '18px',
-            fontWeight: 'bold',
-            cursor: 'pointer',
-            boxShadow: '0 4px 15px rgba(2, 132, 199, 0.4)'
-          }}
-        >
-          🚀 ゲームを開始する！
-        </button>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', padding: '20px' }}>
+        <UnifiedLobby
+          gameTitle="インディゴ (Indigo)"
+          gameIcon="🌊"
+          gameSubtitle="タイルを敷いて美しい宝石を導く！ クニツィアの六角形ルート構築名作"
+          themeColor="#0284c7"
+          themeGradient="linear-gradient(135deg, #0284c7, #0369a1)"
+          numPlayers={ctx.numPlayers}
+          playerIds={Object.keys(G.players)}
+          pid={pid}
+          getPlayerName={getPlayerName}
+          isHost={pid === '0'}
+          onStart={() => moves.startGame()}
+          onShowRules={() => setShowRules(true)}
+          rulesModal={rulesModal}
+        />
       </div>
     );
   }

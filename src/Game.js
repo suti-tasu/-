@@ -74,6 +74,7 @@ const getInitialState = (ctx, random) => {
     },
     nobles: activeNobles,
     players,
+    gameState: 'lobby',
     isLastRound: false
   };
 };
@@ -155,6 +156,9 @@ export const Splendor = {
   },
 
   moves: {
+    startGame: ({ G }) => {
+      G.gameState = 'playing';
+    },
     takeTokens: ({ G, ctx, events }, colors) => {
       const player = G.players[ctx.currentPlayer];
       // colors is like ['red', 'blue', 'green'] or ['red', 'red']

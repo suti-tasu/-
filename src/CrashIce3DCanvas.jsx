@@ -867,34 +867,6 @@ export const CrashIce3DCanvas = ({
     >
       <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />
 
-      {/* ドラッグ打撃中の浮動パワー・角度HUD */}
-      {aimHUD && (
-        <div style={{
-          position: 'fixed',
-          left: aimHUD.screenX,
-          top: aimHUD.screenY - 50,
-          transform: 'translateX(-50%)',
-          background: 'rgba(15, 23, 42, 0.92)',
-          backdropFilter: 'blur(8px)',
-          border: `2px solid ${aimHUD.power < 15 ? '#38bdf8' : (aimHUD.power < 55 ? '#4ade80' : (aimHUD.power < 80 ? '#fb923c' : '#ef4444'))}`,
-          color: '#ffffff',
-          padding: '6px 14px',
-          borderRadius: '20px',
-          fontSize: '13px',
-          fontWeight: 'bold',
-          pointerEvents: 'none',
-          zIndex: 1000,
-          boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-          whiteSpace: 'nowrap'
-        }}>
-          <span>🔨</span>
-          <span>{aimHUD.power}%</span>
-        </div>
-      )}
-
       {/* 手番中の打撃操作ガイダンス */}
       {canInteract && !aimHUD && (
         <div style={{

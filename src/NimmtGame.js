@@ -154,7 +154,9 @@ const processNextResolvingCard = (G, ctx) => {
       takenCards,
       placedCard: card,
       penaltyPoints,
-      id: Date.now()
+      isManualTake: false,
+      turn: G.turn,
+      id: `${G.round}-${G.turn}-${playerID}-${Date.now()}`
     };
 
     G.logs.unshift(`💥【6枚目バースト！】Player ${playerID} が列 ${bestRowIdx + 1} の5枚（${penaltyPoints}牛）を引き取りました！`);
@@ -241,6 +243,9 @@ export const NimmtGame = {
       const allReady = Object.keys(G.players).every(pid => G.players[pid].isReady && G.players[pid].selectedCard);
 
       if (allReady) {
+        // 新ターンの解決開始：前ターンのバーストイベントをリセット
+        G.recentBustEvent = null;
+
         // 手札から選択したカードを取り除く
         const revealed = [];
         for (let i = 0; i < ctx.numPlayers; i++) {
@@ -293,7 +298,8 @@ export const NimmtGame = {
         placedCard: nextItem.card,
         penaltyPoints,
         isManualTake: true,
-        id: Date.now()
+        turn: G.turn,
+        id: `${G.round}-${G.turn}-${playerID}-${Date.now()}`
       };
 
       G.logs.unshift(`⚡ Player ${playerID} が列 ${rowIndex + 1} を引き取りました（+${penaltyPoints}牛）！`);
@@ -321,6 +327,7 @@ export const NimmtGame = {
       G.round = 1;
       G.turn = 1;
       G.winner = null;
+      G.recentBustEvent = null;
       G.rankings = [];
       G.logs = [];
       for (let i = 0; i < ctx.numPlayers; i++) {

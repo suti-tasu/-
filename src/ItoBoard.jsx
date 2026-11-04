@@ -1,5 +1,6 @@
 import React from "react";
 import { LobbyClient } from "boardgame.io/client";
+import { UnifiedLobby } from "./UnifiedLobby";
 
 export function ItoBoard({ G, ctx, moves, events, playerID, matchData }) {
   const [manualTheme, setManualTheme] = React.useState("");
@@ -86,62 +87,57 @@ export function ItoBoard({ G, ctx, moves, events, playerID, matchData }) {
 
   if (G.gameState === 'lobby') {
     return (
-      <div style={{ padding: "20px", fontFamily: "sans-serif", maxWidth: "600px", margin: "0 auto", textAlign: "center" }}>
-        {rulesModal}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2>ITO 待機ルーム</h2>
-          <button onClick={() => setShowRules(true)} style={{ background: '#3f51b5', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9em', display: 'flex', alignItems: 'center', gap: '5px', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
-            <span>📖</span> ルールブックを開く
-          </button>
-        </div>
-        <p>全員が揃ったら開始してください。</p>
-        
-        <div style={{ background: "#f5f5f5", padding: "15px", borderRadius: "10px", margin: "20px 0" }}>
-          <h3 style={{ marginTop: 0 }}>参加者 ({Object.keys(G.players).length}人)</h3>
-          <div style={{ display: "flex", gap: "10px", justifyContent: "center", flexWrap: "wrap" }}>
-            {Object.keys(G.players).map(pid => (
-              <div key={pid} style={{ background: "#e0f7fa", padding: "5px 15px", borderRadius: "20px", fontWeight: "bold", border: "1px solid #b2ebf2" }}>
-                {getPlayerName(pid)}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {G.themeMode === 'manual' && (
-          <div style={{ background: "#fff9c4", padding: "15px", borderRadius: "10px", margin: "20px 0", border: "2px solid #fbc02d" }}>
-            <h3 style={{ marginTop: 0 }}>みんなでお題を出し合おう！</h3>
-            <div style={{ display: "flex", gap: "5px", justifyContent: "center", marginBottom: "15px" }}>
-              <input 
-                type="text" 
-                value={manualTheme} 
-                onChange={e => setManualTheme(e.target.value)} 
-                placeholder="やりたいお題を入力..." 
-                style={{ padding: "10px", fontSize: "1em", width: "70%", borderRadius: "5px", border: "1px solid #ccc" }} 
-              />
-              <button 
-                onClick={() => { if(manualTheme) { moves.submitTheme(manualTheme); setManualTheme(''); } }} 
-                style={{ padding: "10px 20px", background: "#4caf50", color: "white", border: "none", borderRadius: "5px", cursor: "pointer", fontWeight: "bold" }}
-              >
-                追加
-              </button>
-            </div>
-            <div style={{ textAlign: "left", display: "flex", flexDirection: "column", gap: "5px", maxHeight: "200px", overflowY: "auto" }}>
-              {G.submittedThemes.map((t, i) => (
-                <div key={i} style={{ background: "#333", padding: "8px", borderRadius: "5px", border: "1px solid #222", textAlign: "center" }}>
-                  <span style={{ color: "white", fontWeight: "bold", letterSpacing: "2px" }}>? ? ? (秘密のお題)</span>
-                </div>
-              ))}
-              {G.submittedThemes.length === 0 && <div style={{ color: "#888", textAlign: "center" }}>まだお題がありません。自由に提案してください！</div>}
-            </div>
-          </div>
-        )}
-
-        <button 
-          onClick={() => moves.startGame()} 
-          style={{ padding: "15px 40px", fontSize: "1.5em", background: "#f44336", color: "white", border: "none", borderRadius: "10px", cursor: "pointer", fontWeight: "bold", boxShadow: "0 4px 6px rgba(0,0,0,0.2)", width: "100%", marginTop: "10px" }}
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', padding: '20px' }}>
+        <UnifiedLobby
+          gameTitle="イト (ITO)"
+          gameIcon="🧵"
+          gameSubtitle="数字を言葉で表現し合って完全昇順を目指せ！協力型会話ゲームの傑作"
+          themeColor="#ea580c"
+          themeGradient="linear-gradient(135deg, #f97316, #ea580c)"
+          numPlayers={Object.keys(G.players).length}
+          playerIds={Object.keys(G.players)}
+          pid={playerID}
+          getPlayerName={getPlayerName}
+          isHost={playerID === '0'}
+          onStart={() => moves.startGame()}
+          onShowRules={() => setShowRules(true)}
+          rulesModal={rulesModal}
         >
-          ゲームを開始する！
-        </button>
+          {G.themeMode === 'manual' && (
+            <div style={{ background: '#fffbeb', padding: '16px', borderRadius: '14px', marginBottom: '12px', border: '1px solid #fde68a', textAlign: 'left' }}>
+              <div style={{ fontWeight: 'bold', color: '#92400e', marginBottom: '8px', fontSize: '14px' }}>
+                💡 みんなでお題を出し合おう！
+              </div>
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+                <input 
+                  type="text" 
+                  value={manualTheme} 
+                  onChange={e => setManualTheme(e.target.value)} 
+                  placeholder="やりたいお題を入力..." 
+                  style={{ flex: 1, padding: '10px 12px', fontSize: '14px', borderRadius: '8px', border: '1px solid #cbd5e1' }} 
+                />
+                <button 
+                  onClick={() => { if(manualTheme) { moves.submitTheme(manualTheme); setManualTheme(''); } }} 
+                  style={{ padding: '10px 18px', background: '#16a34a', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
+                >
+                  追加
+                </button>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '180px', overflowY: 'auto' }}>
+                {G.submittedThemes.map((t, i) => (
+                  <div key={i} style={{ background: '#1e293b', color: '#f8fafc', padding: '8px 12px', borderRadius: '8px', textAlign: 'center', fontSize: '13px', fontWeight: 'bold', letterSpacing: '2px' }}>
+                    ? ? ? (秘密のお題 #{i + 1})
+                  </div>
+                ))}
+                {G.submittedThemes.length === 0 && (
+                  <div style={{ color: '#94a3b8', textAlign: 'center', fontSize: '12px', padding: '8px 0' }}>
+                    まだお題がありません。自由に提案してください！
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </UnifiedLobby>
       </div>
     );
   }

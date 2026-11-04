@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { LobbyClient } from 'boardgame.io/client';
 import { canAffordCard, getBonuses, getTotalTokens } from './Game';
+import { UnifiedLobby } from './UnifiedLobby';
 
 const colorsList = ['white', 'blue', 'green', 'red', 'black', 'gold'];
 const baseColors = ['white', 'blue', 'green', 'red', 'black'];
@@ -159,30 +160,52 @@ export function SplendorBoard({ G, ctx, moves, events, playerID, matchData }) {
     setDiscardTokens([]);
   };
 
-  if (matchData && matchData.some(p => !p.name)) {
-    const joinedCount = matchData.filter(p => p.name).length;
-    const totalCount = matchData.length;
+  const rulesModal = showRules && (
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: '20px' }}>
+      <div style={{ background: '#fff', padding: '30px', borderRadius: '16px', maxWidth: '580px', width: '90%', maxHeight: '80vh', overflowY: 'auto', textAlign: 'left', boxShadow: '0 10px 30px rgba(0,0,0,0.3)', color: '#1e293b' }}>
+        <h2 style={{ marginTop: 0, borderBottom: '2px solid #eab308', paddingBottom: '10px', color: '#b45309' }}>💎 宝石の煌き (Splendor) ルール</h2>
+        <p>ルネサンスの豪商となって宝石鉱山を開拓し、職人を雇い、名声ポイント15点を目指す拡大再生産ゲームです。</p>
+        <h3 style={{ color: '#d97706' }}>🎯 ターンの行動（いずれか1つ）</h3>
+        <ul style={{ lineHeight: 1.6 }}>
+          <li><strong>異なる色の宝石トークンを3枚取る</strong></li>
+          <li><strong>同じ色の宝石トークンを2枚取る</strong>（場にその色が4枚以上ある場合のみ）</li>
+          <li><strong>カードを1枚予約する</strong>（場か山札から。黄金ワイルドトークン1枚付き。最大3枚まで保持）</li>
+          <li><strong>カードを購入する</strong>（トークンとカードの永続ボーナスでコストを支払い獲得）</li>
+        </ul>
+        <h3 style={{ color: '#d97706' }}>👑 貴族の訪問</h3>
+        <p>購入したカードのボーナスが貴族カードの条件を満たすと、ターン終了時に貴族が自動的に訪問し3点が加算されます。</p>
+        <h3 style={{ color: '#d97706' }}>🏆 勝利条件</h3>
+        <p>いずれかのプレイヤーが15点に達したラウンドを最後まで行い、最も威信ポイントが高いプレイヤーの勝利です！</p>
+        <button onClick={() => setShowRules(false)} style={{ width: '100%', padding: '12px', background: '#d97706', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px', marginTop: '16px' }}>
+          閉じる
+        </button>
+      </div>
+    </div>
+  );
+
+  if (G.gameState === 'lobby' || (matchData && matchData.some(p => !p.name))) {
+    const playerIds = matchData
+      ? matchData.filter(p => p.name).map(p => p.id.toString())
+      : Object.keys(G.players);
+    const totalPlayers = matchData ? matchData.length : Object.keys(G.players).length;
+
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', fontFamily: 'sans-serif', background: '#f5f5f5' }}>
-        <h2 style={{ fontSize: '2.5em', color: '#333' }}>参加者を待っています... ({joinedCount} / {totalCount})</h2>
-        
-        <div style={{ background: 'white', padding: '30px', borderRadius: '10px', boxShadow: '0 4px 10px rgba(0,0,0,0.1)', marginTop: '20px', textAlign: 'center' }}>
-          <p style={{ margin: '0 0 10px 0', fontWeight: 'bold', fontSize: '1.2em' }}>招待URL</p>
-          <input type="text" readOnly value={window.location.href} style={{ width: '400px', padding: '10px', fontSize: '1.1em', textAlign: 'center', border: '1px solid #ccc', borderRadius: '5px' }} onClick={e => e.target.select()} />
-          <p style={{ fontSize: '0.9em', color: '#666', marginTop: '10px' }}>このURLを共有して全員の参加を待ってください</p>
-          
-          <div style={{ marginTop: '30px', textAlign: 'left' }}>
-            <h3 style={{ borderBottom: '2px solid #eee', paddingBottom: '10px' }}>参加状況</h3>
-            <ul style={{ listStyle: 'none', padding: 0, fontSize: '1.2em' }}>
-              {matchData.map(p => (
-                <li key={p.id} style={{ margin: '15px 0', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  {p.name ? <span style={{ color: '#4CAF50', fontSize: '1.5em' }}>✅</span> : <span style={{ color: '#999', fontSize: '1.5em' }}>⏳</span>}
-                  <span>Player {p.id}: {p.name ? <strong>{p.name}</strong> : <span style={{ color: '#999' }}>参加待ち...</span>}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', padding: '20px' }}>
+        <UnifiedLobby
+          gameTitle="宝石の煌き (Splendor)"
+          gameIcon="💎"
+          gameSubtitle="ルネサンスの豪商となり、宝石鉱山と職人を集めて15点を目指せ！"
+          themeColor="#d97706"
+          themeGradient="linear-gradient(135deg, #f59e0b, #d97706)"
+          numPlayers={totalPlayers}
+          playerIds={playerIds}
+          pid={playerID}
+          getPlayerName={getPlayerName}
+          isHost={playerID === '0'}
+          onStart={() => moves.startGame ? moves.startGame() : null}
+          onShowRules={() => setShowRules(true)}
+          rulesModal={rulesModal}
+        />
       </div>
     );
   }
@@ -255,9 +278,16 @@ export function SplendorBoard({ G, ctx, moves, events, playerID, matchData }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', fontFamily: 'sans-serif' }}>
+      {rulesModal}
       
       {/* Action Banners Area (Fixed Height to prevent layout shifts) */}
-      <div style={{ minHeight: '120px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+      <div style={{ minHeight: '120px', display: 'flex', flexDirection: 'column', justifyContent: 'center', position: 'relative' }}>
+        <button 
+          onClick={() => setShowRules(true)} 
+          style={{ position: 'absolute', top: 0, right: 0, background: '#f59e0b', color: 'white', border: 'none', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px', zIndex: 10 }}
+        >
+          📖 ルール
+        </button>
         
         {!isMyTurn && (
           <div style={{ background: '#f44336', color: 'white', padding: '10px', textAlign: 'center', fontWeight: 'bold', fontSize: '1.2em', borderRadius: '5px', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
