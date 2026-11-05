@@ -529,49 +529,21 @@ const App = () => {
       <div style={{ maxWidth: '1120px', margin: '0 auto', position: 'relative', zIndex: 1 }}>
 
         {/* HERO HEADER */}
-        <div style={{ textAlign: 'center', marginBottom: '36px' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'rgba(255, 255, 255, 0.08)', border: '1px solid rgba(255, 255, 255, 0.15)', padding: '6px 16px', borderRadius: '30px', fontSize: '13px', fontWeight: 'bold', color: '#38bdf8', marginBottom: '14px', backdropFilter: 'blur(8px)' }}>
-            <span>🎲</span> ONLINE BOARD GAME ARENA
-          </div>
-
+        <div style={{ textAlign: 'center', margin: '20px 0 36px', padding: '0 10px' }}>
           <h1 style={{
-            fontSize: 'clamp(2.2rem, 5vw, 3.5rem)',
+            fontSize: 'clamp(2.2rem, 5vw, 3.6rem)',
             fontWeight: '900',
-            letterSpacing: '-1px',
-            margin: '0 0 14px',
-            background: 'linear-gradient(135deg, #ffffff 30%, #38bdf8 70%, #c084fc 100%)',
+            letterSpacing: '1px',
+            lineHeight: 1.35,
+            margin: 0,
+            padding: '8px 0',
+            background: 'linear-gradient(135deg, #ffffff 40%, #38bdf8 80%, #c084fc 100%)',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
-            textShadow: '0 10px 30px rgba(0,0,0,0.3)'
+            display: 'inline-block'
           }}>
             BOARD GAME PORTAL
           </h1>
-
-          <p style={{
-            fontSize: '16px',
-            color: '#94a3b8',
-            maxWidth: '650px',
-            margin: '0 auto 20px',
-            lineHeight: 1.6
-          }}>
-            インストール不要！ ブラウザを開くだけですぐに友達とオンライン対戦できるボードゲームプラットフォーム。全8タイトル収録！
-          </p>
-
-          {/* 特徴バッジ列 */}
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', flexWrap: 'wrap' }}>
-            <span style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#7dd3fc', border: '1px solid rgba(56, 189, 248, 0.3)', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold' }}>
-              ⚡ 高速リアルタイム同期
-            </span>
-            <span style={{ background: 'rgba(168, 85, 247, 0.15)', color: '#d8b4fe', border: '1px solid rgba(168, 85, 247, 0.3)', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold' }}>
-              👥 最大10人マルチプレイ
-            </span>
-            <span style={{ background: 'rgba(34, 197, 94, 0.15)', color: '#86efac', border: '1px solid rgba(34, 197, 94, 0.3)', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold' }}>
-              📱 スマホ・PC両対応
-            </span>
-            <span style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#fde68a', border: '1px solid rgba(245, 158, 11, 0.3)', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold' }}>
-              🎉 完全無料・登録不要
-            </span>
-          </div>
         </div>
 
         {/* エラー表示 */}
