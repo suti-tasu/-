@@ -64,10 +64,14 @@ const GAMES_CATALOG = [
     title: '宝石の煌き',
     subtitle: 'Splendor',
     icon: '💎',
-    badge: '名作拡大再生産',
+    badge: '拡大再生産',
+    tagline: 'ルネサンスの豪商たちの名声争奪戦',
     players: '2〜4人',
     time: '約30分',
     color: '#d97706',
+    boxBg: 'linear-gradient(155deg, #1e1b4b 0%, #0f172a 45%, #2e1065 100%)',
+    boxBorder: '#f59e0b',
+    accentColor: '#fbbf24',
     gradient: 'linear-gradient(135deg, #f59e0b, #d97706)',
     desc: 'ルネサンスの宝石商となり、鉱山開発や職人を雇って威信ポイント15点を目指す世界的ボードゲームの金字塔。',
     minPlayers: 2,
@@ -79,9 +83,13 @@ const GAMES_CATALOG = [
     subtitle: 'Cooperative Numbers',
     icon: '🧵',
     badge: '協力・価値観',
+    tagline: '数字を言葉で例える感覚すり合わせ',
     players: '2〜8人',
     time: '約15分',
     color: '#ea580c',
+    boxBg: 'linear-gradient(155deg, #7c2d12 0%, #c2410c 45%, #ea580c 100%)',
+    boxBorder: '#fb923c',
+    accentColor: '#fed7aa',
     gradient: 'linear-gradient(135deg, #f97316, #ea580c)',
     desc: '1〜100の数字をお題の言葉で表現！「それどのくらい？」と感覚をすり合わせ全員のカードを昇順に並べよう。',
     minPlayers: 2,
@@ -93,9 +101,13 @@ const GAMES_CATALOG = [
     subtitle: 'Acting Party Game',
     icon: '🗣️',
     badge: '表現・演技',
+    tagline: '声と表情だけで伝える演技力',
     players: '2〜8人',
     time: '約15分',
     color: '#e11d48',
+    boxBg: 'linear-gradient(155deg, #881337 0%, #be123c 45%, #e11d48 100%)',
+    boxBorder: '#f43f5e',
+    accentColor: '#fecdd3',
     gradient: 'linear-gradient(135deg, #f43f5e, #be123c)',
     desc: '「感心の はぁ」「怒りの はぁ」「失恋の はぁ」。声と表情だけで演じ分け、当て合う大爆笑パーティー！',
     minPlayers: 2,
@@ -107,9 +119,13 @@ const GAMES_CATALOG = [
     subtitle: 'たった今考えたプロポーズの言葉を君に捧ぐよ',
     icon: '💍',
     badge: 'ワード・大喜利',
+    tagline: '即興で紡ぐロマンチック大喜利',
     players: '3〜8人',
     time: '約20分',
     color: '#9333ea',
+    boxBg: 'linear-gradient(155deg, #3b0764 0%, #581c87 45%, #7e22ce 100%)',
+    boxBorder: '#c084fc',
+    accentColor: '#f3e8ff',
     gradient: 'linear-gradient(135deg, #a855f7, #7e22ce)',
     desc: '配られた単語カードを組み合わせて指輪と共にプロポーズ！即興の胸キュンや珍文が飛び出すロマンチック大喜利。',
     minPlayers: 3,
@@ -121,9 +137,13 @@ const GAMES_CATALOG = [
     subtitle: 'Mystery & Deduction',
     icon: '🕵️',
     badge: '心理戦・推理',
+    tagline: '誰が犯人？手札移動のサスペンス',
     players: '3〜8人',
     time: '約10分',
     color: '#475569',
+    boxBg: 'linear-gradient(155deg, #1c1917 0%, #292524 45%, #44403c 100%)',
+    boxBorder: '#78716c',
+    accentColor: '#f87171',
     gradient: 'linear-gradient(135deg, #64748b, #334155)',
     desc: '犯人カードは手札間をぐるぐる移動！最後まで誰の手元にあるか分からない、騙し合いと推理のスリリングカードゲーム。',
     minPlayers: 3,
@@ -135,9 +155,13 @@ const GAMES_CATALOG = [
     subtitle: 'Crash Ice Action 3D',
     icon: '🐧',
     badge: '3D物理アクション',
+    tagline: '氷を叩け！リアル3D物理対戦',
     players: '2〜8人',
     time: '約10分',
     color: '#0284c7',
+    boxBg: 'linear-gradient(155deg, #0c4a6e 0%, #0369a1 45%, #0284c7 100%)',
+    boxBorder: '#38bdf8',
+    accentColor: '#e0f2fe',
     gradient: 'linear-gradient(135deg, #0ea5e9, #0284c7)',
     desc: 'リアル3D物理エンジン搭載！ドラッグでハンマーを振り下ろし、ペンギンを落とさないよう狙いを定めて氷を叩け！',
     minPlayers: 2,
@@ -149,9 +173,13 @@ const GAMES_CATALOG = [
     subtitle: 'Take 6! Classic Game',
     icon: '🐂',
     badge: '数字・心理戦',
+    tagline: '6枚目でドボン！牛を引き取るな',
     players: '2〜10人',
     time: '約20分',
     color: '#dc2626',
+    boxBg: 'linear-gradient(155deg, #7f1d1d 0%, #991b1b 45%, #dc2626 100%)',
+    boxBorder: '#ef4444',
+    accentColor: '#fef08a',
     gradient: 'linear-gradient(135deg, #ef4444, #b91c1c)',
     desc: '1〜104のカードを一斉オープン！列の6枚目を置いてしまったら牛（失点）を丸ごと引き取り。心理戦の名作！',
     minPlayers: 2,
@@ -163,9 +191,13 @@ const GAMES_CATALOG = [
     subtitle: 'Knizia Hex Routes',
     icon: '🌊',
     badge: 'ルート構築名作',
+    tagline: 'タイルを繋ぎ宝石を門へ導く',
     players: '2〜4人',
     time: '約25分',
     color: '#0891b2',
+    boxBg: 'linear-gradient(155deg, #164e63 0%, #0e7490 45%, #0891b2 100%)',
+    boxBorder: '#22d3ee',
+    accentColor: '#a5f3fc',
     gradient: 'linear-gradient(135deg, #06b6d4, #0e7490)',
     desc: '巨匠ライナー・クニツィアの六角タイル配置ゲーム。線路のようにルートを繋ぎ、宝石を自分の門へ導き入れよう！',
     minPlayers: 2,
@@ -174,6 +206,139 @@ const GAMES_CATALOG = [
 ];
 
 const AVATAR_LIST = ['🐱', '🦊', '🐼', '🦁', '🐧', '🐺', '🦉', '🤖', '👑', '💎', '🚀', '🔥'];
+
+// ラック上の個別ボードゲーム箱コンポーネント
+const BoardGameBox = ({ game, isSelected, onClick }) => {
+  return (
+    <div
+      onClick={onClick}
+      className={`board-game-box ${isSelected ? 'is-selected' : ''}`}
+      style={{
+        width: '210px',
+        height: '280px',
+        flexShrink: 0,
+        cursor: 'pointer',
+        position: 'relative',
+        borderRadius: '14px',
+        padding: '16px 14px',
+        boxSizing: 'border-box',
+        background: game.boxBg,
+        border: isSelected ? '3px solid #fde047' : `2px solid ${game.boxBorder}`,
+        boxShadow: isSelected
+          ? `0 26px 38px -4px rgba(0,0,0,0.85), 0 0 25px ${game.accentColor}99, inset 0 1px 2px rgba(255,255,255,0.4)`
+          : `0 14px 20px -3px rgba(0,0,0,0.7), inset 0 1px 2px rgba(255,255,255,0.2), inset 0 -2px 4px rgba(0,0,0,0.4)`,
+        transform: isSelected ? 'translateY(-22px) scale(1.05)' : 'translateY(0)',
+        transition: 'all 0.28s cubic-bezier(0.34, 1.56, 0.64, 1)',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        overflow: 'hidden',
+        userSelect: 'none'
+      }}
+    >
+      {/* 箱表面の光沢レイヤー */}
+      <div style={{
+        position: 'absolute',
+        top: 0, left: 0, right: 0, bottom: 0,
+        background: 'linear-gradient(135deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.03) 45%, rgba(0,0,0,0.2) 100%)',
+        pointerEvents: 'none',
+        borderRadius: '12px'
+      }} />
+
+      {/* 選択中リボンバッジ */}
+      {isSelected && (
+        <div style={{
+          position: 'absolute',
+          top: '10px',
+          right: '10px',
+          background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+          color: '#ffffff',
+          fontSize: '10px',
+          fontWeight: '900',
+          padding: '3px 8px',
+          borderRadius: '10px',
+          boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
+          zIndex: 3
+        }}>
+          ✓ 机へ配置中
+        </div>
+      )}
+
+      {/* 箱上部：ジャンルバッジ & 人数 */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 2 }}>
+        <span style={{
+          fontSize: '10px',
+          fontWeight: 'bold',
+          color: game.accentColor,
+          background: 'rgba(0,0,0,0.4)',
+          padding: '2px 7px',
+          borderRadius: '5px',
+          border: `1px solid ${game.boxBorder}66`
+        }}>
+          {game.badge}
+        </span>
+        <span style={{ fontSize: '10px', color: '#e2e8f0', fontWeight: 'bold', background: 'rgba(0,0,0,0.3)', padding: '2px 6px', borderRadius: '4px' }}>
+          👥 {game.players}
+        </span>
+      </div>
+
+      {/* 箱中央：カバーアート & タイトル */}
+      <div style={{ textAlign: 'center', margin: 'auto 0', zIndex: 2 }}>
+        <div style={{
+          fontSize: '44px',
+          lineHeight: 1,
+          marginBottom: '8px',
+          filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.4))'
+        }}>
+          {game.icon}
+        </div>
+        <h3 style={{
+          margin: '0 0 3px',
+          fontSize: '17px',
+          fontWeight: '900',
+          color: '#ffffff',
+          letterSpacing: '-0.3px',
+          textShadow: '0 2px 6px rgba(0,0,0,0.7)'
+        }}>
+          {game.title}
+        </h3>
+        <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 'bold', marginBottom: '8px' }}>
+          {game.subtitle}
+        </div>
+        <div style={{
+          fontSize: '10px',
+          color: game.accentColor,
+          background: 'rgba(0,0,0,0.35)',
+          padding: '3px 6px',
+          borderRadius: '6px',
+          display: 'inline-block',
+          fontWeight: 'bold',
+          border: '1px dashed rgba(255,255,255,0.2)'
+        }}>
+          {game.tagline}
+        </div>
+      </div>
+
+      {/* 箱下部：プレイ時間 */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingTop: '8px',
+        borderTop: '1px solid rgba(255,255,255,0.15)',
+        fontSize: '10px',
+        color: '#cbd5e1',
+        fontWeight: 'bold',
+        zIndex: 2
+      }}>
+        <span>⏱️ {game.time}</span>
+        <span style={{ color: isSelected ? '#fde047' : '#94a3b8' }}>
+          {isSelected ? '★ 選択中' : '棚から選ぶ'}
+        </span>
+      </div>
+    </div>
+  );
+};
 
 const App = () => {
   const [matchID, setMatchID] = useState(null);
@@ -485,7 +650,7 @@ const App = () => {
   }
 
   // ----------------------------------------------------
-  // ポータル トップ画面（ゲーム選択・部屋作成・参加）
+  // ポータル トップ画面（ボードゲームラックから選択）
   // ----------------------------------------------------
   const selectedGame = GAMES_CATALOG.find(g => g.id === gameType) || GAMES_CATALOG[0];
   const allowedPlayerCounts = [];
@@ -493,65 +658,74 @@ const App = () => {
     allowedPlayerCounts.push(i);
   }
 
+  // 上段・下段の棚に分ける（4作ずつ）
+  const shelfTier1 = GAMES_CATALOG.slice(0, 4);
+  const shelfTier2 = GAMES_CATALOG.slice(4, 8);
+
   return (
     <div style={{
       minHeight: '100vh',
-      background: 'linear-gradient(160deg, #090d16 0%, #0f172a 50%, #1e1b4b 100%)',
+      background: 'radial-gradient(ellipse at 50% 15%, #1e140d 0%, #120b06 50%, #070402 100%)',
       fontFamily: "'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif",
       color: '#f8fafc',
-      padding: '40px 20px 60px',
+      padding: '30px 16px 60px',
       boxSizing: 'border-box',
       position: 'relative',
       overflowX: 'hidden'
     }}>
       <style>{`
-        @keyframes floatGlow {
-          0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.35; }
-          50% { transform: translate(30px, -20px) scale(1.15); opacity: 0.5; }
+        .board-game-box:hover {
+          transform: translateY(-16px) scale(1.03) !important;
+          box-shadow: 0 22px 30px -4px rgba(0, 0, 0, 0.8) !important;
         }
-        @keyframes subtlePulse {
-          0%, 100% { transform: scale(1); }
-          50% { transform: scale(1.02); }
+        .board-game-box.is-selected {
+          transform: translateY(-24px) scale(1.05) !important;
         }
-        .game-card-hover {
-          transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+        .shelf-boxes-scroll::-webkit-scrollbar {
+          height: 8px;
         }
-        .game-card-hover:hover {
-          transform: translateY(-6px);
-          box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+        .shelf-boxes-scroll::-webkit-scrollbar-track {
+          background: rgba(0,0,0,0.3);
+          border-radius: 4px;
+        }
+        .shelf-boxes-scroll::-webkit-scrollbar-thumb {
+          background: #78350f;
+          border-radius: 4px;
         }
       `}</style>
 
-      {/* 背景の光彩デコレーション */}
-      <div style={{ position: 'absolute', top: '-10%', left: '-5%', width: '450px', height: '450px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(56, 189, 248, 0.25), transparent 70%)', filter: 'blur(50px)', pointerEvents: 'none', animation: 'floatGlow 8s ease-in-out infinite' }} />
-      <div style={{ position: 'absolute', bottom: '10%', right: '-5%', width: '500px', height: '500px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(168, 85, 247, 0.2), transparent 70%)', filter: 'blur(60px)', pointerEvents: 'none', animation: 'floatGlow 10s ease-in-out infinite reverse' }} />
+      {/* 暖色系の天井間接照明グロー */}
+      <div style={{ position: 'absolute', top: 0, left: '20%', width: '60%', height: '300px', background: 'radial-gradient(ellipse at 50% 0%, rgba(245, 158, 11, 0.18) 0%, transparent 70%)', pointerEvents: 'none' }} />
 
-      <div style={{ maxWidth: '1120px', margin: '0 auto', position: 'relative', zIndex: 1 }}>
+      <div style={{ maxWidth: '1060px', margin: '0 auto', position: 'relative', zIndex: 1 }}>
 
-        {/* HERO HEADER */}
-        <div style={{ textAlign: 'center', margin: '20px 0 36px', padding: '0 10px' }}>
+        {/* HERO TITLE */}
+        <div style={{ textAlign: 'center', margin: '10px 0 24px', padding: '0 10px' }}>
           <h1 style={{
-            fontSize: 'clamp(2.2rem, 5vw, 3.6rem)',
+            fontSize: 'clamp(2.1rem, 5vw, 3.4rem)',
             fontWeight: '900',
-            letterSpacing: '1px',
-            lineHeight: 1.35,
+            letterSpacing: '2px',
+            lineHeight: 1.3,
             margin: 0,
-            padding: '8px 0',
-            background: 'linear-gradient(135deg, #ffffff 40%, #38bdf8 80%, #c084fc 100%)',
+            padding: '6px 0',
+            background: 'linear-gradient(135deg, #ffffff 40%, #fbbf24 85%, #d97706 100%)',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
             display: 'inline-block'
           }}>
             BOARD GAME PORTAL
           </h1>
+          <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#d4af37', fontWeight: 'bold', letterSpacing: '1px' }}>
+            棚から好きなゲームの箱を選んで、テーブルに広げよう！
+          </p>
         </div>
 
         {/* エラー表示 */}
         {error && (
           <div style={{
             maxWidth: '640px',
-            margin: '0 auto 24px',
-            background: 'rgba(239, 68, 68, 0.15)',
+            margin: '0 auto 20px',
+            background: 'rgba(239, 68, 68, 0.2)',
             border: '1px solid #ef4444',
             color: '#fca5a5',
             padding: '12px 18px',
@@ -567,50 +741,50 @@ const App = () => {
 
         {/* プレイヤー設定バー (アバター & 名前) */}
         <div style={{
-          maxWidth: '780px',
-          margin: '0 auto 36px',
-          background: 'rgba(30, 41, 59, 0.7)',
-          backdropFilter: 'blur(12px)',
-          border: '1px solid rgba(255, 255, 255, 0.12)',
-          borderRadius: '20px',
-          padding: '20px 24px',
-          boxShadow: '0 10px 25px rgba(0, 0, 0, 0.25)'
+          maxWidth: '740px',
+          margin: '0 auto 28px',
+          background: 'rgba(40, 24, 15, 0.75)',
+          backdropFilter: 'blur(10px)',
+          border: '1px solid rgba(245, 158, 11, 0.25)',
+          borderRadius: '16px',
+          padding: '14px 20px',
+          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.35)'
         }}>
-          <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#94a3b8', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span>👤</span> あなたのプレイヤープロフィール
+          <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#fcd34d', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span>👤</span> あなたのプレイヤー名（棚の前で遊ぶ人）
           </div>
 
-          <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '14px', alignItems: 'center', flexWrap: 'wrap' }}>
             <div style={{
-              width: '54px',
-              height: '54px',
-              borderRadius: '16px',
-              background: 'linear-gradient(135deg, #38bdf8, #818cf8)',
+              width: '46px',
+              height: '46px',
+              borderRadius: '12px',
+              background: 'linear-gradient(135deg, #f59e0b, #d97706)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: '32px',
-              boxShadow: '0 4px 12px rgba(56, 189, 248, 0.3)',
+              fontSize: '26px',
+              boxShadow: '0 4px 10px rgba(245, 158, 11, 0.35)',
               flexShrink: 0
             }}>
               {playerAvatar}
             </div>
 
-            <div style={{ flex: 1, minWidth: '220px' }}>
+            <div style={{ flex: 1, minWidth: '200px' }}>
               <input
                 type="text"
                 value={playerName}
                 onChange={e => handleNameChange(e.target.value)}
                 maxLength={15}
-                placeholder="名前を入力してください (最大15文字)"
+                placeholder="名前を入力してください"
                 style={{
                   width: '100%',
-                  padding: '12px 16px',
-                  fontSize: '16px',
+                  padding: '10px 14px',
+                  fontSize: '15px',
                   fontWeight: 'bold',
-                  background: 'rgba(15, 23, 42, 0.8)',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
-                  borderRadius: '12px',
+                  background: 'rgba(15, 10, 6, 0.85)',
+                  border: '1px solid rgba(245, 158, 11, 0.35)',
+                  borderRadius: '10px',
                   color: '#ffffff',
                   outline: 'none',
                   boxSizing: 'border-box'
@@ -619,19 +793,19 @@ const App = () => {
             </div>
 
             {/* アバター選択ピッカー */}
-            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', alignItems: 'center' }}>
               {AVATAR_LIST.map(av => (
                 <button
                   key={av}
                   type="button"
                   onClick={() => handleAvatarChange(av)}
                   style={{
-                    background: playerAvatar === av ? 'rgba(56, 189, 248, 0.3)' : 'rgba(255, 255, 255, 0.05)',
-                    border: playerAvatar === av ? '2px solid #38bdf8' : '1px solid rgba(255, 255, 255, 0.1)',
+                    background: playerAvatar === av ? 'rgba(245, 158, 11, 0.4)' : 'rgba(255, 255, 255, 0.05)',
+                    border: playerAvatar === av ? '2px solid #fbbf24' : '1px solid rgba(255, 255, 255, 0.12)',
                     borderRadius: '8px',
-                    width: '32px',
-                    height: '32px',
-                    fontSize: '18px',
+                    width: '30px',
+                    height: '30px',
+                    fontSize: '16px',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
@@ -650,31 +824,31 @@ const App = () => {
         {matchID && (
           <div style={{
             maxWidth: '640px',
-            margin: '0 auto 36px',
-            background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.25), rgba(99, 102, 241, 0.25))',
-            border: '2px solid #38bdf8',
-            borderRadius: '20px',
-            padding: '24px',
+            margin: '0 auto 28px',
+            background: 'linear-gradient(135deg, rgba(217, 119, 6, 0.3), rgba(180, 83, 9, 0.3))',
+            border: '2px solid #fbbf24',
+            borderRadius: '18px',
+            padding: '20px',
             textAlign: 'center',
-            boxShadow: '0 10px 30px rgba(56, 189, 248, 0.25)'
+            boxShadow: '0 8px 25px rgba(245, 158, 11, 0.25)'
           }}>
-            <div style={{ fontSize: '36px', marginBottom: '8px' }}>💌</div>
-            <h2 style={{ margin: '0 0 8px', fontSize: '22px', color: '#ffffff' }}>招待された部屋が見つかりました！</h2>
-            <p style={{ color: '#bae6fd', fontSize: '14px', margin: '0 0 16px' }}>
-              部屋コード: <strong style={{ fontFamily: 'monospace', fontSize: '16px' }}>{matchID}</strong>
+            <div style={{ fontSize: '32px', marginBottom: '6px' }}>💌</div>
+            <h2 style={{ margin: '0 0 6px', fontSize: '20px', color: '#ffffff' }}>招待された部屋が見つかりました！</h2>
+            <p style={{ color: '#fef3c7', fontSize: '13px', margin: '0 0 14px' }}>
+              部屋コード: <strong style={{ fontFamily: 'monospace', fontSize: '16px', color: '#fbbf24' }}>{matchID}</strong>
             </p>
             <button
               onClick={() => joinExistingMatch()}
               style={{
-                padding: '14px 40px',
-                fontSize: '18px',
+                padding: '12px 36px',
+                fontSize: '16px',
                 fontWeight: 'bold',
-                background: 'linear-gradient(135deg, #0284c7, #2563eb)',
+                background: 'linear-gradient(135deg, #f59e0b, #d97706)',
                 color: '#ffffff',
                 border: 'none',
-                borderRadius: '12px',
+                borderRadius: '10px',
                 cursor: 'pointer',
-                boxShadow: '0 4px 15px rgba(37, 99, 235, 0.4)',
+                boxShadow: '0 4px 12px rgba(217, 119, 6, 0.4)',
                 transition: 'all 0.2s'
               }}
             >
@@ -683,150 +857,161 @@ const App = () => {
           </div>
         )}
 
-        {/* GAME SELECTION SHOWCASE (8 GAMES GRID) */}
-        <div style={{ marginBottom: '32px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <h2 style={{ fontSize: '20px', fontWeight: 'bold', margin: 0, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span>🎮</span> ゲームを選択
-            </h2>
-            <span style={{ fontSize: '13px', color: '#94a3b8' }}>全8タイトル</span>
+        {/* ========================================================
+            BOARD GAME RACK / SHELF (木製ボードゲーム棚)
+           ======================================================== */}
+        <div style={{
+          background: 'linear-gradient(180deg, #2b180d 0%, #1a0e07 100%)',
+          borderRadius: '20px',
+          border: '4px solid #451a03',
+          boxShadow: '0 25px 60px rgba(0,0,0,0.85), inset 0 0 80px rgba(0,0,0,0.7)',
+          padding: '24px 20px 10px',
+          marginBottom: '36px',
+          position: 'relative'
+        }}>
+          {/* ラック上部の金属ネームプレート風ヘッダー */}
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            paddingBottom: '14px',
+            borderBottom: '2px solid #572506',
+            marginBottom: '10px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '18px' }}>🪵</span>
+              <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#fde68a', letterSpacing: '1px' }}>
+                BOARD GAME RACK (全8作品)
+              </span>
+            </div>
+            <div style={{ fontSize: '12px', color: '#b45309', fontWeight: 'bold' }}>
+              箱をクリックして選ぶ ⤵
+            </div>
           </div>
 
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-            gap: '16px'
-          }}>
-            {GAMES_CATALOG.map(game => {
-              const isSelected = gameType === game.id;
-
-              return (
-                <div
+          {/* SHELF TIER 1 (上段ラック: 4作品) */}
+          <div style={{ position: 'relative', marginBottom: '28px' }}>
+            <div
+              className="shelf-boxes-scroll"
+              style={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'flex-end',
+                gap: '16px',
+                padding: '24px 8px 0',
+                minHeight: '290px',
+                overflowX: 'auto',
+                position: 'relative',
+                zIndex: 2
+              }}
+            >
+              {shelfTier1.map(game => (
+                <BoardGameBox
                   key={game.id}
+                  game={game}
+                  isSelected={gameType === game.id}
                   onClick={() => handleGameTypeChange(game.id)}
-                  className="game-card-hover"
-                  style={{
-                    background: isSelected
-                      ? 'linear-gradient(145deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.95))'
-                      : 'rgba(30, 41, 59, 0.6)',
-                    border: isSelected ? `2px solid ${game.color}` : '1px solid rgba(255, 255, 255, 0.1)',
-                    borderRadius: '20px',
-                    padding: '20px',
-                    cursor: 'pointer',
-                    boxShadow: isSelected ? `0 0 25px ${game.color}40, 0 8px 20px rgba(0,0,0,0.3)` : '0 4px 15px rgba(0,0,0,0.15)',
-                    position: 'relative',
-                    overflow: 'hidden',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'space-between'
-                  }}
-                >
-                  {/* SELECTED BADGE */}
-                  {isSelected && (
-                    <div style={{
-                      position: 'absolute',
-                      top: '12px',
-                      right: '12px',
-                      background: game.gradient,
-                      color: '#ffffff',
-                      fontSize: '11px',
-                      fontWeight: 'bold',
-                      padding: '3px 10px',
-                      borderRadius: '12px',
-                      boxShadow: '0 2px 6px rgba(0,0,0,0.2)'
-                    }}>
-                      ✓ 選択中
-                    </div>
-                  )}
+                />
+              ))}
+            </div>
 
-                  <div>
-                    {/* ICON & BADGE */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-                      <div style={{
-                        fontSize: '36px',
-                        width: '50px',
-                        height: '50px',
-                        borderRadius: '14px',
-                        background: 'rgba(255, 255, 255, 0.08)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}>
-                        {game.icon}
-                      </div>
-                      <div>
-                        <span style={{
-                          fontSize: '11px',
-                          fontWeight: 'bold',
-                          color: game.color,
-                          background: `${game.color}20`,
-                          padding: '2px 8px',
-                          borderRadius: '6px',
-                          border: `1px solid ${game.color}40`
-                        }}>
-                          {game.badge}
-                        </span>
-                      </div>
-                    </div>
+            {/* 上段の木製シェルフ板 (Plank) */}
+            <div style={{
+              height: '20px',
+              background: 'linear-gradient(180deg, #92400e 0%, #78350f 25%, #451a03 70%, #291002 100%)',
+              borderRadius: '4px',
+              borderTop: '2px solid #b45309',
+              boxShadow: '0 14px 20px rgba(0,0,0,0.75), inset 0 1px 2px rgba(255,255,255,0.25)',
+              position: 'relative',
+              zIndex: 1
+            }} />
+          </div>
 
-                    {/* TITLES */}
-                    <h3 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: 'bold', color: '#ffffff' }}>
-                      {game.title}
-                    </h3>
-                    <div style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '12px' }}>
-                      {game.subtitle}
-                    </div>
+          {/* SHELF TIER 2 (下段ラック: 4作品) */}
+          <div style={{ position: 'relative', marginBottom: '16px' }}>
+            <div
+              className="shelf-boxes-scroll"
+              style={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'flex-end',
+                gap: '16px',
+                padding: '24px 8px 0',
+                minHeight: '290px',
+                overflowX: 'auto',
+                position: 'relative',
+                zIndex: 2
+              }}
+            >
+              {shelfTier2.map(game => (
+                <BoardGameBox
+                  key={game.id}
+                  game={game}
+                  isSelected={gameType === game.id}
+                  onClick={() => handleGameTypeChange(game.id)}
+                />
+              ))}
+            </div>
 
-                    {/* DESCRIPTION */}
-                    <p style={{ fontSize: '12px', color: '#cbd5e1', lineHeight: 1.5, margin: '0 0 16px' }}>
-                      {game.desc}
-                    </p>
-                  </div>
-
-                  {/* FOOTER SPECS */}
-                  <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    paddingTop: '12px',
-                    borderTop: '1px solid rgba(255, 255, 255, 0.08)',
-                    fontSize: '11px',
-                    color: '#94a3b8'
-                  }}>
-                    <span>👥 {game.players}</span>
-                    <span>⏱️ {game.time}</span>
-                  </div>
-                </div>
-              );
-            })}
+            {/* 下段の木製シェルフ板 (Plank) */}
+            <div style={{
+              height: '20px',
+              background: 'linear-gradient(180deg, #92400e 0%, #78350f 25%, #451a03 70%, #291002 100%)',
+              borderRadius: '4px',
+              borderTop: '2px solid #b45309',
+              boxShadow: '0 14px 20px rgba(0,0,0,0.75), inset 0 1px 2px rgba(255,255,255,0.25)',
+              position: 'relative',
+              zIndex: 1
+            }} />
           </div>
         </div>
 
-        {/* ROOM CREATION & CONFIG DRAWER */}
+        {/* ========================================================
+            GAMING TABLE (棚から選んだゲームを広げて準備するエリア)
+           ======================================================== */}
         {!matchID && (
           <div style={{
-            background: 'rgba(30, 41, 59, 0.85)',
-            backdropFilter: 'blur(16px)',
-            border: `2px solid ${selectedGame.color}`,
+            background: 'linear-gradient(145deg, #162a22 0%, #0d1e18 50%, #081410 100%)',
+            border: `3px solid ${selectedGame.color}`,
             borderRadius: '24px',
-            padding: '28px 32px',
-            marginBottom: '40px',
-            boxShadow: `0 12px 40px ${selectedGame.color}25`
+            padding: '26px 30px',
+            marginBottom: '36px',
+            boxShadow: `0 14px 45px rgba(0,0,0,0.65), 0 0 30px ${selectedGame.color}35`,
+            position: 'relative'
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '20px' }}>
+            {/* テーブル上のフェルトマット風ヘッダー */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px', marginBottom: '18px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '14px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                <span style={{ fontSize: '40px' }}>{selectedGame.icon}</span>
+                <div style={{
+                  fontSize: '40px',
+                  width: '60px',
+                  height: '60px',
+                  borderRadius: '16px',
+                  background: 'rgba(0,0,0,0.3)',
+                  border: `2px solid ${selectedGame.color}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: `0 4px 14px ${selectedGame.color}40`
+                }}>
+                  {selectedGame.icon}
+                </div>
                 <div>
-                  <div style={{ fontSize: '12px', color: selectedGame.color, fontWeight: 'bold' }}>部屋作成設定</div>
+                  <div style={{ fontSize: '12px', color: selectedGame.color, fontWeight: 'bold' }}>
+                    🛋️ プレイテーブルに広げたゲーム
+                  </div>
                   <h3 style={{ margin: 0, fontSize: '24px', fontWeight: '900', color: '#ffffff' }}>
-                    『{selectedGame.title}』を遊ぶ
+                    {selectedGame.title}
                   </h3>
+                  <div style={{ fontSize: '12px', color: '#a7f3d0' }}>
+                    {selectedGame.tagline} • {selectedGame.badge}
+                  </div>
                 </div>
               </div>
 
               {/* プレイ人数セレクター (ピルボタン) */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#cbd5e1' }}>参加人数:</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#d1fae5' }}>参加人数:</span>
                 <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                   {allowedPlayerCounts.map(n => (
                     <button
@@ -836,13 +1021,13 @@ const App = () => {
                       style={{
                         padding: '8px 16px',
                         borderRadius: '10px',
-                        border: numPlayers === n ? `2px solid ${selectedGame.color}` : '1px solid rgba(255, 255, 255, 0.15)',
-                        background: numPlayers === n ? selectedGame.gradient : 'rgba(15, 23, 42, 0.6)',
+                        border: numPlayers === n ? `2px solid #fde047` : '1px solid rgba(255, 255, 255, 0.15)',
+                        background: numPlayers === n ? selectedGame.gradient : 'rgba(0, 0, 0, 0.4)',
                         color: '#ffffff',
                         fontSize: '14px',
                         fontWeight: 'bold',
                         cursor: 'pointer',
-                        boxShadow: numPlayers === n ? `0 4px 12px ${selectedGame.color}50` : 'none',
+                        boxShadow: numPlayers === n ? `0 4px 12px ${selectedGame.color}70` : 'none',
                         transition: 'all 0.15s'
                       }}
                     >
@@ -853,13 +1038,18 @@ const App = () => {
               </div>
             </div>
 
+            {/* ゲーム詳細の概要 */}
+            <p style={{ fontSize: '13px', color: '#d1fae5', margin: '0 0 20px', lineHeight: 1.6, background: 'rgba(0,0,0,0.25)', padding: '12px 16px', borderRadius: '10px', borderLeft: `4px solid ${selectedGame.color}` }}>
+              📖 {selectedGame.desc}
+            </p>
+
             {/* ITO 固有オプション (お題設定) */}
             {gameType === 'ito' && (
-              <div style={{ background: 'rgba(15, 23, 42, 0.6)', padding: '16px 20px', borderRadius: '16px', border: '1px solid rgba(255, 255, 255, 0.1)', marginBottom: '20px' }}>
+              <div style={{ background: 'rgba(0, 0, 0, 0.35)', padding: '16px 20px', borderRadius: '14px', border: '1px solid rgba(255, 255, 255, 0.1)', marginBottom: '20px' }}>
                 <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#fdba74', marginBottom: '8px' }}>
                   🧵 ITO お題出題モード
                 </div>
-                <div style={{ display: 'flex', gap: '20px', marginBottom: '14px' }}>
+                <div style={{ display: 'flex', gap: '20px', marginBottom: '12px' }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px' }}>
                     <input type="radio" name="themeMode" value="random" checked={themeMode === 'random'} onChange={() => setThemeMode('random')} />
                     <span>🎲 自動出題（ランダム）</span>
@@ -918,7 +1108,7 @@ const App = () => {
                 border: 'none',
                 borderRadius: '16px',
                 cursor: 'pointer',
-                boxShadow: `0 8px 25px ${selectedGame.color}60`,
+                boxShadow: `0 8px 25px ${selectedGame.color}70`,
                 transition: 'all 0.2s',
                 letterSpacing: '0.5px'
               }}
@@ -932,15 +1122,15 @@ const App = () => {
         <div style={{
           maxWidth: '680px',
           margin: '0 auto',
-          background: 'rgba(30, 41, 59, 0.6)',
+          background: 'rgba(40, 24, 15, 0.7)',
           backdropFilter: 'blur(10px)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          borderRadius: '20px',
-          padding: '24px 28px',
+          border: '1px solid rgba(245, 158, 11, 0.2)',
+          borderRadius: '18px',
+          padding: '22px 26px',
           textAlign: 'center'
         }}>
-          <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#cbd5e1', marginBottom: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-            <span>🔑</span> 既存の部屋に参加する
+          <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#fde68a', marginBottom: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+            <span>🔑</span> 友達の部屋に参加する（部屋コード または 招待URL）
           </div>
 
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
@@ -954,9 +1144,9 @@ const App = () => {
                 minWidth: '220px',
                 padding: '12px 16px',
                 fontSize: '14px',
-                background: 'rgba(15, 23, 42, 0.8)',
-                border: '1px solid rgba(255, 255, 255, 0.2)',
-                borderRadius: '12px',
+                background: 'rgba(15, 10, 6, 0.85)',
+                border: '1px solid rgba(245, 158, 11, 0.3)',
+                borderRadius: '10px',
                 color: '#ffffff',
                 outline: 'none',
                 boxSizing: 'border-box'
@@ -968,25 +1158,25 @@ const App = () => {
                 padding: '12px 28px',
                 fontSize: '15px',
                 fontWeight: 'bold',
-                background: 'linear-gradient(135deg, #0284c7, #2563eb)',
+                background: 'linear-gradient(135deg, #f59e0b, #d97706)',
                 color: '#ffffff',
                 border: 'none',
-                borderRadius: '12px',
+                borderRadius: '10px',
                 cursor: 'pointer',
-                boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)',
+                boxShadow: '0 4px 12px rgba(217, 119, 6, 0.35)',
                 transition: 'all 0.15s'
               }}
             >
               参加する
             </button>
           </div>
-          <div style={{ fontSize: '11px', color: '#64748b', marginTop: '10px' }}>
-            ※ 友達から共有された招待URLまたは部屋コードを入力すれば、どのゲームの部屋でも直接参加できます
+          <div style={{ fontSize: '11px', color: '#a8a29e', marginTop: '8px' }}>
+            ※ 共有された招待URLまたは部屋コードを入力すれば、どのゲームの部屋でも直接参加できます
           </div>
         </div>
 
         {/* FOOTER CREDITS */}
-        <div style={{ textAlign: 'center', marginTop: '50px', fontSize: '12px', color: '#64748b' }}>
+        <div style={{ textAlign: 'center', marginTop: '40px', fontSize: '12px', color: '#78716c' }}>
           Board Game Portal © 2026 • Splendor / Ito / Haa / Propose / Hannin / Crash Ice / Nimmt / Indigo
         </div>
 
