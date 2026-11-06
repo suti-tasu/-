@@ -18,6 +18,8 @@ import { NimmtGame } from './NimmtGame';
 import { NimmtBoard } from './NimmtBoard';
 import { IndigoGame } from './IndigoGame';
 import { IndigoBoard } from './IndigoBoard';
+import { JinseiGame } from './JinseiGame';
+import { JinseiBoard } from './JinseiBoard';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -57,6 +59,7 @@ const ProposeClient = Client({ game: Propose, board: ProposeBoard, multiplayer: 
 const CrashIceClient = Client({ game: CrashIceGame, board: CrashIceBoard, multiplayer: SocketIO({ server }), debug: false });
 const NimmtClient = Client({ game: NimmtGame, board: NimmtBoard, multiplayer: SocketIO({ server }), debug: false });
 const IndigoClient = Client({ game: IndigoGame, board: IndigoBoard, multiplayer: SocketIO({ server }), debug: false });
+const JinseiClient = Client({ game: JinseiGame, board: JinseiBoard, multiplayer: SocketIO({ server }), debug: false });
 
 const GAMES_CATALOG = [
   {
@@ -224,6 +227,27 @@ const GAMES_CATALOG = [
     accentColor: '#a5f3fc',
     gradient: 'linear-gradient(135deg, #06b6d4, #0e7490)',
     desc: '巨匠ライナー・クニツィアの六角タイル配置ゲーム。線路のようにルートを繋ぎ、宝石を自分の門へ導き入れよう！',
+    minPlayers: 2,
+    maxPlayers: 4
+  },
+  {
+    id: 'jinsei',
+    title: '47都道府県 人生ゲーム',
+    subtitle: 'Japan Regional Life Game',
+    enTitle: 'JINSEI 47',
+    icon: '🚗',
+    badge: '47都道府県対応',
+    tagline: '故郷の絆を胸に億万長者を目指すライフすごろく',
+    players: '2〜4人',
+    time: '約25分',
+    color: '#10b981',
+    boxBg: 'linear-gradient(155deg, #064e3b 0%, #065f46 45%, #047857 100%)',
+    spineBg: 'linear-gradient(180deg, #022c22 0%, #064e3b 100%)',
+    topBg: '#059669',
+    boxBorder: '#34d399',
+    accentColor: '#fde047',
+    gradient: 'linear-gradient(135deg, #059669, #10b981)',
+    desc: '日本全国47都道府県から出身地を選んでスタート！各県独自のパッシブスキル、特産品、帰省仕送りイベントで大盛り上がりの人生ゲーム！',
     minPlayers: 2,
     maxPlayers: 4
   }
@@ -549,7 +573,7 @@ const App = () => {
     try {
       let match = null;
       let finalGameType = tGameType;
-      const allGames = ['splendor', 'ito', 'haa', 'propose', 'hannin', 'crashice', 'nimmt', 'indigo'];
+      const allGames = ['splendor', 'ito', 'haa', 'propose', 'hannin', 'crashice', 'nimmt', 'indigo', 'jinsei'];
 
       try {
         match = await lobbyClient.getMatch(tGameType, tMatchID);
@@ -644,6 +668,8 @@ const App = () => {
               <NimmtClient matchID={matchID} playerID={playerID} credentials={credentials} />
             ) : gameType === 'indigo' ? (
               <IndigoClient matchID={matchID} playerID={playerID} credentials={credentials} />
+            ) : gameType === 'jinsei' ? (
+              <JinseiClient matchID={matchID} playerID={playerID} credentials={credentials} />
             ) : (
               <SplendorClient matchID={matchID} playerID={playerID} credentials={credentials} />
             )}
@@ -732,9 +758,9 @@ const App = () => {
     allowedPlayerCounts.push(i);
   }
 
-  // 上段・下段の棚に分ける（4作ずつ）
+  // 上段・下段の棚に分ける
   const shelfTier1 = GAMES_CATALOG.slice(0, 4);
-  const shelfTier2 = GAMES_CATALOG.slice(4, 8);
+  const shelfTier2 = GAMES_CATALOG.slice(4);
 
   return (
     <div style={{
@@ -1399,7 +1425,7 @@ const App = () => {
 
         {/* FOOTER CREDITS */}
         <div style={{ textAlign: 'center', marginTop: '40px', fontSize: '12px', color: '#78716c' }}>
-          Board Game Portal © 2026 • Splendor / Ito / Haa / Propose / Hannin / Crash Ice / Nimmt / Indigo
+          Board Game Portal © 2026 • Splendor / Ito / Haa / Propose / Hannin / Crash Ice / Nimmt / Indigo / Jinsei 47
         </div>
 
       </div>
