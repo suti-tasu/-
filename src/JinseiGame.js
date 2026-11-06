@@ -138,7 +138,7 @@ export const JinseiGame = {
     }
 
     return {
-      gameState: 'select_prefecture', // 'select_prefecture' | 'playing' | 'game_over'
+      gameState: 'lobby', // 'lobby' | 'select_prefecture' | 'playing' | 'game_over'
       isHardMode: false, // 隠しリアル格差ハードモード
       players,
       currentTurnPlayer: '0',
@@ -152,7 +152,33 @@ export const JinseiGame = {
     };
   },
 
+  turn: {
+    activePlayers: { all: null },
+    order: {
+      first: () => 0,
+      next: ({ G, ctx }) => {
+        if (Object.values(G.players).every((p) => p.isGoal)) return ctx.playOrderPos;
+        let nextPos = (ctx.playOrderPos + 1) % ctx.numPlayers;
+        for (let i = 0; i < ctx.numPlayers; i++) {
+          const nextPid = ctx.playOrder[nextPos];
+          if (!G.players[nextPid]?.isGoal) {
+            return nextPos;
+          }
+          nextPos = (nextPos + 1) % ctx.numPlayers;
+        }
+        return nextPos;
+      },
+    },
+  },
+
   moves: {
+    // 待機ロビーからゲーム開始（ホストが実行）
+    startGame: ({ G }) => {
+      if (G.gameState !== 'lobby') return;
+      G.gameState = 'select_prefecture';
+      G.logs.unshift('🎲 人生ゲームがスタートしました！出身都道府県を選択してください。');
+    },
+
     // 0. 隠しハードモードの切り替え
     toggleHardMode: ({ G }) => {
       G.isHardMode = !G.isHardMode;
@@ -170,6 +196,17 @@ export const JinseiGame = {
       if (!pref) return;
 
       const p = G.players[playerID];
+      if (!p) return;
+
+      // 選び直しの場合は前回の特産品・保険の重複を防止
+      if (p.prefecture) {
+        p.souvenirs = p.souvenirs.filter((s) => s.id !== p.prefecture.souvenir.id);
+        if (p.prefecture.passiveType === 'insurance_free') {
+          p.insurance.life = false;
+          p.insurance.fire = false;
+        }
+      }
+
       p.prefecture = pref;
       p.souvenirs.push({ ...pref.souvenir, count: 1 });
       G.logs.unshift(`🗾 Player ${playerID} は【${pref.name}】出身に決定！（特産品: ${pref.souvenir.name} 獲得）`);
@@ -193,14 +230,14 @@ export const JinseiGame = {
         p.hensachi = finalHensachi;
 
         if (pRoll === 1) {
-          p.debt += 1; // 奨学金100万スタート
+          p.debt = Math.max(p.debt, 1); // 奨学金100万スタート
         }
 
         G.logs.unshift(`💀【親ガチャ結果】Player ${playerID} の実家: 年収 ${parentTier.income}万円（${parentTier.title}）➔ 初期偏差値【${finalHensachi}】！`);
       }
 
       // 全員が出身地を選び終えたらゲーム開始
-      const allSelected = Object.values(G.players).every((p) => p.prefecture !== null);
+      const allSelected = Object.values(G.players).every((pl) => pl.prefecture !== null);
       if (allSelected) {
         G.gameState = 'playing';
         G.turnStep = 'spin';
@@ -359,7 +396,10 @@ export const JinseiGame = {
     },
 
     // 6. 手番終了
-    endTurn: ({ G, events }) => {
+    endTurn: ({ G, ctx, events }, playerID) => {
+      if (G.gameState !== 'playing') return;
+      if (playerID && ctx.currentPlayer !== playerID) return;
+
       G.currentSpaceModal = null;
       G.rouletteValue = null;
       G.isSpinning = false;
@@ -380,6 +420,7 @@ export const JinseiGame = {
     restartGame: ({ G, ctx }) => {
       const resetG = JinseiGame.setup({ ctx });
       resetG.isHardMode = G.isHardMode; // モード設定は引き継ぎ
+      resetG.gameState = 'select_prefecture'; // リスタート時は即座に都道府県選択へ
       Object.assign(G, resetG);
     },
   },

@@ -262,12 +262,12 @@ const BoardGameBox = ({ game, isSelected, onClick }) => {
       onClick={onClick}
       className={`box-3d ${isSelected ? 'is-active' : ''}`}
       style={{
-        width: '185px',
-        height: '265px',
+        width: '162px',
+        height: '242px',
         flexShrink: 0,
         cursor: 'pointer',
         position: 'relative',
-        marginRight: '22px',
+        marginRight: '18px',
         userSelect: 'none'
       }}
     >
@@ -292,22 +292,22 @@ const BoardGameBox = ({ game, isSelected, onClick }) => {
           flexDirection: 'column',
           justifyContent: 'space-between',
           alignItems: 'center',
-          padding: '14px 0',
+          padding: '12px 0',
           boxSizing: 'border-box'
         }}
       >
         <span style={{
-          fontSize: '11px',
+          fontSize: '10px',
           fontWeight: '900',
           color: 'rgba(255,255,255,0.65)',
-          letterSpacing: '2px',
+          letterSpacing: '1.5px',
           writingMode: 'vertical-rl',
           textOrientation: 'mixed'
         }}>
           {game.enTitle || game.subtitle}
         </span>
-        <span style={{ fontSize: '14px' }}>{game.icon}</span>
-        <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', fontWeight: 'bold' }}>{game.players}</span>
+        <span style={{ fontSize: '13px' }}>{game.icon}</span>
+        <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.5)', fontWeight: 'bold' }}>{game.players}</span>
       </div>
 
       {/* 3D Front Face (箱の正面) */}
@@ -316,7 +316,7 @@ const BoardGameBox = ({ game, isSelected, onClick }) => {
           width: '100%',
           height: '100%',
           borderRadius: '12px 0 0 12px',
-          padding: '14px 12px',
+          padding: '12px 10px',
           boxSizing: 'border-box',
           background: game.boxBg,
           border: isSelected ? '3px solid #fde047' : `2px solid ${game.boxBorder}`,
@@ -337,13 +337,13 @@ const BoardGameBox = ({ game, isSelected, onClick }) => {
         {isSelected && (
           <div style={{
             position: 'absolute',
-            top: '8px',
-            right: '8px',
+            top: '6px',
+            right: '6px',
             background: 'linear-gradient(135deg, #f59e0b, #d97706)',
             color: '#ffffff',
-            fontSize: '10px',
+            fontSize: '9px',
             fontWeight: '900',
-            padding: '2px 8px',
+            padding: '2px 7px',
             borderRadius: '10px',
             boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
             zIndex: 10
@@ -355,17 +355,17 @@ const BoardGameBox = ({ game, isSelected, onClick }) => {
         {/* 箱上部：ジャンルバッジ & 人数 */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 2 }}>
           <span style={{
-            fontSize: '10px',
+            fontSize: '9.5px',
             fontWeight: 'bold',
             color: game.accentColor,
             background: 'rgba(0,0,0,0.45)',
-            padding: '2px 7px',
+            padding: '2px 6px',
             borderRadius: '5px',
             border: `1px solid ${game.boxBorder}66`
           }}>
             {game.badge}
           </span>
-          <span style={{ fontSize: '10px', color: '#e2e8f0', fontWeight: 'bold', background: 'rgba(0,0,0,0.3)', padding: '2px 6px', borderRadius: '4px' }}>
+          <span style={{ fontSize: '9.5px', color: '#e2e8f0', fontWeight: 'bold', background: 'rgba(0,0,0,0.3)', padding: '2px 5px', borderRadius: '4px' }}>
             👥 {game.players}
           </span>
         </div>
@@ -373,35 +373,51 @@ const BoardGameBox = ({ game, isSelected, onClick }) => {
         {/* 箱中央：カバーアート & タイトル */}
         <div style={{ textAlign: 'center', margin: 'auto 0', zIndex: 2 }}>
           <div style={{
-            fontSize: '40px',
+            fontSize: '36px',
             lineHeight: 1,
-            marginBottom: '6px',
+            marginBottom: '4px',
             filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.4))'
           }}>
             {game.icon}
           </div>
           <h3 style={{
             margin: '0 0 2px',
-            fontSize: '16px',
+            fontSize: '15px',
             fontWeight: '900',
             color: '#ffffff',
             letterSpacing: '-0.3px',
-            textShadow: '0 2px 6px rgba(0,0,0,0.7)'
+            textShadow: '0 2px 6px rgba(0,0,0,0.7)',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis'
           }}>
             {game.title}
           </h3>
-          <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 'bold', marginBottom: '6px' }}>
+          <div style={{
+            fontSize: '9.5px',
+            color: '#94a3b8',
+            fontWeight: 'bold',
+            marginBottom: '4px',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis'
+          }}>
             {game.enTitle || game.subtitle}
           </div>
           <div style={{
-            fontSize: '10px',
+            fontSize: '9px',
             color: game.accentColor,
             background: 'rgba(0,0,0,0.4)',
             padding: '2px 6px',
-            borderRadius: '6px',
+            borderRadius: '5px',
             display: 'inline-block',
             fontWeight: 'bold',
-            border: '1px dashed rgba(255,255,255,0.2)'
+            border: '1px dashed rgba(255,255,255,0.2)',
+            maxWidth: '100%',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            boxSizing: 'border-box'
           }}>
             {game.tagline}
           </div>
@@ -412,9 +428,9 @@ const BoardGameBox = ({ game, isSelected, onClick }) => {
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          paddingTop: '6px',
+          paddingTop: '5px',
           borderTop: '1px solid rgba(255,255,255,0.15)',
-          fontSize: '10px',
+          fontSize: '9.5px',
           color: '#cbd5e1',
           fontWeight: 'bold',
           zIndex: 2
@@ -776,6 +792,24 @@ const App = () => {
       <style>{`
         .perspective-shelf {
           perspective: 900px;
+          display: flex;
+          align-items: flex-end;
+          gap: 16px;
+          padding: 26px 14px 4px;
+          min-height: 280px;
+          overflow-x: auto;
+          overflow-y: visible;
+          box-sizing: border-box;
+          scrollbar-width: thin;
+        }
+        .perspective-shelf::before,
+        .perspective-shelf::after {
+          content: '';
+          margin: auto;
+          flex-shrink: 0;
+          width: 0;
+          height: 1px;
+          pointer-events: none;
         }
         .box-3d {
           transform-style: preserve-3d;
@@ -793,8 +827,8 @@ const App = () => {
         .spine-3d {
           position: absolute;
           top: 0;
-          right: -30px;
-          width: 30px;
+          right: -26px;
+          width: 26px;
           height: 100%;
           transform-origin: left center;
           transform: rotateY(90deg);
@@ -802,10 +836,10 @@ const App = () => {
         }
         .top-3d {
           position: absolute;
-          top: -22px;
+          top: -20px;
           left: 0;
           width: 100%;
-          height: 22px;
+          height: 20px;
           transform-origin: bottom center;
           transform: rotateX(90deg);
           background: linear-gradient(90deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.05) 100%);
@@ -829,7 +863,7 @@ const App = () => {
       {/* 暖色系の天井間接照明グロー */}
       <div style={{ position: 'absolute', top: 0, left: '20%', width: '60%', height: '300px', background: 'radial-gradient(ellipse at 50% 0%, rgba(245, 158, 11, 0.18) 0%, transparent 70%)', pointerEvents: 'none' }} />
 
-      <div style={{ maxWidth: '1060px', margin: '0 auto', position: 'relative', zIndex: 1 }}>
+      <div style={{ maxWidth: '1140px', margin: '0 auto', position: 'relative', zIndex: 1 }}>
 
         {/* 3D BOX OPENING OVERLAY MODAL (部屋立て時の開封アニメーション) */}
         {isOpeningBox && (
@@ -1129,7 +1163,7 @@ const App = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{ fontSize: '18px' }}>🪵</span>
               <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#fde68a', letterSpacing: '1px' }}>
-                BOARD GAME RACK (全8作品)
+                BOARD GAME RACK (全9作品)
               </span>
             </div>
             <div style={{ fontSize: '12px', color: '#b45309', fontWeight: 'bold' }}>
@@ -1142,13 +1176,6 @@ const App = () => {
             <div
               className="shelf-boxes-scroll perspective-shelf"
               style={{
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'flex-end',
-                gap: '24px',
-                padding: '30px 18px 4px',
-                minHeight: '300px',
-                overflowX: 'auto',
                 position: 'relative',
                 zIndex: 2
               }}
@@ -1175,18 +1202,11 @@ const App = () => {
             }} />
           </div>
 
-          {/* SHELF TIER 2 (下段ラック: 4作品) */}
+          {/* SHELF TIER 2 (下段ラック: 5作品) */}
           <div style={{ position: 'relative', marginBottom: '16px' }}>
             <div
               className="shelf-boxes-scroll perspective-shelf"
               style={{
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'flex-end',
-                gap: '24px',
-                padding: '30px 18px 4px',
-                minHeight: '300px',
-                overflowX: 'auto',
                 position: 'relative',
                 zIndex: 2
               }}

@@ -2,7 +2,7 @@
 // 通常モード ＋ 隠しリアルハードモード（親ガチャ・偏差値・学歴フィルター）対応
 import React, { useState } from 'react';
 import { UnifiedLobby } from './UnifiedLobby';
-import { PREFECTURES, REGIONS } from './data/prefecturesData';
+import { PREFECTURES, REGIONS, getPrefectureById } from './data/prefecturesData';
 import { BOARD_SPACES, HOUSES, OCCUPATIONS } from './JinseiGame';
 
 export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
@@ -13,6 +13,9 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
   const pid = playerID || '0';
   const myPlayer = G.players[pid] || G.players['0'];
   const isMyTurn = ctx.currentPlayer === pid;
+
+  // 出身地選択フェーズ用のプレビュー状態（初期値は決定済み都道府県、未決定なら東京）
+  const [previewPrefId, setPreviewPrefId] = useState(() => myPlayer?.prefecture?.id || 'tokyo');
 
   // プレイヤー名取得
   const getPlayerName = (id) => {
@@ -55,7 +58,7 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
         getPlayerName={getPlayerName}
         isHost={pid === '0'}
         hostOnlyStart={true}
-        onStart={() => moves.restartGame()}
+        onStart={() => (moves.startGame ? moves.startGame() : moves.restartGame())}
         startText={G.isHardMode ? '💀 ハードモードで人生をスタート！' : '🚀 人生をスタートする！'}
       >
         <div style={{ margin: '14px 0', textAlign: 'center' }}>
@@ -103,9 +106,15 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
       ? PREFECTURES
       : PREFECTURES.filter((p) => p.region === selectedRegion);
 
+    // 現在プレビュー選択中の都道府県
+    const currentPreviewPref = getPrefectureById(previewPrefId) || filteredPrefectures[0] || PREFECTURES[0];
+    const isCurrentConfirmed = myPlayer.prefecture?.id === currentPreviewPref.id;
+    const confirmedCount = Object.values(G.players).filter((p) => p.prefecture !== null).length;
+    const totalCount = Object.keys(G.players).length;
+
     return (
       <div style={{
-        maxWidth: '940px',
+        maxWidth: '960px',
         margin: '20px auto',
         padding: '24px 20px',
         background: G.isHardMode
@@ -152,12 +161,12 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
           </button>
         </div>
 
-        <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '20px' }}>
           <div style={{ fontSize: '13px', fontWeight: 'bold', color: G.isHardMode ? '#fca5a5' : '#6ee7b7', letterSpacing: '1.5px' }}>
             🗾 JINSEI GAME 47 • BIRTHPLACE SELECTION
           </div>
           <h2 style={{ fontSize: '28px', fontWeight: '900', margin: '6px 0', textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>
-            出身都道府県を選択してください！
+            出身都道府県を選択して決定してください！
           </h2>
           <p style={{ fontSize: '14px', color: G.isHardMode ? '#fecaca' : '#a7f3d0', margin: 0 }}>
             {G.isHardMode
@@ -167,7 +176,7 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
         </div>
 
         {/* 地方フィルタータブ */}
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center', marginBottom: '16px' }}>
           <button
             onClick={() => setSelectedRegion('all')}
             style={{
@@ -207,25 +216,45 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
-          gap: '14px',
-          maxHeight: '460px',
+          gap: '12px',
+          maxHeight: '420px',
           overflowY: 'auto',
-          padding: '8px'
+          padding: '8px',
+          background: 'rgba(0,0,0,0.2)',
+          borderRadius: '16px'
         }}>
           {filteredPrefectures.map((p) => {
-            const isSelectedByMe = myPlayer.prefecture?.id === p.id;
+            const isConfirmedByMe = myPlayer.prefecture?.id === p.id;
+            const isPreviewed = previewPrefId === p.id;
+            const otherPlayersChosen = Object.values(G.players).filter((pl) => pl.id !== pid && pl.prefecture?.id === p.id);
+
+            let cardBorder = '1px solid rgba(255,255,255,0.15)';
+            let cardBg = 'rgba(255,255,255,0.06)';
+            let cardShadow = 'none';
+
+            if (isConfirmedByMe) {
+              cardBorder = '2px solid #34d399';
+              cardBg = 'linear-gradient(135deg, rgba(16, 185, 129, 0.4), rgba(5, 150, 105, 0.4))';
+              cardShadow = '0 6px 20px rgba(16, 185, 129, 0.4)';
+            } else if (isPreviewed) {
+              cardBorder = '2px solid #fde047';
+              cardBg = 'linear-gradient(135deg, rgba(245, 158, 11, 0.3), rgba(217, 119, 6, 0.3))';
+              cardShadow = '0 0 18px rgba(253, 224, 71, 0.4)';
+            }
+
             return (
               <div
                 key={p.id}
-                onClick={() => moves.choosePrefecture(pid, p.id)}
+                onClick={() => setPreviewPrefId(p.id)}
                 style={{
-                  background: isSelectedByMe ? 'linear-gradient(135deg, #10b981, #059669)' : 'rgba(255,255,255,0.08)',
-                  border: isSelectedByMe ? '2px solid #fde047' : '1px solid rgba(255,255,255,0.15)',
+                  background: cardBg,
+                  border: cardBorder,
                   borderRadius: '16px',
-                  padding: '16px',
+                  padding: '14px',
                   cursor: 'pointer',
                   transition: 'all 0.15s ease',
-                  boxShadow: isSelectedByMe ? '0 8px 24px rgba(16, 185, 129, 0.4)' : 'none'
+                  boxShadow: cardShadow,
+                  position: 'relative'
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
@@ -233,9 +262,21 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
                     <span style={{ fontSize: '24px' }}>{p.emoji}</span>
                     <strong style={{ fontSize: '17px', color: '#ffffff' }}>{p.name}</strong>
                   </div>
-                  <span style={{ fontSize: '11px', background: p.color, padding: '3px 8px', borderRadius: '10px', fontWeight: 'bold' }}>
-                    {p.regionName}
-                  </span>
+                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                    {isConfirmedByMe && (
+                      <span style={{ fontSize: '10px', background: '#10b981', color: '#fff', padding: '2px 6px', borderRadius: '8px', fontWeight: '900' }}>
+                        ✓ 決定済み
+                      </span>
+                    )}
+                    {isPreviewed && !isConfirmedByMe && (
+                      <span style={{ fontSize: '10px', background: '#f59e0b', color: '#fff', padding: '2px 6px', borderRadius: '8px', fontWeight: '900' }}>
+                        👀 選択中
+                      </span>
+                    )}
+                    <span style={{ fontSize: '11px', background: p.color, padding: '2px 7px', borderRadius: '10px', fontWeight: 'bold' }}>
+                      {p.regionName}
+                    </span>
+                  </div>
                 </div>
 
                 <div style={{ fontSize: '12px', color: '#fde047', fontWeight: 'bold', marginBottom: '4px' }}>
@@ -245,28 +286,180 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
                   {p.traitDesc}
                 </div>
 
-                <div style={{ fontSize: '11px', color: '#cbd5e1', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '6px' }}>
-                  🎁 初期特産品: <strong>{p.souvenir.name}</strong> ({p.souvenir.value}万円相当)
+                <div style={{ fontSize: '11px', color: '#cbd5e1', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '6px', display: 'flex', justifyContent: 'space-between' }}>
+                  <span>🎁 初期特産品: <strong>{p.souvenir.name}</strong></span>
+                  <span style={{ color: '#fde047', fontWeight: 'bold' }}>+{p.souvenir.value}万</span>
                 </div>
+
+                {otherPlayersChosen.length > 0 && (
+                  <div style={{ marginTop: '6px', fontSize: '10px', color: '#a7f3d0', background: 'rgba(0,0,0,0.3)', padding: '2px 6px', borderRadius: '6px' }}>
+                    👥 {otherPlayersChosen.map((pl) => getPlayerName(pl.id)).join(', ')} が決定済
+                  </div>
+                )}
               </div>
             );
           })}
         </div>
 
-        {/* プレイヤーの選択状況 */}
-        <div style={{ marginTop: '20px', padding: '14px 20px', background: 'rgba(0,0,0,0.3)', borderRadius: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#6ee7b7' }}>各プレイヤーの状況:</span>
-            {Object.values(G.players).map((p) => (
-              <span key={p.id} style={{ fontSize: '12px', background: 'rgba(255,255,255,0.1)', padding: '4px 10px', borderRadius: '12px' }}>
-                {getPlayerName(p.id)}: <strong>{p.prefecture ? `${p.prefecture.emoji} ${p.prefecture.name}` : '選考中...'}</strong>
-                {G.isHardMode && p.parentIncome && ` (親年収${p.parentIncome.income}万/偏差値${p.hensachi})`}
-              </span>
-            ))}
+        {/* ========================================================
+            選択中の都道府県のプレビュー & 決定ボタンバー
+           ======================================================== */}
+        {currentPreviewPref && (
+          <div style={{
+            marginTop: '16px',
+            padding: '16px 20px',
+            background: isCurrentConfirmed
+              ? 'linear-gradient(135deg, rgba(6, 78, 59, 0.95), rgba(4, 120, 87, 0.95))'
+              : 'linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.95))',
+            border: isCurrentConfirmed ? '2px solid #34d399' : '2px solid #f59e0b',
+            borderRadius: '18px',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '14px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: '1 1 340px' }}>
+              <div style={{
+                fontSize: '36px',
+                width: '56px',
+                height: '56px',
+                background: 'rgba(255,255,255,0.1)',
+                borderRadius: '14px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: '1px solid rgba(255,255,255,0.2)',
+                flexShrink: 0
+              }}>
+                {currentPreviewPref.emoji}
+              </div>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '20px', fontWeight: '900', color: '#ffffff' }}>
+                    {currentPreviewPref.name}
+                  </span>
+                  <span style={{ fontSize: '11px', background: currentPreviewPref.color, padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold' }}>
+                    {currentPreviewPref.regionName}
+                  </span>
+                  {isCurrentConfirmed && (
+                    <span style={{ fontSize: '11px', background: '#10b981', color: '#fff', padding: '2px 8px', borderRadius: '10px', fontWeight: '900' }}>
+                      ✓ あなたの出身地として決定済み
+                    </span>
+                  )}
+                </div>
+                <div style={{ fontSize: '12px', color: '#fde047', fontWeight: 'bold', marginTop: '2px' }}>
+                  ✨ 【{currentPreviewPref.traitName}】 {currentPreviewPref.traitDesc}
+                </div>
+                <div style={{ fontSize: '11px', color: '#cbd5e1', marginTop: '2px' }}>
+                  🎁 初期特産品: {currentPreviewPref.souvenir.name} ({currentPreviewPref.souvenir.value}万円) ｜ 📦 帰省時仕送り: +{currentPreviewPref.homecoming.money}万円
+                </div>
+              </div>
+            </div>
+
+            {/* 決定アクションボタン */}
+            <div>
+              {isCurrentConfirmed ? (
+                <div style={{
+                  padding: '12px 24px',
+                  borderRadius: '16px',
+                  background: 'rgba(16, 185, 129, 0.25)',
+                  border: '2px solid #34d399',
+                  color: '#6ee7b7',
+                  fontWeight: '900',
+                  fontSize: '14px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  <span>✓</span>
+                  <span>【{currentPreviewPref.name}】に決定済み！（他の人の完了を待機中…）</span>
+                </div>
+              ) : (
+                <button
+                  onClick={() => moves.choosePrefecture(pid, currentPreviewPref.id)}
+                  style={{
+                    padding: '14px 32px',
+                    borderRadius: '16px',
+                    border: '2px solid #fde047',
+                    background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                    color: '#ffffff',
+                    fontSize: '16px',
+                    fontWeight: '900',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    boxShadow: '0 6px 20px rgba(245, 158, 11, 0.6)',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  <span style={{ fontSize: '18px' }}>👉</span>
+                  <span>
+                    {myPlayer.prefecture
+                      ? `【${currentPreviewPref.name}】に変更して決定する！`
+                      : `【${currentPreviewPref.name}】に決定する！`}
+                  </span>
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* プレイヤーの決定状況 */}
+        <div style={{
+          marginTop: '16px',
+          padding: '14px 20px',
+          background: 'rgba(0,0,0,0.3)',
+          borderRadius: '14px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '10px'
+        }}>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '13px', fontWeight: 'bold', color: G.isHardMode ? '#fca5a5' : '#6ee7b7' }}>
+              各プレイヤーの決定状況 ({confirmedCount} / {totalCount} 人):
+            </span>
+            {Object.values(G.players).map((p) => {
+              const hasChosen = p.prefecture !== null;
+              const isMe = p.id === pid;
+              return (
+                <span
+                  key={p.id}
+                  style={{
+                    fontSize: '12px',
+                    background: hasChosen ? 'rgba(16, 185, 129, 0.25)' : 'rgba(255,255,255,0.1)',
+                    border: hasChosen ? '1px solid #10b981' : '1px solid rgba(255,255,255,0.15)',
+                    padding: '4px 10px',
+                    borderRadius: '12px',
+                    color: '#ffffff',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <span>{hasChosen ? '🟢' : '⏳'}</span>
+                  <span style={{ fontWeight: isMe ? '900' : 'bold', color: isMe ? '#fde047' : '#e2e8f0' }}>
+                    {getPlayerName(p.id)}{isMe ? ' (あなた)' : ''}:
+                  </span>
+                  <strong style={{ color: hasChosen ? '#34d399' : '#94a3b8' }}>
+                    {hasChosen ? `${p.prefecture.emoji} ${p.prefecture.name} (決定済)` : '選択中…'}
+                  </strong>
+                  {G.isHardMode && p.parentIncome && (
+                    <span style={{ fontSize: '11px', color: '#fca5a5' }}>
+                      (親年収${p.parentIncome.income}万/偏差値${p.hensachi})
+                    </span>
+                  )}
+                </span>
+              );
+            })}
           </div>
           {myPlayer.prefecture && (
-            <div style={{ color: '#fde047', fontSize: '13px', fontWeight: 'bold' }}>
-              ✓ あなたは【{myPlayer.prefecture.name}】を選択済み
+            <div style={{ color: '#34d399', fontSize: '13px', fontWeight: 'bold' }}>
+              ✓ あなたは【{myPlayer.prefecture.name}】で決定済みです
             </div>
           )}
         </div>
@@ -591,7 +784,7 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
 
           {isMyTurn && G.turnStep === 'resolve_space' && !G.currentSpaceModal && (
             <button
-              onClick={() => moves.endTurn()}
+              onClick={() => moves.endTurn(pid)}
               style={{
                 padding: '16px 32px',
                 fontSize: '16px',
@@ -806,7 +999,7 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
             {/* 通常マス情報 */}
             {!['branch_career', 'buy_house', 'choose_job'].includes(G.currentSpaceModal.type) && (
               <button
-                onClick={() => moves.endTurn()}
+                onClick={() => moves.endTurn(pid)}
                 style={{
                   width: '100%',
                   padding: '14px',
