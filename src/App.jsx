@@ -426,6 +426,7 @@ const App = () => {
   const [joinCode, setJoinCode] = useState('');
   const [copiedBottomCode, setCopiedBottomCode] = useState(false);
   const [copiedBottomUrl, setCopiedBottomUrl] = useState(false);
+  const [isOpeningBox, setIsOpeningBox] = useState(false);
 
   useEffect(() => {
     try {
@@ -512,13 +513,19 @@ const App = () => {
     const cleanName = playerName.trim();
     if (!cleanName) return setError('プレイヤー名を入力してください');
     setError('');
+    setIsOpeningBox(true); // 箱を開けるアニメーション演出を開始！
     try {
       const conf = GAMES_CATALOG.find(g => g.id === gameType) || { minPlayers: 2, maxPlayers: 4 };
       let finalNumPlayers = Math.max(conf.minPlayers, Math.min(numPlayers, conf.maxPlayers));
       
       const matchConfig = { numPlayers: finalNumPlayers };
       if (gameType === 'ito') matchConfig.setupData = { customThemes, themeMode };
-      const { matchID: newMatchID } = await lobbyClient.createMatch(gameType, matchConfig);
+      
+      const [{ matchID: newMatchID }] = await Promise.all([
+        lobbyClient.createMatch(gameType, matchConfig),
+        new Promise(res => setTimeout(res, 950)) // 開封演出時間
+      ]);
+
       const { playerID: newPlayerID, playerCredentials } = await lobbyClient.joinMatch(gameType, newMatchID, {
         playerName: cleanName
       });
@@ -530,6 +537,8 @@ const App = () => {
       saveCredentials(gameType, newMatchID, newPlayerID, playerCredentials, cleanName);
     } catch (e) {
       setError('部屋の作成に失敗しました: ' + e.message);
+    } finally {
+      setIsOpeningBox(false);
     }
   };
 
@@ -795,6 +804,122 @@ const App = () => {
       <div style={{ position: 'absolute', top: 0, left: '20%', width: '60%', height: '300px', background: 'radial-gradient(ellipse at 50% 0%, rgba(245, 158, 11, 0.18) 0%, transparent 70%)', pointerEvents: 'none' }} />
 
       <div style={{ maxWidth: '1060px', margin: '0 auto', position: 'relative', zIndex: 1 }}>
+
+        {/* 3D BOX OPENING OVERLAY MODAL (部屋立て時の開封アニメーション) */}
+        {isOpeningBox && (
+          <div style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(10, 6, 3, 0.92)',
+            backdropFilter: 'blur(10px)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 3000,
+            userSelect: 'none'
+          }}>
+            <style>{`
+              @keyframes liftBoxLid {
+                0% { transform: translateY(0) rotateX(0deg) scale(1); opacity: 1; }
+                45% { transform: translateY(-45px) rotateX(15deg) scale(1.03); opacity: 1; }
+                100% { transform: translateY(-145px) rotateX(34deg) rotateZ(-3deg) scale(0.9); opacity: 0.8; }
+              }
+              @keyframes boxBurstGlow {
+                0% { opacity: 0; transform: scale(0.5); }
+                60% { opacity: 0.95; transform: scale(1.2); }
+                100% { opacity: 1; transform: scale(1); }
+              }
+              @keyframes meeplePopUp {
+                0% { transform: translateY(30px) scale(0); opacity: 0; }
+                60% { transform: translateY(-15px) scale(1.25); opacity: 1; }
+                100% { transform: translateY(0) scale(1); opacity: 1; }
+              }
+            `}</style>
+
+            <div style={{ perspective: '800px', width: '210px', height: '280px', position: 'relative' }}>
+              {/* Bottom Inner Box (下箱・内トレイ) */}
+              <div style={{
+                position: 'absolute',
+                inset: 0,
+                background: selectedGame.boxBg,
+                borderRadius: '16px',
+                border: `4px solid ${selectedGame.boxBorder}`,
+                boxShadow: '0 30px 60px rgba(0,0,0,0.95), inset 0 10px 30px rgba(0,0,0,0.85)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '20px',
+                boxSizing: 'border-box'
+              }}>
+                {/* 内部からの光の放出 */}
+                <div style={{
+                  position: 'absolute',
+                  inset: '-40px',
+                  background: `radial-gradient(circle, ${selectedGame.accentColor}99 0%, transparent 70%)`,
+                  animation: 'boxBurstGlow 0.8s ease-out forwards',
+                  pointerEvents: 'none'
+                }} />
+
+                {/* 飛び出すゲームアイコン */}
+                <div style={{
+                  fontSize: '56px',
+                  animation: 'meeplePopUp 0.85s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
+                  zIndex: 2,
+                  filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.5))'
+                }}>
+                  {selectedGame.icon}
+                </div>
+                <div style={{
+                  fontSize: '15px',
+                  fontWeight: '900',
+                  color: '#ffffff',
+                  marginTop: '10px',
+                  zIndex: 2,
+                  textShadow: '0 2px 4px rgba(0,0,0,0.7)'
+                }}>
+                  {selectedGame.title}
+                </div>
+              </div>
+
+              {/* 上に持ち上がって外れるフタ (Box Lid) */}
+              <div style={{
+                position: 'absolute',
+                inset: '-2px',
+                background: selectedGame.boxBg,
+                borderRadius: '16px',
+                border: `3px solid ${selectedGame.boxBorder}`,
+                boxShadow: '0 20px 40px rgba(0,0,0,0.85)',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                alignItems: 'center',
+                animation: 'liftBoxLid 0.9s cubic-bezier(0.25, 1, 0.5, 1) forwards',
+                transformOrigin: 'bottom center',
+                pointerEvents: 'none',
+                zIndex: 5
+              }}>
+                <div style={{ fontSize: '44px' }}>{selectedGame.icon}</div>
+                <div style={{ fontSize: '16px', fontWeight: '900', color: '#ffffff', marginTop: '4px' }}>
+                  {selectedGame.title}
+                </div>
+                <div style={{ fontSize: '10px', color: '#fde047', fontWeight: 'bold', marginTop: '6px', letterSpacing: '1px' }}>
+                  OPENING BOX...
+                </div>
+              </div>
+            </div>
+
+            <div style={{ marginTop: '36px', textAlign: 'center' }}>
+              <h3 style={{ fontSize: '22px', fontWeight: '900', color: '#fde68a', margin: '0 0 6px', letterSpacing: '1px' }}>
+                📦 箱を開けています...
+              </h3>
+              <p style={{ fontSize: '13px', color: '#cbd5e1', margin: 0 }}>
+                コンポーネントを取り出して待機ロビーを準備中
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* HERO TITLE */}
         <div style={{ textAlign: 'center', margin: '10px 0 24px', padding: '0 10px' }}>
@@ -1210,7 +1335,7 @@ const App = () => {
                 letterSpacing: '0.5px'
               }}
             >
-              🚀 部屋を作成してロビーへ進む！ ({numPlayers}人部屋)
+              🚀 箱を開けて部屋を作成！ ({numPlayers}人部屋)
             </button>
           </div>
         )}

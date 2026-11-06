@@ -257,12 +257,13 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
   }, [isTournament, G.tournament?.matches, viewedMatchId, myTournamentMatch]);
 
   // 表示中マッチにおける対戦者／観戦者判定
+  const isActivePlayer = ctx.currentPlayer === pid;
   const isCompetitorInView = isTournament
     ? Boolean(currentViewMatch && (currentViewMatch.p1 === pid || currentViewMatch.p2 === pid))
     : true;
   const isMyTurnInMatch = isTournament
     ? Boolean(isCompetitorInView && currentViewMatch?.currentTurnPlayer === pid && currentViewMatch?.status === 'playing')
-    : (ctx.currentPlayer === pid);
+    : isActivePlayer;
   const isSpectatorInView = isTournament
     ? (!isCompetitorInView || currentViewMatch?.status !== 'playing')
     : false;
