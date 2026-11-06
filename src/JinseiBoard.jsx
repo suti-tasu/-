@@ -9,6 +9,8 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
   const [selectedRegion, setSelectedRegion] = useState('all');
   const [isSpinningLocal, setIsSpinningLocal] = useState(false);
   const [spinDegree, setSpinDegree] = useState(0);
+  const [hoveredSpace, setHoveredSpace] = useState(null);
+  const [stageFilter, setStageFilter] = useState('all');
 
   const pid = playerID || '0';
   const myPlayer = G.players[pid] || G.players['0'];
@@ -16,11 +18,73 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
 
   // 出身地選択フェーズ用のプレビュー状態（初期値は決定済み都道府県、未決定なら東京）
   const [previewPrefId, setPreviewPrefId] = useState(() => myPlayer?.prefecture?.id || 'tokyo');
+  const [isRollingRandom, setIsRollingRandom] = useState(false);
+  const [gachaShuffleName, setGachaShuffleName] = useState('');
+  const [randomNotice, setRandomNotice] = useState('');
 
   // プレイヤー名取得
   const getPlayerName = (id) => {
     const p = matchData?.find((m) => m.id == id);
     return p && p.name ? p.name : `Player ${id}`;
+  };
+
+  // 通常モード：おまかせランダム（プレビュー選出）
+  const handleRollRandomPreview = () => {
+    if (isRollingRandom) return;
+    setIsRollingRandom(true);
+    setRandomNotice('');
+
+    let count = 0;
+    const interval = setInterval(() => {
+      const randPref = PREFECTURES[Math.floor(Math.random() * PREFECTURES.length)];
+      setGachaShuffleName(`${randPref.emoji} ${randPref.name}`);
+      count++;
+      if (count > 9) {
+        clearInterval(interval);
+        const finalPref = PREFECTURES[Math.floor(Math.random() * PREFECTURES.length)];
+        setPreviewPrefId(finalPref.id);
+        setIsRollingRandom(false);
+        setGachaShuffleName('');
+        setRandomNotice(`🎲 ランダム選出: 【${finalPref.name}】が選ばれました！気に入ったら「決定する」を押してください。`);
+      }
+    }, 60);
+  };
+
+  // 通常モード：ランダム即時決定
+  const handleRollRandomImmediate = () => {
+    if (isRollingRandom) return;
+    setIsRollingRandom(true);
+    let count = 0;
+    const interval = setInterval(() => {
+      const randPref = PREFECTURES[Math.floor(Math.random() * PREFECTURES.length)];
+      setGachaShuffleName(`${randPref.emoji} ${randPref.name}`);
+      count++;
+      if (count > 10) {
+        clearInterval(interval);
+        moves.choosePrefectureRandom(pid);
+        setIsRollingRandom(false);
+        setGachaShuffleName('');
+        setRandomNotice('');
+      }
+    }, 60);
+  };
+
+  // ハードモード：運命の出生地ガチャ（完全強制ランダム）
+  const handleTriggerHardModeGacha = () => {
+    if (isRollingRandom || myPlayer.prefecture) return;
+    setIsRollingRandom(true);
+    let count = 0;
+    const interval = setInterval(() => {
+      const randPref = PREFECTURES[Math.floor(Math.random() * PREFECTURES.length)];
+      setGachaShuffleName(`${randPref.emoji} ${randPref.name}`);
+      count++;
+      if (count > 14) {
+        clearInterval(interval);
+        moves.choosePrefectureRandom(pid);
+        setIsRollingRandom(false);
+        setGachaShuffleName('');
+      }
+    }, 60);
   };
 
   // ルーレット回転アニメーション
@@ -161,249 +225,496 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
           </button>
         </div>
 
-        <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-          <div style={{ fontSize: '13px', fontWeight: 'bold', color: G.isHardMode ? '#fca5a5' : '#6ee7b7', letterSpacing: '1.5px' }}>
-            🗾 JINSEI GAME 47 • BIRTHPLACE SELECTION
-          </div>
-          <h2 style={{ fontSize: '28px', fontWeight: '900', margin: '6px 0', textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>
-            出身都道府県を選択して決定してください！
-          </h2>
-          <p style={{ fontSize: '14px', color: G.isHardMode ? '#fecaca' : '#a7f3d0', margin: 0 }}>
-            {G.isHardMode
-              ? '【ハードモード】親の年収（親ガチャ）がルーレットで決まり、偏差値に応じて応募できる職業が制限されます！'
-              : '各県独自の「パッシブスキル」「ご当地特産品」「帰省イベント」があなたの人生を左右します！'}
-          </p>
-        </div>
-
-        {/* 地方フィルタータブ */}
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center', marginBottom: '16px' }}>
-          <button
-            onClick={() => setSelectedRegion('all')}
-            style={{
-              padding: '8px 16px',
-              borderRadius: '20px',
-              border: selectedRegion === 'all' ? '2px solid #fde047' : '1px solid rgba(255,255,255,0.2)',
-              background: selectedRegion === 'all' ? (G.isHardMode ? '#dc2626' : '#10b981') : 'rgba(0,0,0,0.3)',
-              color: '#fff',
-              fontWeight: 'bold',
-              cursor: 'pointer',
-              fontSize: '13px'
-            }}
-          >
-            🗾 全て (47)
-          </button>
-          {REGIONS.map((r) => (
-            <button
-              key={r.id}
-              onClick={() => setSelectedRegion(r.id)}
-              style={{
-                padding: '8px 16px',
-                borderRadius: '20px',
-                border: selectedRegion === r.id ? '2px solid #fde047' : '1px solid rgba(255,255,255,0.2)',
-                background: selectedRegion === r.id ? r.color : 'rgba(0,0,0,0.3)',
-                color: '#fff',
-                fontWeight: 'bold',
-                cursor: 'pointer',
-                fontSize: '13px'
-              }}
-            >
-              {r.name}
-            </button>
-          ))}
-        </div>
-
-        {/* 都道府県カード一覧グリッド */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
-          gap: '12px',
-          maxHeight: '420px',
-          overflowY: 'auto',
-          padding: '8px',
-          background: 'rgba(0,0,0,0.2)',
-          borderRadius: '16px'
-        }}>
-          {filteredPrefectures.map((p) => {
-            const isConfirmedByMe = myPlayer.prefecture?.id === p.id;
-            const isPreviewed = previewPrefId === p.id;
-            const otherPlayersChosen = Object.values(G.players).filter((pl) => pl.id !== pid && pl.prefecture?.id === p.id);
-
-            let cardBorder = '1px solid rgba(255,255,255,0.15)';
-            let cardBg = 'rgba(255,255,255,0.06)';
-            let cardShadow = 'none';
-
-            if (isConfirmedByMe) {
-              cardBorder = '2px solid #34d399';
-              cardBg = 'linear-gradient(135deg, rgba(16, 185, 129, 0.4), rgba(5, 150, 105, 0.4))';
-              cardShadow = '0 6px 20px rgba(16, 185, 129, 0.4)';
-            } else if (isPreviewed) {
-              cardBorder = '2px solid #fde047';
-              cardBg = 'linear-gradient(135deg, rgba(245, 158, 11, 0.3), rgba(217, 119, 6, 0.3))';
-              cardShadow = '0 0 18px rgba(253, 224, 71, 0.4)';
-            }
-
-            return (
-              <div
-                key={p.id}
-                onClick={() => setPreviewPrefId(p.id)}
-                style={{
-                  background: cardBg,
-                  border: cardBorder,
-                  borderRadius: '16px',
-                  padding: '14px',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease',
-                  boxShadow: cardShadow,
-                  position: 'relative'
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '24px' }}>{p.emoji}</span>
-                    <strong style={{ fontSize: '17px', color: '#ffffff' }}>{p.name}</strong>
-                  </div>
-                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                    {isConfirmedByMe && (
-                      <span style={{ fontSize: '10px', background: '#10b981', color: '#fff', padding: '2px 6px', borderRadius: '8px', fontWeight: '900' }}>
-                        ✓ 決定済み
-                      </span>
-                    )}
-                    {isPreviewed && !isConfirmedByMe && (
-                      <span style={{ fontSize: '10px', background: '#f59e0b', color: '#fff', padding: '2px 6px', borderRadius: '8px', fontWeight: '900' }}>
-                        👀 選択中
-                      </span>
-                    )}
-                    <span style={{ fontSize: '11px', background: p.color, padding: '2px 7px', borderRadius: '10px', fontWeight: 'bold' }}>
-                      {p.regionName}
-                    </span>
-                  </div>
-                </div>
-
-                <div style={{ fontSize: '12px', color: '#fde047', fontWeight: 'bold', marginBottom: '4px' }}>
-                  ✨ 【{p.traitName}】
-                </div>
-                <div style={{ fontSize: '11px', color: '#d1fae5', lineHeight: 1.4, marginBottom: '8px' }}>
-                  {p.traitDesc}
-                </div>
-
-                <div style={{ fontSize: '11px', color: '#cbd5e1', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '6px', display: 'flex', justifyContent: 'space-between' }}>
-                  <span>🎁 初期特産品: <strong>{p.souvenir.name}</strong></span>
-                  <span style={{ color: '#fde047', fontWeight: 'bold' }}>+{p.souvenir.value}万</span>
-                </div>
-
-                {otherPlayersChosen.length > 0 && (
-                  <div style={{ marginTop: '6px', fontSize: '10px', color: '#a7f3d0', background: 'rgba(0,0,0,0.3)', padding: '2px 6px', borderRadius: '6px' }}>
-                    👥 {otherPlayersChosen.map((pl) => getPlayerName(pl.id)).join(', ')} が決定済
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
         {/* ========================================================
-            選択中の都道府県のプレビュー & 決定ボタンバー
+            CASE A: ハードモード（出生地は完全強制ランダムガチャ）
            ======================================================== */}
-        {currentPreviewPref && (
-          <div style={{
-            marginTop: '16px',
-            padding: '16px 20px',
-            background: isCurrentConfirmed
-              ? 'linear-gradient(135deg, rgba(6, 78, 59, 0.95), rgba(4, 120, 87, 0.95))'
-              : 'linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.95))',
-            border: isCurrentConfirmed ? '2px solid #34d399' : '2px solid #f59e0b',
-            borderRadius: '18px',
-            boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: '14px'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: '1 1 340px' }}>
+        {G.isHardMode ? (
+          <div>
+            <div style={{ textAlign: 'center', marginBottom: '22px' }}>
+              <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#fca5a5', letterSpacing: '1.5px' }}>
+                💀 JINSEI GAME 47 • REAL HARD MODE
+              </div>
+              <h2 style={{ fontSize: '28px', fontWeight: '900', margin: '6px 0', textShadow: '0 2px 8px rgba(0,0,0,0.4)', color: '#fef08a' }}>
+                運命の出生地ガチャ（人は生まれ故郷を選べない…）
+              </h2>
+              <p style={{ fontSize: '14px', color: '#fecaca', margin: 0, lineHeight: 1.5 }}>
+                ハードモードは<strong>【強制ランダム】</strong>です！<br />
+                日本のどこに産み落とされるか、そして実家の年収・初期偏差値まで、すべては神のみぞ知る運命のガチャで決まります！
+              </p>
+            </div>
+
+            {/* 未決定の場合：ガチャを引くボックス */}
+            {!myPlayer.prefecture ? (
               <div style={{
-                fontSize: '36px',
-                width: '56px',
-                height: '56px',
-                background: 'rgba(255,255,255,0.1)',
-                borderRadius: '14px',
+                padding: '28px 24px',
+                background: 'linear-gradient(135deg, rgba(69, 10, 10, 0.95), rgba(127, 29, 29, 0.95))',
+                border: '3px solid #ef4444',
+                borderRadius: '24px',
+                boxShadow: '0 15px 40px rgba(239, 68, 68, 0.45)',
+                textAlign: 'center',
+                marginBottom: '24px'
+              }}>
+                <div style={{ fontSize: '54px', marginBottom: '8px' }}>
+                  {isRollingRandom ? '🎰' : '🎲'}
+                </div>
+                <h3 style={{ fontSize: '24px', fontWeight: '900', color: '#fef08a', margin: '0 0 10px' }}>
+                  {isRollingRandom ? `運命の抽選中: ${gachaShuffleName}` : '出生地ガチャを引いて人生をスタートせよ！'}
+                </h3>
+                <p style={{ color: '#fecaca', fontSize: '14px', maxWidth: '580px', margin: '0 auto 20px', lineHeight: 1.6 }}>
+                  ボタンを押すと、47都道府県からあなたの生まれ故郷が強制決定されます。<br />
+                  親の年収（親ガチャ）と初期偏差値も同時にルーレットで決定されます！（※再選択不可）
+                </p>
+                <button
+                  disabled={isRollingRandom}
+                  onClick={handleTriggerHardModeGacha}
+                  style={{
+                    padding: '16px 40px',
+                    fontSize: '18px',
+                    fontWeight: '900',
+                    borderRadius: '20px',
+                    border: '3px solid #fde047',
+                    background: isRollingRandom
+                      ? '#7f1d1d'
+                      : 'linear-gradient(135deg, #dc2626 0%, #b91c1c 50%, #991b1b 100%)',
+                    color: '#ffffff',
+                    cursor: isRollingRandom ? 'wait' : 'pointer',
+                    boxShadow: '0 8px 30px rgba(220, 38, 38, 0.7)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    transform: isRollingRandom ? 'scale(0.98)' : 'scale(1)',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <span style={{ fontSize: '22px' }}>{isRollingRandom ? '🎰' : '💀'}</span>
+                  <span>{isRollingRandom ? '運命の出生地を抽選中…！' : '運命の出生地ガチャを回す！（強制ランダム）'}</span>
+                </button>
+              </div>
+            ) : (
+              /* 決定済みの場合：確定ステータス表示 */
+              <div style={{
+                padding: '22px 26px',
+                background: 'linear-gradient(135deg, rgba(69, 10, 10, 0.95), rgba(46, 8, 8, 0.95))',
+                border: '2px solid #ef4444',
+                borderRadius: '20px',
+                boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+                marginBottom: '24px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    <div style={{
+                      fontSize: '44px',
+                      width: '68px',
+                      height: '68px',
+                      background: 'rgba(0,0,0,0.3)',
+                      borderRadius: '16px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      border: '2px solid #ef4444',
+                      flexShrink: 0
+                    }}>
+                      {myPlayer.prefecture.emoji}
+                    </div>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '22px', fontWeight: '900', color: '#ffffff' }}>
+                          {myPlayer.prefecture.name}
+                        </span>
+                        <span style={{ fontSize: '11px', background: myPlayer.prefecture.color, padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold' }}>
+                          {myPlayer.prefecture.regionName}
+                        </span>
+                        <span style={{ fontSize: '11px', background: '#dc2626', color: '#fff', padding: '2px 8px', borderRadius: '10px', fontWeight: '900' }}>
+                          🔒 運命確定（出生地ガチャ済）
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '13px', color: '#fde047', fontWeight: 'bold', marginTop: '4px' }}>
+                        ✨ 【{myPlayer.prefecture.traitName}】 {myPlayer.prefecture.traitDesc}
+                      </div>
+                      {myPlayer.parentIncome && (
+                        <div style={{ fontSize: '13px', color: '#fca5a5', fontWeight: 'bold', marginTop: '3px' }}>
+                          💀 親ガチャ結果: 実家年収 {myPlayer.parentIncome.income}万円（${myPlayer.parentIncome.title}）➔ 初期偏差値【${myPlayer.hensachi}】
+                          {myPlayer.debt > 0 && '（※奨学金借金100万スタート）'}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ color: '#34d399', fontSize: '14px', fontWeight: 'bold', background: 'rgba(0,0,0,0.35)', padding: '10px 18px', borderRadius: '12px', border: '1px solid #10b981' }}>
+                    ✓ 誕生確定！他のプレイヤーをお待ちください…
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ハードモード時の都道府県カタログ（閲覧専用） */}
+            <div style={{ marginTop: '14px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                <span style={{ fontSize: '13px', color: '#fca5a5', fontWeight: 'bold' }}>
+                  📖 日本全国47都道府県 データ図鑑（※ハードモード中は強制ランダムのため閲覧専用）
+                </span>
+              </div>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+                gap: '12px',
+                maxHeight: '340px',
+                overflowY: 'auto',
+                padding: '8px',
+                background: 'rgba(0,0,0,0.3)',
+                borderRadius: '16px'
+              }}>
+                {PREFECTURES.map((p) => (
+                  <div
+                    key={p.id}
+                    style={{
+                      background: myPlayer.prefecture?.id === p.id ? 'rgba(239, 68, 68, 0.3)' : 'rgba(255,255,255,0.05)',
+                      border: myPlayer.prefecture?.id === p.id ? '2px solid #ef4444' : '1px solid rgba(255,255,255,0.1)',
+                      borderRadius: '14px',
+                      padding: '12px',
+                      opacity: myPlayer.prefecture?.id === p.id ? 1 : 0.75
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontSize: '20px' }}>{p.emoji}</span>
+                        <strong style={{ fontSize: '15px', color: '#ffffff' }}>{p.name}</strong>
+                      </div>
+                      <span style={{ fontSize: '10px', background: p.color, padding: '2px 6px', borderRadius: '8px', fontWeight: 'bold' }}>
+                        {p.regionName}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#fde047', fontWeight: 'bold', marginBottom: '2px' }}>
+                      ✨ 【{p.traitName}】
+                    </div>
+                    <div style={{ fontSize: '10px', color: '#cbd5e1', lineHeight: 1.3 }}>
+                      {p.traitDesc}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* ========================================================
+              CASE B: 通常モード（自由選択 ＋ おまかせランダム）
+             ======================================================== */
+          <div>
+            <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+              <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#6ee7b7', letterSpacing: '1.5px' }}>
+                🗾 JINSEI GAME 47 • BIRTHPLACE SELECTION
+              </div>
+              <h2 style={{ fontSize: '28px', fontWeight: '900', margin: '6px 0', textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>
+                出身都道府県を選択して決定してください！
+              </h2>
+              <p style={{ fontSize: '14px', color: '#a7f3d0', margin: 0 }}>
+                各県独自の「パッシブスキル」「ご当地特産品」「帰省イベント」があなたの人生を左右します！<br />
+                迷った時は<strong>「🎲 おまかせランダム」</strong>で運を天に任せることも可能です！
+              </p>
+            </div>
+
+            {/* ランダム選出結果通知バナー */}
+            {randomNotice && (
+              <div style={{
+                background: 'rgba(245, 158, 11, 0.25)',
+                border: '1px solid #f59e0b',
+                color: '#fef08a',
+                padding: '8px 16px',
+                borderRadius: '12px',
+                textAlign: 'center',
+                marginBottom: '14px',
+                fontSize: '13px',
+                fontWeight: 'bold',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                border: '1px solid rgba(255,255,255,0.2)',
-                flexShrink: 0
+                gap: '8px'
               }}>
-                {currentPreviewPref.emoji}
-              </div>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '20px', fontWeight: '900', color: '#ffffff' }}>
-                    {currentPreviewPref.name}
-                  </span>
-                  <span style={{ fontSize: '11px', background: currentPreviewPref.color, padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold' }}>
-                    {currentPreviewPref.regionName}
-                  </span>
-                  {isCurrentConfirmed && (
-                    <span style={{ fontSize: '11px', background: '#10b981', color: '#fff', padding: '2px 8px', borderRadius: '10px', fontWeight: '900' }}>
-                      ✓ あなたの出身地として決定済み
-                    </span>
-                  )}
-                </div>
-                <div style={{ fontSize: '12px', color: '#fde047', fontWeight: 'bold', marginTop: '2px' }}>
-                  ✨ 【{currentPreviewPref.traitName}】 {currentPreviewPref.traitDesc}
-                </div>
-                <div style={{ fontSize: '11px', color: '#cbd5e1', marginTop: '2px' }}>
-                  🎁 初期特産品: {currentPreviewPref.souvenir.name} ({currentPreviewPref.souvenir.value}万円) ｜ 📦 帰省時仕送り: +{currentPreviewPref.homecoming.money}万円
-                </div>
-              </div>
-            </div>
-
-            {/* 決定アクションボタン */}
-            <div>
-              {isCurrentConfirmed ? (
-                <div style={{
-                  padding: '12px 24px',
-                  borderRadius: '16px',
-                  background: 'rgba(16, 185, 129, 0.25)',
-                  border: '2px solid #34d399',
-                  color: '#6ee7b7',
-                  fontWeight: '900',
-                  fontSize: '14px',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '8px'
-                }}>
-                  <span>✓</span>
-                  <span>【{currentPreviewPref.name}】に決定済み！（他の人の完了を待機中…）</span>
-                </div>
-              ) : (
+                <span>{randomNotice}</span>
                 <button
-                  onClick={() => moves.choosePrefecture(pid, currentPreviewPref.id)}
+                  onClick={() => setRandomNotice('')}
+                  style={{ background: 'none', border: 'none', color: '#fef08a', cursor: 'pointer', fontSize: '14px' }}
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+
+            {/* 地方フィルタータブ ＋ おまかせランダムボタン */}
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center', marginBottom: '16px' }}>
+              <button
+                onClick={() => setSelectedRegion('all')}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '20px',
+                  border: selectedRegion === 'all' ? '2px solid #fde047' : '1px solid rgba(255,255,255,0.2)',
+                  background: selectedRegion === 'all' ? '#10b981' : 'rgba(0,0,0,0.3)',
+                  color: '#fff',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  fontSize: '13px'
+                }}
+              >
+                🗾 全て (47)
+              </button>
+              {REGIONS.map((r) => (
+                <button
+                  key={r.id}
+                  onClick={() => setSelectedRegion(r.id)}
                   style={{
-                    padding: '14px 32px',
-                    borderRadius: '16px',
-                    border: '2px solid #fde047',
-                    background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-                    color: '#ffffff',
-                    fontSize: '16px',
-                    fontWeight: '900',
+                    padding: '8px 16px',
+                    borderRadius: '20px',
+                    border: selectedRegion === r.id ? '2px solid #fde047' : '1px solid rgba(255,255,255,0.2)',
+                    background: selectedRegion === r.id ? r.color : 'rgba(0,0,0,0.3)',
+                    color: '#fff',
+                    fontWeight: 'bold',
                     cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '10px',
-                    boxShadow: '0 6px 20px rgba(245, 158, 11, 0.6)',
-                    transition: 'all 0.2s',
+                    fontSize: '13px'
                   }}
                 >
-                  <span style={{ fontSize: '18px' }}>👉</span>
-                  <span>
-                    {myPlayer.prefecture
-                      ? `【${currentPreviewPref.name}】に変更して決定する！`
-                      : `【${currentPreviewPref.name}】に決定する！`}
-                  </span>
+                  {r.name}
                 </button>
-              )}
+              ))}
+
+              {/* 🎲 おまかせランダム選出ボタン */}
+              <button
+                onClick={handleRollRandomPreview}
+                disabled={isRollingRandom}
+                style={{
+                  padding: '8px 18px',
+                  borderRadius: '20px',
+                  border: '2px solid #fde047',
+                  background: 'linear-gradient(135deg, #d97706, #b45309)',
+                  color: '#fff',
+                  fontWeight: '900',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: '0 4px 14px rgba(245, 158, 11, 0.45)'
+                }}
+              >
+                <span>{isRollingRandom ? '🎰' : '🎲'}</span>
+                <span>{isRollingRandom ? (gachaShuffleName || '抽選中…') : 'おまかせランダム'}</span>
+              </button>
             </div>
+
+            {/* 都道府県カード一覧グリッド */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+              gap: '12px',
+              maxHeight: '400px',
+              overflowY: 'auto',
+              padding: '8px',
+              background: 'rgba(0,0,0,0.2)',
+              borderRadius: '16px'
+            }}>
+              {filteredPrefectures.map((p) => {
+                const isConfirmedByMe = myPlayer.prefecture?.id === p.id;
+                const isPreviewed = previewPrefId === p.id;
+                const otherPlayersChosen = Object.values(G.players).filter((pl) => pl.id !== pid && pl.prefecture?.id === p.id);
+
+                let cardBorder = '1px solid rgba(255,255,255,0.15)';
+                let cardBg = 'rgba(255,255,255,0.06)';
+                let cardShadow = 'none';
+
+                if (isConfirmedByMe) {
+                  cardBorder = '2px solid #34d399';
+                  cardBg = 'linear-gradient(135deg, rgba(16, 185, 129, 0.4), rgba(5, 150, 105, 0.4))';
+                  cardShadow = '0 6px 20px rgba(16, 185, 129, 0.4)';
+                } else if (isPreviewed) {
+                  cardBorder = '2px solid #fde047';
+                  cardBg = 'linear-gradient(135deg, rgba(245, 158, 11, 0.3), rgba(217, 119, 6, 0.3))';
+                  cardShadow = '0 0 18px rgba(253, 224, 71, 0.4)';
+                }
+
+                return (
+                  <div
+                    key={p.id}
+                    onClick={() => setPreviewPrefId(p.id)}
+                    style={{
+                      background: cardBg,
+                      border: cardBorder,
+                      borderRadius: '16px',
+                      padding: '14px',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      boxShadow: cardShadow,
+                      position: 'relative'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '24px' }}>{p.emoji}</span>
+                        <strong style={{ fontSize: '17px', color: '#ffffff' }}>{p.name}</strong>
+                      </div>
+                      <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                        {isConfirmedByMe && (
+                          <span style={{ fontSize: '10px', background: '#10b981', color: '#fff', padding: '2px 6px', borderRadius: '8px', fontWeight: '900' }}>
+                            ✓ 決定済み
+                          </span>
+                        )}
+                        {isPreviewed && !isConfirmedByMe && (
+                          <span style={{ fontSize: '10px', background: '#f59e0b', color: '#fff', padding: '2px 6px', borderRadius: '8px', fontWeight: '900' }}>
+                            👀 選択中
+                          </span>
+                        )}
+                        <span style={{ fontSize: '11px', background: p.color, padding: '2px 7px', borderRadius: '10px', fontWeight: 'bold' }}>
+                          {p.regionName}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div style={{ fontSize: '12px', color: '#fde047', fontWeight: 'bold', marginBottom: '4px' }}>
+                      ✨ 【{p.traitName}】
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#d1fae5', lineHeight: 1.4, marginBottom: '8px' }}>
+                      {p.traitDesc}
+                    </div>
+
+                    <div style={{ fontSize: '11px', color: '#cbd5e1', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '6px', display: 'flex', justifyContent: 'space-between' }}>
+                      <span>🎁 初期特産品: <strong>{p.souvenir.name}</strong></span>
+                      <span style={{ color: '#fde047', fontWeight: 'bold' }}>+{p.souvenir.value}万</span>
+                    </div>
+
+                    {otherPlayersChosen.length > 0 && (
+                      <div style={{ marginTop: '6px', fontSize: '10px', color: '#a7f3d0', background: 'rgba(0,0,0,0.3)', padding: '2px 6px', borderRadius: '6px' }}>
+                        👥 {otherPlayersChosen.map((pl) => getPlayerName(pl.id)).join(', ')} が決定済
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* 選択中の都道府県のプレビュー & 決定ボタンバー */}
+            {currentPreviewPref && (
+              <div style={{
+                marginTop: '16px',
+                padding: '16px 20px',
+                background: isCurrentConfirmed
+                  ? 'linear-gradient(135deg, rgba(6, 78, 59, 0.95), rgba(4, 120, 87, 0.95))'
+                  : 'linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.95))',
+                border: isCurrentConfirmed ? '2px solid #34d399' : '2px solid #f59e0b',
+                borderRadius: '18px',
+                boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '14px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: '1 1 340px' }}>
+                  <div style={{
+                    fontSize: '36px',
+                    width: '56px',
+                    height: '56px',
+                    background: 'rgba(255,255,255,0.1)',
+                    borderRadius: '14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    flexShrink: 0
+                  }}>
+                    {currentPreviewPref.emoji}
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '20px', fontWeight: '900', color: '#ffffff' }}>
+                        {currentPreviewPref.name}
+                      </span>
+                      <span style={{ fontSize: '11px', background: currentPreviewPref.color, padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold' }}>
+                        {currentPreviewPref.regionName}
+                      </span>
+                      {isCurrentConfirmed && (
+                        <span style={{ fontSize: '11px', background: '#10b981', color: '#fff', padding: '2px 8px', borderRadius: '10px', fontWeight: '900' }}>
+                          ✓ あなたの出身地として決定済み
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#fde047', fontWeight: 'bold', marginTop: '2px' }}>
+                      ✨ 【{currentPreviewPref.traitName}】 {currentPreviewPref.traitDesc}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#cbd5e1', marginTop: '2px' }}>
+                      🎁 初期特産品: {currentPreviewPref.souvenir.name} ({currentPreviewPref.souvenir.value}万円) ｜ 📦 帰省時仕送り: +{currentPreviewPref.homecoming.money}万円
+                    </div>
+                  </div>
+                </div>
+
+                {/* 決定アクションボタン（手動決定 ＆ ランダム即時決定） */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                  {isCurrentConfirmed ? (
+                    <div style={{
+                      padding: '12px 24px',
+                      borderRadius: '16px',
+                      background: 'rgba(16, 185, 129, 0.25)',
+                      border: '2px solid #34d399',
+                      color: '#6ee7b7',
+                      fontWeight: '900',
+                      fontSize: '14px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}>
+                      <span>✓</span>
+                      <span>【{currentPreviewPref.name}】に決定済み！（他の人の完了を待機中…）</span>
+                    </div>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => moves.choosePrefecture(pid, currentPreviewPref.id)}
+                        style={{
+                          padding: '14px 28px',
+                          borderRadius: '16px',
+                          border: '2px solid #fde047',
+                          background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                          color: '#ffffff',
+                          fontSize: '16px',
+                          fontWeight: '900',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          boxShadow: '0 6px 20px rgba(245, 158, 11, 0.6)',
+                          transition: 'all 0.2s',
+                        }}
+                      >
+                        <span style={{ fontSize: '18px' }}>👉</span>
+                        <span>
+                          {myPlayer.prefecture
+                            ? `【${currentPreviewPref.name}】に変更して決定する！`
+                            : `【${currentPreviewPref.name}】に決定する！`}
+                        </span>
+                      </button>
+
+                      <button
+                        onClick={handleRollRandomImmediate}
+                        disabled={isRollingRandom}
+                        title="47都道府県からおまかせで1つ選んで即時決定します"
+                        style={{
+                          padding: '14px 18px',
+                          borderRadius: '16px',
+                          border: '1px solid rgba(255,255,255,0.25)',
+                          background: 'rgba(0,0,0,0.45)',
+                          color: '#fde047',
+                          fontSize: '14px',
+                          fontWeight: 'bold',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        <span>🎲</span>
+                        <span>{isRollingRandom ? '抽選中…' : 'ランダム即時決定！'}</span>
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -782,25 +1093,124 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
             </button>
           )}
 
-          {isMyTurn && G.turnStep === 'resolve_space' && !G.currentSpaceModal && (
+          {isMyTurn && (G.turnStep === 'resolve_space' || G.turnStep === 'end_turn') && !G.currentSpaceModal && (
             <button
               onClick={() => moves.endTurn(pid)}
               style={{
                 padding: '16px 32px',
                 fontSize: '16px',
-                fontWeight: 'bold',
-                background: '#10b981',
+                fontWeight: '900',
+                background: 'linear-gradient(135deg, #10b981, #059669)',
                 color: '#ffffff',
                 border: 'none',
-                borderRadius: '14px',
-                cursor: 'pointer'
+                borderRadius: '16px',
+                cursor: 'pointer',
+                boxShadow: '0 6px 20px rgba(16, 185, 129, 0.4)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px'
               }}
             >
-              次へ進む（ターン終了）
+              <span>👉</span>
+              <span>次のプレイヤーへ進む（ターン終了）</span>
             </button>
           )}
         </div>
       </div>
+
+      {/* ステージ判定ヘルパー */}
+      {(() => null)()}
+      {/* マス詳細インスペクター (マウスカーソルを合わせたマスの詳細を表示) */}
+      {(() => {
+        const getStageTag = (sId) => {
+          if (sId <= 35) return { name: '🌱 幼少期・学生時代', color: '#10b981', bg: 'rgba(16, 185, 129, 0.15)', stageNum: 1, range: '0〜35' };
+          if (sId <= 75) return { name: '💼 就活・新社会人', color: '#38bdf8', bg: 'rgba(56, 189, 248, 0.15)', stageNum: 2, range: '36〜75' };
+          if (sId <= 115) return { name: '💍 結婚・マイホーム', color: '#f472b6', bg: 'rgba(244, 114, 182, 0.15)', stageNum: 3, range: '76〜115' };
+          if (sId <= 155) return { name: '⚖️ 中年・大勝負・帰省', color: '#c084fc', bg: 'rgba(192, 132, 252, 0.15)', stageNum: 4, range: '116〜155' };
+          return { name: '🏰 セカンドライフ・老後・ゴール', color: '#facc15', bg: 'rgba(250, 204, 21, 0.15)', stageNum: 5, range: '156〜200' };
+        };
+
+        const activeInspectSpace = hoveredSpace || BOARD_SPACES.find((s) => s.id === myPlayer.position) || BOARD_SPACES[0];
+        const isHovering = !!hoveredSpace;
+        const stageTag = getStageTag(activeInspectSpace.id);
+        const playersOnSpace = Object.values(G.players).filter((p) => p.position === activeInspectSpace.id);
+
+        return (
+          <div style={{
+            background: isHovering ? 'linear-gradient(135deg, rgba(30, 41, 59, 0.98), rgba(15, 23, 42, 0.98))' : 'rgba(15, 23, 42, 0.85)',
+            border: isHovering ? '2px solid #38bdf8' : '1px solid rgba(255, 255, 255, 0.15)',
+            borderRadius: '18px',
+            padding: '14px 20px',
+            marginBottom: '16px',
+            boxShadow: isHovering ? '0 10px 30px rgba(56, 189, 248, 0.3)' : 'none',
+            transition: 'all 0.15s ease',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '16px',
+            flexWrap: 'wrap'
+          }}>
+            <div style={{
+              fontSize: '36px',
+              width: '56px',
+              height: '56px',
+              background: 'rgba(255, 255, 255, 0.08)',
+              borderRadius: '14px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              border: `2px solid ${stageTag.color}`,
+              flexShrink: 0
+            }}>
+              {activeInspectSpace.icon || '📍'}
+            </div>
+
+            <div style={{ flex: '1 1 320px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '4px' }}>
+                <span style={{ fontSize: '11px', background: 'rgba(255,255,255,0.15)', padding: '2px 8px', borderRadius: '10px', color: '#94a3b8', fontWeight: '900' }}>
+                  #{activeInspectSpace.id}
+                </span>
+                <span style={{ fontSize: '18px', fontWeight: '900', color: '#ffffff' }}>
+                  {activeInspectSpace.title}
+                </span>
+                <span style={{ fontSize: '11px', background: stageTag.bg, color: stageTag.color, padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold' }}>
+                  {stageTag.name}
+                </span>
+                {activeInspectSpace.stop && (
+                  <span style={{ fontSize: '11px', background: '#dc2626', color: '#ffffff', padding: '2px 8px', borderRadius: '10px', fontWeight: '900', boxShadow: '0 0 10px rgba(220,38,38,0.5)' }}>
+                    🛑 STOP（確定停止マス）
+                  </span>
+                )}
+                {activeInspectSpace.amount !== undefined && (
+                  <span style={{
+                    fontSize: '12px',
+                    fontWeight: '900',
+                    padding: '2px 8px',
+                    borderRadius: '10px',
+                    background: activeInspectSpace.amount > 0 ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                    color: activeInspectSpace.amount > 0 ? '#34d399' : '#f87171'
+                  }}>
+                    {activeInspectSpace.amount > 0 ? `+${activeInspectSpace.amount}万円` : `${activeInspectSpace.amount}万円`}
+                  </span>
+                )}
+              </div>
+
+              <div style={{ fontSize: '13px', color: '#cbd5e1', lineHeight: 1.5 }}>
+                {activeInspectSpace.desc}
+              </div>
+
+              {playersOnSpace.length > 0 && (
+                <div style={{ fontSize: '11px', color: '#fde047', marginTop: '4px', fontWeight: 'bold' }}>
+                  🚗 現在このマスに滞在中: {playersOnSpace.map((pl) => getPlayerName(pl.id)).join(', ')}
+                </div>
+              )}
+            </div>
+
+            <div style={{ fontSize: '11px', color: isHovering ? '#38bdf8' : '#94a3b8', fontWeight: 'bold', marginLeft: 'auto', textAlign: 'right' }}>
+              {isHovering ? '👀 カーソル位置のマス詳細を表示中' : '💡 マスにカーソルを合わせると詳細を閲覧できます'}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* EVENT MODALS: 分岐選択・マイホーム購入・職業選択モーダル */}
       {isMyTurn && G.currentSpaceModal && (
@@ -820,10 +1230,12 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
             border: G.isHardMode ? '2px solid #ef4444' : '2px solid #38bdf8',
             borderRadius: '24px',
             padding: '26px',
-            maxWidth: '580px',
+            maxWidth: '600px',
             width: '100%',
             color: '#ffffff',
-            boxShadow: '0 20px 50px rgba(0,0,0,0.8)'
+            boxShadow: '0 20px 50px rgba(0,0,0,0.8)',
+            maxHeight: '85vh',
+            overflowY: 'auto'
           }}>
             <h3 style={{ fontSize: '22px', fontWeight: '900', margin: '0 0 10px', color: G.isHardMode ? '#f87171' : '#38bdf8' }}>
               📍 {G.currentSpaceModal.title}
@@ -835,6 +1247,17 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
             {/* 職業選択（通常モード または ハードモード学歴フィルター） */}
             {G.currentSpaceModal.type === 'choose_job' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '360px', overflowY: 'auto', paddingRight: '4px' }}>
+                <div style={{
+                  padding: '8px 12px',
+                  background: 'rgba(239, 68, 68, 0.15)',
+                  border: '1px solid #ef4444',
+                  borderRadius: '10px',
+                  fontSize: '12px',
+                  color: '#fca5a5',
+                  marginBottom: '4px'
+                }}>
+                  ⚠️ 就職は必須です！不合格の場合は就職浪人費用 -30万円 を支払い、就活エリアの起点（マス36）へ戻り再挑戦となります！
+                </div>
                 {OCCUPATIONS.map((occ) => {
                   const myHensachi = myPlayer.hensachi || 50;
                   const isQualified = !G.isHardMode || myHensachi >= occ.minHensachi;
@@ -892,12 +1315,12 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
                               cursor: 'pointer'
                             }}
                           >
-                            応募する（内定）
+                            応募する（内定獲得）
                           </button>
                         ) : (
                           <button
                             onClick={() => moves.chooseJob(pid, occ.id, true)}
-                            title="ルーレット出目9以上で奇跡のコネ採用！失敗すると浪人費用-40万円"
+                            title="ルーレット出目8以上で奇跡のコネ採用！不合格時は浪人費用 -30万円＆マス36へ戻る"
                             style={{
                               padding: '8px 12px',
                               borderRadius: '10px',
@@ -920,7 +1343,7 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
               </div>
             )}
 
-            {/* 進路分岐選択 */}
+            {/* 進路分岐選択 (マス35) */}
             {G.currentSpaceModal.type === 'branch_career' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <button
@@ -932,11 +1355,12 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
                     color: '#fff',
                     border: 'none',
                     fontWeight: 'bold',
-                    fontSize: '16px',
-                    cursor: 'pointer'
+                    fontSize: '15px',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 15px rgba(37, 99, 235, 0.4)'
                   }}
                 >
-                  🏙️ 大都会コースに進む（高収入・高支出・IT起業）
+                  🏙️ 大都会コースに進む（偏差値+2 / 上京費用 -20万円）
                 </button>
                 <button
                   onClick={() => moves.chooseRoute(pid, 'local')}
@@ -947,16 +1371,55 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
                     color: '#fff',
                     border: 'none',
                     fontWeight: 'bold',
-                    fontSize: '16px',
-                    cursor: 'pointer'
+                    fontSize: '15px',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 15px rgba(5, 150, 105, 0.4)'
                   }}
                 >
-                  🌾 地元就職コースに進む（公務員・伝統・生活費節約）
+                  🌾 地元就職コースに進む（地元定着支援金 +30万円）
                 </button>
               </div>
             )}
 
-            {/* マイホーム購入選択 */}
+            {/* 中年キャリア大勝負分岐 (マス125) */}
+            {G.currentSpaceModal.type === 'branch_midlife' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <button
+                  onClick={() => moves.chooseRoute(pid, 'venture')}
+                  style={{
+                    padding: '14px',
+                    borderRadius: '14px',
+                    background: 'linear-gradient(135deg, #7c3aed, #6d28d9)',
+                    color: '#fff',
+                    border: 'none',
+                    fontWeight: 'bold',
+                    fontSize: '15px',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 15px rgba(124, 58, 237, 0.4)'
+                  }}
+                >
+                  🚀 ベンチャー起業・大勝負コース（特別出資金 +80万円）
+                </button>
+                <button
+                  onClick={() => moves.chooseRoute(pid, 'steady')}
+                  style={{
+                    padding: '14px',
+                    borderRadius: '14px',
+                    background: 'linear-gradient(135deg, #059669, #047857)',
+                    color: '#fff',
+                    border: 'none',
+                    fontWeight: 'bold',
+                    fontSize: '15px',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 15px rgba(5, 150, 105, 0.4)'
+                  }}
+                >
+                  🛡️ 堅実継続・安定コース（特別手当 +30万円）
+                </button>
+              </div>
+            )}
+
+            {/* マイホーム購入選択 (マス95) */}
             {G.currentSpaceModal.type === 'buy_house' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {HOUSES.map((h) => (
@@ -996,23 +1459,29 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
               </div>
             )}
 
-            {/* 通常マス情報 */}
-            {!['branch_career', 'buy_house', 'choose_job'].includes(G.currentSpaceModal.type) && (
+            {/* 通常イベントマス（了解して次へ進む） */}
+            {!['branch_career', 'branch_midlife', 'buy_house', 'choose_job'].includes(G.currentSpaceModal.type) && (
               <button
                 onClick={() => moves.endTurn(pid)}
                 style={{
                   width: '100%',
-                  padding: '14px',
-                  borderRadius: '14px',
-                  background: '#10b981',
+                  padding: '16px',
+                  borderRadius: '16px',
+                  background: 'linear-gradient(135deg, #10b981, #059669)',
                   color: '#fff',
                   border: 'none',
-                  fontWeight: 'bold',
+                  fontWeight: '900',
                   fontSize: '16px',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  boxShadow: '0 6px 20px rgba(16, 185, 129, 0.4)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px'
                 }}
               >
-                了解（手番を終了する）
+                <span>👉</span>
+                <span>了解して次のプレイヤーへ進む（ターン終了）</span>
               </button>
             )}
           </div>
@@ -1028,59 +1497,160 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
         boxShadow: 'inset 0 4px 20px rgba(0,0,0,0.5)',
         marginBottom: '20px'
       }}>
-        <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#38bdf8', marginBottom: '14px', display: 'flex', justifyContent: 'space-between' }}>
-          <span>🗺️ 人生すごろくコースマップ（全45マス）</span>
-          <span>🟢 幼少期 ➔ 🏙️ 就職 ➔ 💍 結婚・家族 ➔ 📦 帰省・ミドル ➔ 🏁 ゴール</span>
+        <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#38bdf8', marginBottom: '14px', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+          <span>🗺️ 人生すごろくコースマップ（全201マス: 0〜200 / 1ステージ35〜45マス特大構成）</span>
+          <span style={{ fontSize: '11px', color: '#cbd5e1' }}>
+            🟢 幼少期(0-35) ➔ 💼 就職(36-75) ➔ 💍 結婚・家(76-115) ➔ ⚖️ 中年・帰省(116-155) ➔ 🏰 老後・ゴール(156-200)
+          </span>
+        </div>
+
+        {/* ステージ切り替えタブバー */}
+        <div style={{
+          display: 'flex',
+          gap: '8px',
+          marginBottom: '16px',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          background: 'rgba(0,0,0,0.25)',
+          padding: '8px 12px',
+          borderRadius: '14px',
+          border: '1px solid rgba(255,255,255,0.1)'
+        }}>
+          <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#94a3b8' }}>ステージ表示:</span>
+          {[
+            { id: 'all', label: '全マス (201マス)', color: '#38bdf8' },
+            { id: 1, label: '🌱 第1: 幼少期 (0-35)', color: '#10b981' },
+            { id: 2, label: '💼 第2: 就活・社会人 (36-75)', color: '#38bdf8' },
+            { id: 3, label: '💍 第3: 結婚・家庭 (76-115)', color: '#f472b6' },
+            { id: 4, label: '⚖️ 第4: 中年・大勝負 (116-155)', color: '#c084fc' },
+            { id: 5, label: '🏰 第5: 老後・ゴール (156-200)', color: '#facc15' },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setStageFilter(tab.id)}
+              style={{
+                padding: '6px 12px',
+                borderRadius: '10px',
+                border: stageFilter === tab.id ? `2px solid ${tab.color}` : '1px solid rgba(255,255,255,0.15)',
+                background: stageFilter === tab.id ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.3)',
+                color: stageFilter === tab.id ? '#ffffff' : '#cbd5e1',
+                fontSize: '11px',
+                fontWeight: stageFilter === tab.id ? '900' : 'normal',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
+          <button
+            onClick={() => {
+              const sNum = myPlayer.position <= 35 ? 1 : (myPlayer.position <= 75 ? 2 : (myPlayer.position <= 115 ? 3 : (myPlayer.position <= 155 ? 4 : 5)));
+              setStageFilter(sNum);
+            }}
+            style={{
+              padding: '6px 12px',
+              borderRadius: '10px',
+              border: '1px solid #10b981',
+              background: 'rgba(16, 185, 129, 0.25)',
+              color: '#6ee7b7',
+              fontSize: '11px',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              marginLeft: 'auto'
+            }}
+          >
+            📍 あなたの現在地へジャンプ (#{myPlayer.position})
+          </button>
         </div>
 
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
-          gap: '10px'
+          gap: '10px',
+          maxHeight: '650px',
+          overflowY: 'auto',
+          paddingRight: '6px'
         }}>
-          {BOARD_SPACES.map((space) => {
+          {BOARD_SPACES
+            .filter((space) => {
+              if (stageFilter === 'all') return true;
+              const sNum = space.id <= 35 ? 1 : (space.id <= 75 ? 2 : (space.id <= 115 ? 3 : (space.id <= 155 ? 4 : 5)));
+              return sNum === stageFilter;
+            })
+            .map((space) => {
             const playersHere = Object.values(G.players).filter((p) => p.position === space.id);
+            const isHovered = hoveredSpace?.id === space.id;
+            const isMyPieceHere = myPlayer.position === space.id;
 
-            let bgColor = 'rgba(255,255,255,0.06)';
-            let borderColor = 'rgba(255,255,255,0.15)';
-            if (space.id <= 6) {
-              borderColor = '#10b981';
-            } else if (space.route === 'tokyo') {
-              borderColor = '#3b82f6';
-            } else if (space.route === 'local') {
-              borderColor = '#059669';
-            } else if (space.id >= 21 && space.id <= 28) {
-              borderColor = '#ec4899';
-            } else if (space.id >= 29 && space.id <= 36) {
-              borderColor = '#8b5cf6';
-            } else {
-              borderColor = '#f59e0b';
-            }
+            let borderColor = '#10b981';
+            if (space.id <= 35) borderColor = '#10b981';
+            else if (space.id <= 75) borderColor = '#38bdf8';
+            else if (space.id <= 115) borderColor = '#f472b6';
+            else if (space.id <= 155) borderColor = '#c084fc';
+            else if (space.id === 200) borderColor = '#facc15';
+            else borderColor = '#fb923c';
 
             return (
               <div
                 key={space.id}
+                onMouseEnter={() => setHoveredSpace(space)}
+                onMouseLeave={() => setHoveredSpace(null)}
+                title={`#${space.id} ${space.title}\n${space.desc}${space.amount ? ` (${space.amount > 0 ? '+' : ''}${space.amount}万円)` : ''}`}
                 style={{
-                  background: bgColor,
-                  border: `2px solid ${borderColor}`,
+                  background: isHovered
+                    ? 'rgba(56, 189, 248, 0.18)'
+                    : isMyPieceHere
+                    ? 'rgba(16, 185, 129, 0.15)'
+                    : 'rgba(255,255,255,0.06)',
+                  border: isHovered
+                    ? '2px solid #38bdf8'
+                    : isMyPieceHere
+                    ? '2px solid #34d399'
+                    : `2px solid ${borderColor}`,
                   borderRadius: '12px',
                   padding: '8px',
-                  minHeight: '80px',
+                  minHeight: '84px',
                   display: 'flex',
                   flexDirection: 'column',
                   justifyContent: 'space-between',
-                  position: 'relative'
+                  position: 'relative',
+                  cursor: 'pointer',
+                  transform: isHovered ? 'translateY(-2px)' : 'none',
+                  boxShadow: isHovered
+                    ? '0 6px 16px rgba(56, 189, 248, 0.4)'
+                    : isMyPieceHere
+                    ? '0 0 12px rgba(52, 211, 153, 0.4)'
+                    : 'none',
+                  transition: 'all 0.15s ease'
                 }}
               >
                 <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#94a3b8' }}>
-                    <span>#{space.id}</span>
-                    {space.stop && <span style={{ color: '#ef4444', fontWeight: 'bold' }}>STOP</span>}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '10px', color: '#94a3b8' }}>
+                    <span style={{ fontWeight: 'bold' }}>#{space.id}</span>
+                    <span style={{ fontSize: '13px' }}>{space.icon || '📍'}</span>
+                    {space.stop && (
+                      <span style={{ color: '#ffffff', background: '#dc2626', padding: '1px 5px', borderRadius: '6px', fontWeight: '900', fontSize: '9px' }}>
+                        STOP
+                      </span>
+                    )}
                   </div>
-                  <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#ffffff', marginTop: '2px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#ffffff', marginTop: '4px', lineHeight: 1.3 }}>
                     {space.title}
                   </div>
                 </div>
+
+                {/* 金額バッジがあれば表示 */}
+                {space.amount !== undefined && (
+                  <div style={{
+                    fontSize: '10px',
+                    fontWeight: 'bold',
+                    color: space.amount > 0 ? '#34d399' : '#f87171',
+                    marginTop: '4px'
+                  }}>
+                    {space.amount > 0 ? `+${space.amount}万` : `${space.amount}万`}
+                  </div>
+                )}
 
                 {/* マス上の車（プレイヤーコマ） */}
                 {playersHere.length > 0 && (
@@ -1095,7 +1665,8 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
                           fontSize: '10px',
                           fontWeight: 'bold',
                           color: '#fff',
-                          animation: 'carBounce 2s infinite ease-in-out'
+                          animation: 'carBounce 2s infinite ease-in-out',
+                          boxShadow: '0 2px 6px rgba(0,0,0,0.4)'
                         }}
                       >
                         🚗 P{p.id}
