@@ -1,6 +1,6 @@
 // JinseiGame.js - 47都道府県 ご当地人生ゲームのゲームロジック
 // 通常モード ＋ 隠しリアルハードモード（親ガチャ・偏差値・学歴フィルター）
-import { getPrefectureById } from './data/prefecturesData';
+import { getPrefectureById } from './data/prefecturesData.js';
 
 export const OCCUPATIONS = [
   { id: 'doctor', title: '名医・ドクター', baseSalary: 220, maxSalary: 550, icon: '🩺', type: 'expert', minHensachi: 68, tierDesc: '最難関医学部卒' },
