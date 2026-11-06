@@ -63,6 +63,7 @@ const GAMES_CATALOG = [
     id: 'splendor',
     title: '宝石の煌き',
     subtitle: 'Splendor',
+    enTitle: 'SPLENDOR',
     icon: '💎',
     badge: '拡大再生産',
     tagline: 'ルネサンスの豪商たちの名声争奪戦',
@@ -70,6 +71,8 @@ const GAMES_CATALOG = [
     time: '約30分',
     color: '#d97706',
     boxBg: 'linear-gradient(155deg, #1e1b4b 0%, #0f172a 45%, #2e1065 100%)',
+    spineBg: 'linear-gradient(180deg, #1e1b4b 0%, #0f172a 100%)',
+    topBg: '#2e1065',
     boxBorder: '#f59e0b',
     accentColor: '#fbbf24',
     gradient: 'linear-gradient(135deg, #f59e0b, #d97706)',
@@ -81,6 +84,7 @@ const GAMES_CATALOG = [
     id: 'ito',
     title: 'ITO (イト)',
     subtitle: 'Cooperative Numbers',
+    enTitle: 'ITO',
     icon: '🧵',
     badge: '協力・価値観',
     tagline: '数字を言葉で例える感覚すり合わせ',
@@ -88,6 +92,8 @@ const GAMES_CATALOG = [
     time: '約15分',
     color: '#ea580c',
     boxBg: 'linear-gradient(155deg, #7c2d12 0%, #c2410c 45%, #ea580c 100%)',
+    spineBg: 'linear-gradient(180deg, #7c2d12 0%, #9a3412 100%)',
+    topBg: '#ea580c',
     boxBorder: '#fb923c',
     accentColor: '#fed7aa',
     gradient: 'linear-gradient(135deg, #f97316, #ea580c)',
@@ -99,6 +105,7 @@ const GAMES_CATALOG = [
     id: 'haa',
     title: 'はぁって言うゲーム',
     subtitle: 'Acting Party Game',
+    enTitle: 'HAA!',
     icon: '🗣️',
     badge: '表現・演技',
     tagline: '声と表情だけで伝える演技力',
@@ -106,6 +113,8 @@ const GAMES_CATALOG = [
     time: '約15分',
     color: '#e11d48',
     boxBg: 'linear-gradient(155deg, #881337 0%, #be123c 45%, #e11d48 100%)',
+    spineBg: 'linear-gradient(180deg, #881337 0%, #4c0519 100%)',
+    topBg: '#be123c',
     boxBorder: '#f43f5e',
     accentColor: '#fecdd3',
     gradient: 'linear-gradient(135deg, #f43f5e, #be123c)',
@@ -117,6 +126,7 @@ const GAMES_CATALOG = [
     id: 'propose',
     title: 'プロポーズの言葉を君に',
     subtitle: 'たった今考えたプロポーズの言葉を君に捧ぐよ',
+    enTitle: 'PROPOSE',
     icon: '💍',
     badge: 'ワード・大喜利',
     tagline: '即興で紡ぐロマンチック大喜利',
@@ -124,6 +134,8 @@ const GAMES_CATALOG = [
     time: '約20分',
     color: '#9333ea',
     boxBg: 'linear-gradient(155deg, #3b0764 0%, #581c87 45%, #7e22ce 100%)',
+    spineBg: 'linear-gradient(180deg, #3b0764 0%, #2e1065 100%)',
+    topBg: '#581c87',
     boxBorder: '#c084fc',
     accentColor: '#f3e8ff',
     gradient: 'linear-gradient(135deg, #a855f7, #7e22ce)',
@@ -135,6 +147,7 @@ const GAMES_CATALOG = [
     id: 'hannin',
     title: '犯人は踊る',
     subtitle: 'Mystery & Deduction',
+    enTitle: 'HANNIN',
     icon: '🕵️',
     badge: '心理戦・推理',
     tagline: '誰が犯人？手札移動のサスペンス',
@@ -142,6 +155,8 @@ const GAMES_CATALOG = [
     time: '約10分',
     color: '#475569',
     boxBg: 'linear-gradient(155deg, #1c1917 0%, #292524 45%, #44403c 100%)',
+    spineBg: 'linear-gradient(180deg, #1c1917 0%, #0c0a09 100%)',
+    topBg: '#292524',
     boxBorder: '#78716c',
     accentColor: '#f87171',
     gradient: 'linear-gradient(135deg, #64748b, #334155)',
@@ -153,6 +168,7 @@ const GAMES_CATALOG = [
     id: 'crashice',
     title: 'クラッシュアイス',
     subtitle: 'Crash Ice Action 3D',
+    enTitle: 'CRASH ICE',
     icon: '🐧',
     badge: '3D物理アクション',
     tagline: '氷を叩け！リアル3D物理対戦',
@@ -160,6 +176,8 @@ const GAMES_CATALOG = [
     time: '約10分',
     color: '#0284c7',
     boxBg: 'linear-gradient(155deg, #0c4a6e 0%, #0369a1 45%, #0284c7 100%)',
+    spineBg: 'linear-gradient(180deg, #082f49 0%, #0369a1 100%)',
+    topBg: '#0284c7',
     boxBorder: '#38bdf8',
     accentColor: '#e0f2fe',
     gradient: 'linear-gradient(135deg, #0ea5e9, #0284c7)',
@@ -171,6 +189,7 @@ const GAMES_CATALOG = [
     id: 'nimmt',
     title: '6 Nimmt! (ニムト)',
     subtitle: 'Take 6! Classic Game',
+    enTitle: '6 NIMMT!',
     icon: '🐂',
     badge: '数字・心理戦',
     tagline: '6枚目でドボン！牛を引き取るな',
@@ -178,6 +197,8 @@ const GAMES_CATALOG = [
     time: '約20分',
     color: '#dc2626',
     boxBg: 'linear-gradient(155deg, #7f1d1d 0%, #991b1b 45%, #dc2626 100%)',
+    spineBg: 'linear-gradient(180deg, #450a0a 0%, #7f1d1d 100%)',
+    topBg: '#dc2626',
     boxBorder: '#ef4444',
     accentColor: '#fef08a',
     gradient: 'linear-gradient(135deg, #ef4444, #b91c1c)',
@@ -189,6 +210,7 @@ const GAMES_CATALOG = [
     id: 'indigo',
     title: 'インディゴ (Indigo)',
     subtitle: 'Knizia Hex Routes',
+    enTitle: 'INDIGO',
     icon: '🌊',
     badge: 'ルート構築名作',
     tagline: 'タイルを繋ぎ宝石を門へ導く',
@@ -196,6 +218,8 @@ const GAMES_CATALOG = [
     time: '約25分',
     color: '#0891b2',
     boxBg: 'linear-gradient(155deg, #164e63 0%, #0e7490 45%, #0891b2 100%)',
+    spineBg: 'linear-gradient(180deg, #083344 0%, #164e63 100%)',
+    topBg: '#0e7490',
     boxBorder: '#22d3ee',
     accentColor: '#a5f3fc',
     gradient: 'linear-gradient(135deg, #06b6d4, #0e7490)',
@@ -207,134 +231,175 @@ const GAMES_CATALOG = [
 
 const AVATAR_LIST = ['🐱', '🦊', '🐼', '🦁', '🐧', '🐺', '🦉', '🤖', '👑', '💎', '🚀', '🔥'];
 
-// ラック上の個別ボードゲーム箱コンポーネント
+// ラック上の個別ボードゲーム箱コンポーネント (リアル3D立体パッケージ)
 const BoardGameBox = ({ game, isSelected, onClick }) => {
   return (
     <div
       onClick={onClick}
-      className={`board-game-box ${isSelected ? 'is-selected' : ''}`}
+      className={`box-3d ${isSelected ? 'is-active' : ''}`}
       style={{
-        width: '210px',
-        height: '280px',
+        width: '185px',
+        height: '265px',
         flexShrink: 0,
         cursor: 'pointer',
         position: 'relative',
-        borderRadius: '14px',
-        padding: '16px 14px',
-        boxSizing: 'border-box',
-        background: game.boxBg,
-        border: isSelected ? '3px solid #fde047' : `2px solid ${game.boxBorder}`,
-        boxShadow: isSelected
-          ? `0 26px 38px -4px rgba(0,0,0,0.85), 0 0 25px ${game.accentColor}99, inset 0 1px 2px rgba(255,255,255,0.4)`
-          : `0 14px 20px -3px rgba(0,0,0,0.7), inset 0 1px 2px rgba(255,255,255,0.2), inset 0 -2px 4px rgba(0,0,0,0.4)`,
-        transform: isSelected ? 'translateY(-22px) scale(1.05)' : 'translateY(0)',
-        transition: 'all 0.28s cubic-bezier(0.34, 1.56, 0.64, 1)',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'space-between',
-        overflow: 'hidden',
+        marginRight: '22px',
         userSelect: 'none'
       }}
     >
-      {/* 箱表面の光沢レイヤー */}
-      <div style={{
-        position: 'absolute',
-        top: 0, left: 0, right: 0, bottom: 0,
-        background: 'linear-gradient(135deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.03) 45%, rgba(0,0,0,0.2) 100%)',
-        pointerEvents: 'none',
-        borderRadius: '12px'
-      }} />
+      {/* 3D Top Lid (上フタ) */}
+      <div
+        className="top-3d"
+        style={{
+          background: game.topBg,
+          borderRadius: '4px 4px 0 0',
+          borderTop: '1px solid rgba(255,255,255,0.35)'
+        }}
+      />
 
-      {/* 選択中リボンバッジ */}
-      {isSelected && (
-        <div style={{
-          position: 'absolute',
-          top: '10px',
-          right: '10px',
-          background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-          color: '#ffffff',
-          fontSize: '10px',
-          fontWeight: '900',
-          padding: '3px 8px',
-          borderRadius: '10px',
-          boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
-          zIndex: 3
-        }}>
-          ✓ 机へ配置中
-        </div>
-      )}
-
-      {/* 箱上部：ジャンルバッジ & 人数 */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 2 }}>
+      {/* 3D Side Spine (背表紙 / 側面の厚み) */}
+      <div
+        className="spine-3d"
+        style={{
+          background: game.spineBg,
+          borderRadius: '0 6px 6px 0',
+          borderRight: '1px solid rgba(0,0,0,0.4)',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: '14px 0',
+          boxSizing: 'border-box'
+        }}
+      >
         <span style={{
-          fontSize: '10px',
-          fontWeight: 'bold',
-          color: game.accentColor,
-          background: 'rgba(0,0,0,0.4)',
-          padding: '2px 7px',
-          borderRadius: '5px',
-          border: `1px solid ${game.boxBorder}66`
-        }}>
-          {game.badge}
-        </span>
-        <span style={{ fontSize: '10px', color: '#e2e8f0', fontWeight: 'bold', background: 'rgba(0,0,0,0.3)', padding: '2px 6px', borderRadius: '4px' }}>
-          👥 {game.players}
-        </span>
-      </div>
-
-      {/* 箱中央：カバーアート & タイトル */}
-      <div style={{ textAlign: 'center', margin: 'auto 0', zIndex: 2 }}>
-        <div style={{
-          fontSize: '44px',
-          lineHeight: 1,
-          marginBottom: '8px',
-          filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.4))'
-        }}>
-          {game.icon}
-        </div>
-        <h3 style={{
-          margin: '0 0 3px',
-          fontSize: '17px',
+          fontSize: '11px',
           fontWeight: '900',
-          color: '#ffffff',
-          letterSpacing: '-0.3px',
-          textShadow: '0 2px 6px rgba(0,0,0,0.7)'
+          color: 'rgba(255,255,255,0.65)',
+          letterSpacing: '2px',
+          writingMode: 'vertical-rl',
+          textOrientation: 'mixed'
         }}>
-          {game.title}
-        </h3>
-        <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 'bold', marginBottom: '8px' }}>
-          {game.subtitle}
-        </div>
-        <div style={{
-          fontSize: '10px',
-          color: game.accentColor,
-          background: 'rgba(0,0,0,0.35)',
-          padding: '3px 6px',
-          borderRadius: '6px',
-          display: 'inline-block',
-          fontWeight: 'bold',
-          border: '1px dashed rgba(255,255,255,0.2)'
-        }}>
-          {game.tagline}
-        </div>
+          {game.enTitle || game.subtitle}
+        </span>
+        <span style={{ fontSize: '14px' }}>{game.icon}</span>
+        <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', fontWeight: 'bold' }}>{game.players}</span>
       </div>
 
-      {/* 箱下部：プレイ時間 */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingTop: '8px',
-        borderTop: '1px solid rgba(255,255,255,0.15)',
-        fontSize: '10px',
-        color: '#cbd5e1',
-        fontWeight: 'bold',
-        zIndex: 2
-      }}>
-        <span>⏱️ {game.time}</span>
-        <span style={{ color: isSelected ? '#fde047' : '#94a3b8' }}>
-          {isSelected ? '★ 選択中' : '棚から選ぶ'}
-        </span>
+      {/* 3D Front Face (箱の正面) */}
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          borderRadius: '12px 0 0 12px',
+          padding: '14px 12px',
+          boxSizing: 'border-box',
+          background: game.boxBg,
+          border: isSelected ? '3px solid #fde047' : `2px solid ${game.boxBorder}`,
+          boxShadow: isSelected
+            ? `0 24px 35px -4px rgba(0,0,0,0.85), 0 0 25px ${game.accentColor}99, inset 0 1px 2px rgba(255,255,255,0.4)`
+            : `0 14px 20px -3px rgba(0,0,0,0.7), inset 0 1px 2px rgba(255,255,255,0.2), inset 0 -2px 4px rgba(0,0,0,0.4)`,
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          position: 'relative',
+          overflow: 'hidden'
+        }}
+      >
+        {/* 箱表面の光沢レイヤー */}
+        <div className="box-sheen" style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
+
+        {/* 選択中リボンバッジ */}
+        {isSelected && (
+          <div style={{
+            position: 'absolute',
+            top: '8px',
+            right: '8px',
+            background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+            color: '#ffffff',
+            fontSize: '10px',
+            fontWeight: '900',
+            padding: '2px 8px',
+            borderRadius: '10px',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
+            zIndex: 10
+          }}>
+            ✓ 机へ配置中
+          </div>
+        )}
+
+        {/* 箱上部：ジャンルバッジ & 人数 */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 2 }}>
+          <span style={{
+            fontSize: '10px',
+            fontWeight: 'bold',
+            color: game.accentColor,
+            background: 'rgba(0,0,0,0.45)',
+            padding: '2px 7px',
+            borderRadius: '5px',
+            border: `1px solid ${game.boxBorder}66`
+          }}>
+            {game.badge}
+          </span>
+          <span style={{ fontSize: '10px', color: '#e2e8f0', fontWeight: 'bold', background: 'rgba(0,0,0,0.3)', padding: '2px 6px', borderRadius: '4px' }}>
+            👥 {game.players}
+          </span>
+        </div>
+
+        {/* 箱中央：カバーアート & タイトル */}
+        <div style={{ textAlign: 'center', margin: 'auto 0', zIndex: 2 }}>
+          <div style={{
+            fontSize: '40px',
+            lineHeight: 1,
+            marginBottom: '6px',
+            filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.4))'
+          }}>
+            {game.icon}
+          </div>
+          <h3 style={{
+            margin: '0 0 2px',
+            fontSize: '16px',
+            fontWeight: '900',
+            color: '#ffffff',
+            letterSpacing: '-0.3px',
+            textShadow: '0 2px 6px rgba(0,0,0,0.7)'
+          }}>
+            {game.title}
+          </h3>
+          <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 'bold', marginBottom: '6px' }}>
+            {game.enTitle || game.subtitle}
+          </div>
+          <div style={{
+            fontSize: '10px',
+            color: game.accentColor,
+            background: 'rgba(0,0,0,0.4)',
+            padding: '2px 6px',
+            borderRadius: '6px',
+            display: 'inline-block',
+            fontWeight: 'bold',
+            border: '1px dashed rgba(255,255,255,0.2)'
+          }}>
+            {game.tagline}
+          </div>
+        </div>
+
+        {/* 箱下部：プレイ時間 */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          paddingTop: '6px',
+          borderTop: '1px solid rgba(255,255,255,0.15)',
+          fontSize: '10px',
+          color: '#cbd5e1',
+          fontWeight: 'bold',
+          zIndex: 2
+        }}>
+          <span>⏱️ {game.time}</span>
+          <span style={{ color: isSelected ? '#fde047' : '#94a3b8' }}>
+            {isSelected ? '★ 選択中' : '棚から選ぶ'}
+          </span>
+        </div>
       </div>
     </div>
   );
@@ -674,12 +739,44 @@ const App = () => {
       overflowX: 'hidden'
     }}>
       <style>{`
-        .board-game-box:hover {
-          transform: translateY(-16px) scale(1.03) !important;
-          box-shadow: 0 22px 30px -4px rgba(0, 0, 0, 0.8) !important;
+        .perspective-shelf {
+          perspective: 900px;
         }
-        .board-game-box.is-selected {
-          transform: translateY(-24px) scale(1.05) !important;
+        .box-3d {
+          transform-style: preserve-3d;
+          transform: rotateY(-20deg) rotateX(3deg);
+          transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .box-3d:hover {
+          transform: rotateY(-3deg) rotateX(0deg) translateY(-18px) scale(1.04) !important;
+          filter: drop-shadow(0 22px 25px rgba(0, 0, 0, 0.85)) !important;
+        }
+        .box-3d.is-active {
+          transform: rotateY(0deg) rotateX(0deg) translateY(-26px) scale(1.07) !important;
+          filter: drop-shadow(0 26px 35px rgba(245, 158, 11, 0.55)) !important;
+        }
+        .spine-3d {
+          position: absolute;
+          top: 0;
+          right: -30px;
+          width: 30px;
+          height: 100%;
+          transform-origin: left center;
+          transform: rotateY(90deg);
+          box-shadow: inset 1px 0 2px rgba(255,255,255,0.25);
+        }
+        .top-3d {
+          position: absolute;
+          top: -22px;
+          left: 0;
+          width: 100%;
+          height: 22px;
+          transform-origin: bottom center;
+          transform: rotateX(90deg);
+          background: linear-gradient(90deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.05) 100%);
+        }
+        .box-sheen {
+          background: linear-gradient(135deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.03) 45%, rgba(0,0,0,0.3) 100%);
         }
         .shelf-boxes-scroll::-webkit-scrollbar {
           height: 8px;
@@ -892,14 +989,14 @@ const App = () => {
           {/* SHELF TIER 1 (上段ラック: 4作品) */}
           <div style={{ position: 'relative', marginBottom: '28px' }}>
             <div
-              className="shelf-boxes-scroll"
+              className="shelf-boxes-scroll perspective-shelf"
               style={{
                 display: 'flex',
                 justifyContent: 'center',
                 alignItems: 'flex-end',
-                gap: '16px',
-                padding: '24px 8px 0',
-                minHeight: '290px',
+                gap: '24px',
+                padding: '30px 18px 4px',
+                minHeight: '300px',
                 overflowX: 'auto',
                 position: 'relative',
                 zIndex: 2
@@ -930,14 +1027,14 @@ const App = () => {
           {/* SHELF TIER 2 (下段ラック: 4作品) */}
           <div style={{ position: 'relative', marginBottom: '16px' }}>
             <div
-              className="shelf-boxes-scroll"
+              className="shelf-boxes-scroll perspective-shelf"
               style={{
                 display: 'flex',
                 justifyContent: 'center',
                 alignItems: 'flex-end',
-                gap: '16px',
-                padding: '24px 8px 0',
-                minHeight: '290px',
+                gap: '24px',
+                padding: '30px 18px 4px',
+                minHeight: '300px',
                 overflowX: 'auto',
                 position: 'relative',
                 zIndex: 2
