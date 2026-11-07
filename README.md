@@ -1,16 +1,26 @@
-# React + Vite
+# Board Game Arena Clone & 人生ゲーム（全47都道府県エディション）
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+React + Vite + boardgame.io で構築されたオンラインマルチ対応ボードゲームコレクションです。
 
-Currently, two official plugins are available:
+## 収録ゲーム
+- 🗾 **人生ゲーム（全47都道府県エディション）**: 47都道府県の出身地パッシブスキル、全国ご当地名産品収集・旅行イベント、5大ライフステージ（子ども時代〜老後シニア）搭載。
+- 💎 **宝石の煌き (Splendor Clone)**
+- 🧶 **ito (イト)**
+- 🗣️ **はぁって言うゲーム**
+- 💐 **プロポーズの言葉を君に捧ぐよ**
+- 🕵️ **犯人は踊る**
+- 🐧 **クラッシュアイスゲーム (3D物理エンジン)**
+- 🐂 **6ニムト (6 Nimmt!)**
+- 🔷 **インディゴ (Indigo)**
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 起動方法（開発モード）
+```bash
+npm install
+npm run dev
+```
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+## プロダクションビルド
+```bash
+npm run build
+```
+ビルド成果物は `dist/` フォルダに出力されます。
