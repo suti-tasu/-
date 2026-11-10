@@ -20,6 +20,10 @@ import { IndigoGame } from './IndigoGame';
 import { IndigoBoard } from './IndigoBoard';
 import { JinseiGame } from './JinseiGame';
 import { JinseiBoard } from './JinseiBoard';
+import { DeepSeaGame } from './DeepSeaGame';
+import { DeepSeaBoard } from './DeepSeaBoard';
+import { OnsokuGame } from './OnsokuGame';
+import { OnsokuBoard } from './OnsokuBoard';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -60,6 +64,8 @@ const CrashIceClient = Client({ game: CrashIceGame, board: CrashIceBoard, multip
 const NimmtClient = Client({ game: NimmtGame, board: NimmtBoard, multiplayer: SocketIO({ server }), debug: false });
 const IndigoClient = Client({ game: IndigoGame, board: IndigoBoard, multiplayer: SocketIO({ server }), debug: false });
 const JinseiClient = Client({ game: JinseiGame, board: JinseiBoard, multiplayer: SocketIO({ server }), debug: false });
+const DeepSeaClient = Client({ game: DeepSeaGame, board: DeepSeaBoard, multiplayer: SocketIO({ server }), debug: false });
+const OnsokuClient = Client({ game: OnsokuGame, board: OnsokuBoard, multiplayer: SocketIO({ server }), debug: false });
 
 const GAMES_CATALOG = [
   {
@@ -250,6 +256,48 @@ const GAMES_CATALOG = [
     desc: '日本全国47都道府県から出身地を選んでスタート！各県独自のパッシブスキル、特産品、帰省仕送りイベントで大盛り上がりの人生ゲーム！',
     minPlayers: 2,
     maxPlayers: 4
+  },
+  {
+    id: 'deepsea',
+    title: '海底探険',
+    subtitle: 'Deep Sea Adventure',
+    enTitle: 'DEEP SEA',
+    icon: '🌊',
+    badge: 'チキンレース名作',
+    tagline: '共有酸素25を奪い合う欲張りダイブ！',
+    players: '2〜6人',
+    time: '約20分',
+    color: '#0284c7',
+    boxBg: 'linear-gradient(155deg, #082f49 0%, #0369a1 45%, #0ea5e9 100%)',
+    spineBg: 'linear-gradient(180deg, #020617 0%, #082f49 100%)',
+    topBg: '#0284c7',
+    boxBorder: '#38bdf8',
+    accentColor: '#bae6fd',
+    gradient: 'linear-gradient(135deg, #0ea5e9, #0369a1)',
+    desc: '1隻の潜水艦の酸素を全員で共有！お宝を拾うほど重く息が苦しくなる中、誰よりも深く潜り無事に生還せよ！',
+    minPlayers: 2,
+    maxPlayers: 6
+  },
+  {
+    id: 'onsoku',
+    title: '音速飯店',
+    subtitle: 'Onsoku Hanten',
+    enTitle: 'ONSOKU',
+    icon: '🍜',
+    badge: 'リアルタイム早出し',
+    tagline: '中華メニューを音速で作り上げろ！',
+    players: '2〜6人',
+    time: '約10分',
+    color: '#dc2626',
+    boxBg: 'linear-gradient(155deg, #450a0a 0%, #991b1b 45%, #dc2626 100%)',
+    spineBg: 'linear-gradient(180deg, #1c0505 0%, #7f1d1d 100%)',
+    topBg: '#b91c1c',
+    boxBorder: '#fbbf24',
+    accentColor: '#fde047',
+    gradient: 'linear-gradient(135deg, #ef4444, #b91c1c)',
+    desc: 'ターン待ち一切なし！「ラー」「メン」「チャー」「ハン」と具材カードを音速で繋げて料理を完成させる白熱バトル！',
+    minPlayers: 2,
+    maxPlayers: 6
   }
 ];
 
@@ -589,7 +637,7 @@ const App = () => {
     try {
       let match = null;
       let finalGameType = tGameType;
-      const allGames = ['splendor', 'ito', 'haa', 'propose', 'hannin', 'crashice', 'nimmt', 'indigo', 'jinsei'];
+      const allGames = ['splendor', 'ito', 'haa', 'propose', 'hannin', 'crashice', 'nimmt', 'indigo', 'jinsei', 'deepsea', 'onsoku'];
 
       try {
         match = await lobbyClient.getMatch(tGameType, tMatchID);
@@ -686,6 +734,10 @@ const App = () => {
               <IndigoClient matchID={matchID} playerID={playerID} credentials={credentials} />
             ) : gameType === 'jinsei' ? (
               <JinseiClient matchID={matchID} playerID={playerID} credentials={credentials} />
+            ) : gameType === 'deepsea' ? (
+              <DeepSeaClient matchID={matchID} playerID={playerID} credentials={credentials} />
+            ) : gameType === 'onsoku' ? (
+              <OnsokuClient matchID={matchID} playerID={playerID} credentials={credentials} />
             ) : (
               <SplendorClient matchID={matchID} playerID={playerID} credentials={credentials} />
             )}
@@ -775,8 +827,8 @@ const App = () => {
   }
 
   // 上段・下段の棚に分ける
-  const shelfTier1 = GAMES_CATALOG.slice(0, 4);
-  const shelfTier2 = GAMES_CATALOG.slice(4);
+  const shelfTier1 = GAMES_CATALOG.slice(0, 5);
+  const shelfTier2 = GAMES_CATALOG.slice(5);
 
   return (
     <div style={{
@@ -1163,7 +1215,7 @@ const App = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{ fontSize: '18px' }}>🪵</span>
               <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#fde68a', letterSpacing: '1px' }}>
-                BOARD GAME RACK (全9作品)
+                BOARD GAME RACK (全11作品)
               </span>
             </div>
             <div style={{ fontSize: '12px', color: '#b45309', fontWeight: 'bold' }}>
@@ -1445,7 +1497,7 @@ const App = () => {
 
         {/* FOOTER CREDITS */}
         <div style={{ textAlign: 'center', marginTop: '40px', fontSize: '12px', color: '#78716c' }}>
-          Board Game Portal © 2026 • Splendor / Ito / Haa / Propose / Hannin / Crash Ice / Nimmt / Indigo / Jinsei 47
+          Board Game Portal © 2026 • Splendor / Ito / Haa / Propose / Hannin / Crash Ice / Nimmt / Indigo / Jinsei 47 / Deep Sea / Onsoku Hanten
         </div>
 
       </div>

@@ -2,23 +2,24 @@
 // ニンテンドースイッチ風 5大時代（ライフステージ）＆ターン固定進行モデル
 // 通常モード ＋ 隠しリアルハードモード（親ガチャ・偏差値・学歴フィルター）
 import { PREFECTURES, getPrefectureById } from './data/prefecturesData.js';
-import { LIFE_ERAS, getEraById, getAllSpacesFlat, getSpaceMoneyDetails } from './data/lifeErasData.js';
+import { LIFE_ERAS, getEraById, getAllSpacesFlat, getSpaceMoneyDetails, calculateNextPosition } from './data/lifeErasData.js';
 
-export { LIFE_ERAS, getEraById, getSpaceMoneyDetails };
+export { LIFE_ERAS, getEraById, getSpaceMoneyDetails, calculateNextPosition };
 export const BOARD_SPACES = getAllSpacesFlat();
 
 export const OCCUPATIONS = [
-  { id: 'doctor', title: '名医・ドクター', baseSalary: 220, maxSalary: 550, icon: '🩺', type: 'expert', minHensachi: 68, tierDesc: '最難関医学部卒' },
-  { id: 'consultant', title: '外資系コンサル・高級官僚', baseSalary: 180, maxSalary: 480, icon: '⚖️', type: 'tokyo', minHensachi: 64, tierDesc: '難関旧帝・早慶上位卒' },
-  { id: 'salaryman', title: '大手企業 総合職', baseSalary: 130, maxSalary: 300, icon: '💼', type: 'general', minHensachi: 56, tierDesc: '有名私立・上位国公立卒' },
-  { id: 'it_engineer', title: 'ITベンチャー 起業家', baseSalary: 150, maxSalary: 450, icon: '💻', type: 'tokyo', minHensachi: 52, tierDesc: '理系大・IT専門卒' },
-  { id: 'civil_servant', title: '安定の地方公務員', baseSalary: 110, maxSalary: 240, icon: '🏛️', type: 'local', minHensachi: 48, tierDesc: '地元大学・短大卒' },
-  { id: 'driver', title: '現場プロ・大型ドライバー', baseSalary: 110, maxSalary: 280, icon: '🚚', type: 'local', minHensachi: 0, tierDesc: '学歴不問！実力と体力勝負' },
-  { id: 'farmer', title: 'アグリビジネス・農業王', baseSalary: 100, maxSalary: 350, icon: '🚜', type: 'local', minHensachi: 0, tierDesc: '学歴不問！大地と生きる情熱' },
-  { id: 'artisan', title: '伝統工芸・名匠職人', baseSalary: 90, maxSalary: 380, icon: '🏺', type: 'local', minHensachi: 0, tierDesc: '学歴不問！研ぎ澄まされた技' },
-  { id: 'idol', title: 'ご当地スター・アイドル', baseSalary: 80, maxSalary: 550, icon: '🎤', type: 'entertainment', minHensachi: 0, tierDesc: '学歴不問！天性のオーラと夢' },
-  { id: 'freeter', title: '自由人・フリーター', baseSalary: 60, maxSalary: 160, icon: '🎸', type: 'general', minHensachi: 0, tierDesc: '束縛されないマイルート' },
-  { id: 'unemployed', title: '無職・求職中', baseSalary: 0, maxSalary: 0, icon: '🏚️', type: 'general', minHensachi: 0, tierDesc: '就活全滅…無職生活スタート' },
+  { id: 'doctor', title: '名医・ドクター', baseSalary: 220, maxSalary: 550, icon: '🩺', type: 'expert', minHensachi: 68, minStamina: 40, reqAcademic: 75, reqStamina: 40, tierDesc: '最難関医学部卒・極限の医学知性と夜勤に耐える体力' },
+  { id: 'consultant', title: '外資系コンサル・高級官僚', baseSalary: 180, maxSalary: 480, icon: '⚖️', type: 'tokyo', minHensachi: 64, minStamina: 45, reqAcademic: 70, reqStamina: 45, tierDesc: '難関大卒・高度論理思考と激務に耐えるタフネス' },
+  { id: 'athlete', title: 'プロアスリート・五輪選手', baseSalary: 160, maxSalary: 500, icon: '⚽', type: 'expert', minHensachi: 38, minStamina: 70, reqAcademic: 35, reqStamina: 75, tierDesc: '強靭な肉体と日々の鍛錬！極限の運動体力特化' },
+  { id: 'it_engineer', title: 'ITベンチャー 起業家', baseSalary: 150, maxSalary: 450, icon: '💻', type: 'tokyo', minHensachi: 52, minStamina: 45, reqAcademic: 60, reqStamina: 55, tierDesc: '理系大卒・最先端IT技術と開発をやり抜く集中体力' },
+  { id: 'salaryman', title: '大手企業 総合職', baseSalary: 130, maxSalary: 300, icon: '💼', type: 'general', minHensachi: 54, minStamina: 48, reqAcademic: 58, reqStamina: 50, tierDesc: '有名大卒・知性と通勤営業をこなす安定の体力' },
+  { id: 'civil_servant', title: '安定の地方公務員', baseSalary: 110, maxSalary: 240, icon: '🏛️', type: 'local', minHensachi: 48, minStamina: 45, reqAcademic: 52, reqStamina: 48, tierDesc: '地元大短大卒・公務員試験突破と日々の奉仕体力' },
+  { id: 'driver', title: '現場プロ・大型ドライバー', baseSalary: 110, maxSalary: 280, icon: '🚚', type: 'local', minHensachi: 0, minStamina: 58, reqAcademic: 40, reqStamina: 60, tierDesc: '学歴不問！全国輸送を支える頑強なタフネス体力' },
+  { id: 'farmer', title: 'アグリビジネス・農業王', baseSalary: 100, maxSalary: 350, icon: '🚜', type: 'local', minHensachi: 0, minStamina: 52, reqAcademic: 45, reqStamina: 55, tierDesc: '学歴不問！自然を愛する知識と朝起きのバイタリティ' },
+  { id: 'artisan', title: '伝統工芸・名匠職人', baseSalary: 90, maxSalary: 380, icon: '🏺', type: 'local', minHensachi: 0, minStamina: 48, reqAcademic: 50, reqStamina: 50, tierDesc: '学歴不問！繊細な美意識と一日中集中する持続体力' },
+  { id: 'idol', title: 'ご当地スター・アイドル', baseSalary: 80, maxSalary: 550, icon: '🎤', type: 'entertainment', minHensachi: 0, minStamina: 50, reqAcademic: 45, reqStamina: 50, tierDesc: '学歴不問！激しいダンスレッスンとステージをこなす体力' },
+  { id: 'freeter', title: '自由人・フリーター', baseSalary: 60, maxSalary: 160, icon: '🎸', type: 'general', minHensachi: 0, minStamina: 0, reqAcademic: 0, reqStamina: 0, tierDesc: '学歴・体力不問！自由気ままなマイルート' },
+  { id: 'unemployed', title: '無職・求職中', baseSalary: 0, maxSalary: 0, icon: '🏚️', type: 'general', minHensachi: 0, minStamina: 0, reqAcademic: 0, reqStamina: 0, tierDesc: '学歴・体力不問。充電期間で知性と体力を鍛え直そう' },
 ];
 
 // 就職ルーレット（1〜10の出目と職業の対応テーブル）
@@ -32,7 +33,7 @@ export const JOB_ROULETTE_TABLE = {
   7: 'it_engineer',   // 💻 ITベンチャー 起業家 (給与 150万, minHensachi: 52)
   8: 'consultant',    // ⚖️ 外資系コンサル・高級官僚 (給与 180万, minHensachi: 64)
   9: 'doctor',        // 🩺 名医・ドクター (給与 220万, minHensachi: 68)
-  10: 'freeter',      // 🎸 自由人・フリーター (給与 60万, minHensachi: 0)
+  10: 'athlete',      // ⚽ プロアスリート・五輪選手 (給与 160万, minHensachi: 40)
 };
 
 export const HOUSES = [
@@ -43,16 +44,16 @@ export const HOUSES = [
 
 // 親の年収・家庭環境テーブル（ハードモード親ガチャ）
 export const PARENT_INCOME_TIERS = [
-  { roll: 1, title: '困窮家庭（借金生活）', income: 180, baseHensachi: 38, icon: '🏚️', desc: '生活費が足りず奨学金（借金100万）でスタート。独学で苦学。' },
-  { roll: 2, title: 'ギリギリ庶民家庭', income: 300, baseHensachi: 44, icon: '🛖', desc: '塾には通えず、参考書は図書館で借りて独学。' },
-  { roll: 3, title: '一般的な地方家庭', income: 420, baseHensachi: 49, icon: '🏠', desc: '公立小中高へ進学。部活中心ののびのび生活。' },
-  { roll: 4, title: '平均的サラリーマン家庭', income: 540, baseHensachi: 53, icon: '🏡', desc: '高校受験の前に近所の個人塾へ通わせてもらう。' },
-  { roll: 5, title: '安定の中流家庭', income: 680, baseHensachi: 57, icon: '🏘️', desc: '大手進学塾と通信教育。中堅大学への進学コース。' },
-  { roll: 6, title: 'アッパーミドル家庭', income: 880, baseHensachi: 61, icon: '🏙️', desc: '私立中高一貫校または難関公立高。夏期講習完備。' },
-  { roll: 7, title: 'エリート企業戦士家庭', income: 1150, baseHensachi: 65, icon: '🏢', desc: '英語教育と短期留学。難関早慶・旧帝大狙い。' },
-  { roll: 8, title: '開業医・大企業役員家庭', income: 1700, baseHensachi: 69, icon: '💎', desc: '名門私立・医学部専門予備校へ手厚い教育課金！' },
-  { roll: 9, title: '大企業オーナー一族', income: 3000, baseHensachi: 73, icon: '🏰', desc: '専属家庭教師軍団。旧帝大・医学部・海外名門大。' },
-  { roll: 10, title: '雲の上の大富豪・名門財閥', income: 5500, baseHensachi: 77, icon: '👑', desc: '圧倒的財力とコネクション！生まれた瞬間からエリート。' },
+  { roll: 1, title: '困窮家庭（借金生活）', income: 180, baseHensachi: 38, icon: '🏚️', startMoney: -100, startDebt: 1, desc: '生活費が足りず奨学金（借金100万）でスタート。独学で苦学。' },
+  { roll: 2, title: 'ギリギリ庶民家庭', income: 300, baseHensachi: 44, icon: '🛖', startMoney: 0, desc: '塾には通えず、参考書は図書館で借りて独学。' },
+  { roll: 3, title: '一般的な地方家庭', income: 420, baseHensachi: 49, icon: '🏠', startMoney: 50, desc: '公立小中高へ進学。部活中心ののびのび生活。' },
+  { roll: 4, title: '平均的サラリーマン家庭', income: 540, baseHensachi: 53, icon: '🏡', startMoney: 100, desc: '高校受験の前に近所の個人塾へ通わせてもらう。' },
+  { roll: 5, title: '安定の中流家庭', income: 680, baseHensachi: 57, icon: '🏘️', startMoney: 200, desc: '大手進学塾と通信教育。中堅大学への進学コース。' },
+  { roll: 6, title: 'アッパーミドル家庭', income: 880, baseHensachi: 61, icon: '🏙️', startMoney: 400, desc: '私立中高一貫校または難関公立高。夏期講習完備。' },
+  { roll: 7, title: 'エリート企業戦士家庭', income: 1150, baseHensachi: 65, icon: '🏢', startMoney: 800, desc: '英語教育と短期留学。難関早慶・旧帝大狙い。' },
+  { roll: 8, title: '開業医・大企業役員家庭', income: 1700, baseHensachi: 69, icon: '💎', startMoney: 1500, desc: '名門私立・医学部専門予備校へ手厚い教育課金！' },
+  { roll: 9, title: '大企業オーナー一族', income: 3000, baseHensachi: 73, icon: '🏰', startMoney: 2500, desc: '専属家庭教師軍団。旧帝大・医学部・海外名門大。' },
+  { roll: 10, title: '雲の上の大富豪・名門財閥', income: 5500, baseHensachi: 77, icon: '👑', startMoney: 5000, desc: '圧倒的財力とコネクション！生まれた瞬間からエリート。' },
 ];
 
 // 手番交代の共通処理（ニンテンドースイッチ風 時代進行連動）
@@ -71,17 +72,18 @@ export const advanceToNextTurn = (G, ctx, events) => {
     if (G.era === 1) {
       // 第1時代（子ども時代）終了 ➔ 第2時代（青年期）へ進級！
       G.era = 2;
-      G.eraMaxTurns = 4;
+      G.eraMaxTurns = 6;
       Object.values(G.players).forEach((p) => {
         p.eraTurns = 0;
         p.position = 0;
+        p.eraRoute = null;
       });
       G.currentSpaceModal = {
         type: 'era_milestone',
         title: '🎓【祝・青年期へ進級！】',
-        desc: '子ども時代（4年間）が終了し、波乱万丈の青年期（中高生・青春・受験時代）がスタート！学業や部活動、アルバイトに励み、将来の進路や就職に向けて自分を磨きましょう！',
+        desc: '子ども時代（6年間）が終了し、波乱万丈の青年期（中高生・青春・受験時代）がスタート！学問と部活、アルバイトに励み、将来の進路や就職に向けて自分を磨きましょう！',
       };
-      G.logs.unshift('🎓【時代進行】第1時代（子ども時代）が終了し、全員で第2時代（青年期）へ進級しました！');
+      G.logs.unshift('🎓【時代進行】第1時代（子ども時代）が終了し、全員で第2時代（青年期・全6ターン）へ進級しました！');
     } else if (G.era === 2) {
       // 第2時代（青年期）終了 ➔ 運命の進路選択＆就職ルーレット！
       // まだ職業が決まっていないプレイヤーがいれば順次進路選択へ誘導
@@ -105,53 +107,101 @@ export const advanceToNextTurn = (G, ctx, events) => {
 
       // 全員の就職先が決定済み ➔ 第3時代（大人時代・前半）へ進出！
       G.era = 3;
-      G.eraMaxTurns = 4;
+      G.eraMaxTurns = 6;
       Object.values(G.players).forEach((p) => {
         p.eraTurns = 0;
         p.position = 0;
+        p.eraRoute = null;
       });
       G.currentSpaceModal = {
         type: 'era_milestone',
         title: '💼【祝・新社会人！大人時代・前半スタート！】',
-        desc: '全員の就職先が決定し、いよいよ本格的な社会人生活がスタート！定期給料日や結婚、マイホーム購入など、人生の黄金期を駆け抜けましょう！',
+        desc: '全員の就職先が決定し、いよいよ本格的な社会人生活がスタート！定期給料日や結婚、マイホーム購入など、人生の黄金期（全6ターン）を駆け抜けましょう！',
       };
-      G.logs.unshift('💼【時代進行】第2時代（青年期）が終了し、全員就職して第3時代（大人時代・前半）へ進出しました！');
+      G.logs.unshift('💼【時代進行】第2時代（青年期）が終了し、全員就職して第3時代（大人時代・前半・全6ターン）へ進出しました！');
     } else if (G.era === 3) {
-      // 第3時代（大人時代・前半）終了 ➔ 第4時代（大人時代・後半）へ進出！
+      // 第3時代（大人時代・前半）終了 ➔ アイドル・アスリートの引退チェック
+      const retiringPlayer = Object.values(G.players).find(
+        (p) => (p.occupation?.id === 'idol' || p.occupation?.id === 'athlete') && !p.hasRetiredAtEra4
+      );
+
+      if (retiringPlayer) {
+        retiringPlayer.hasRetiredAtEra4 = true;
+        const isIdol = retiringPlayer.occupation?.id === 'idol';
+        const bonus = 100;
+        retiringPlayer.money += bonus;
+
+        G.currentSpaceModal = {
+          spaceId: retiringPlayer.position,
+          type: 'job_change',
+          isForced: true,
+          retireReason: isIdol ? 'idol_graduation' : 'athlete_retirement',
+          bonusMoney: bonus,
+          beforeMoney: retiringPlayer.money - bonus,
+          afterMoney: retiringPlayer.money,
+          deltaMoney: bonus,
+          title: isIdol ? '🎤 💐【祝・アイドル卒業＆引退式典】' : '⚽ 🏆【祝・プロアスリート現役引退式典】',
+          desc: isIdol
+            ? `40代を迎え、伝説のアイドルとして有終の美を飾りドーム公演で卒業！卒業祝金 +${bonus}万円 を受領しました！年齢制限によりアイドル継続は不可のため、セカンドキャリアへ強制転職となります！`
+            : `40代を迎え、惜しまれつつ現役引退セレモニー！引退記念一時金 +${bonus}万円 を受領しました！アスリート継続は不可のため、セカンドキャリアへ強制転職となります！`,
+          details: `${isIdol ? 'アイドル卒業祝い金' : '現役引退功労金'}: +${bonus}万円 獲得！セカンドキャリアを選択してください。`,
+        };
+        G.currentTurnPlayer = retiringPlayer.id;
+        if (events && events.endTurn) {
+          events.endTurn({ next: retiringPlayer.id });
+        }
+        G.logs.unshift(
+          isIdol
+            ? `🎤 💐【アイドル卒業式典】Player ${retiringPlayer.id} は40代を迎えアイドルを卒業！卒業祝金 +${bonus}万円 受領！セカンドキャリアへ強制転職！`
+            : `⚽ 🏆【現役引退式典】Player ${retiringPlayer.id} は40代を迎え現役引退！引退功労金 +${bonus}万円 受領！セカンドキャリアへ強制転職！`
+        );
+        return;
+      }
+
+      // 全員の引退処理完了後 ➔ 第4時代（大人時代・後半）へ進出！
       G.era = 4;
-      G.eraMaxTurns = 4;
+      G.eraMaxTurns = 6;
       Object.values(G.players).forEach((p) => {
         p.eraTurns = 0;
         p.position = 0;
+        p.eraRoute = null;
       });
       G.currentSpaceModal = {
         type: 'era_milestone',
         title: '⚖️【大人時代・後半スタート！】',
-        desc: '40代〜50代の中高年期へ突入！キャリアの分岐（起業 vs 昇進）や役員昇進、実家への帰省など、大人の責任と実績が試される時代です！',
+        desc: '40代〜50代の中高年期へ突入！キャリアの分岐（起業 vs 昇進）や役員昇進、実家への帰省など、大人の責任と実績が試される時代（全6ターン）です！',
       };
-      G.logs.unshift('⚖️【時代進行】第3時代（大人時代・前半）が終了し、第4時代（大人時代・後半）へ進出しました！');
+      G.logs.unshift('⚖️【時代進行】第3時代（大人時代・前半）が終了し、第4時代（大人時代・後半・全6ターン）へ進出しました！');
     } else if (G.era === 4) {
       // 第4時代（大人時代・後半）終了 ➔ 定年退職式典＆第5時代（シニア・老後時代）へ！
       Object.values(G.players).forEach((p) => {
         if (!p.isRetired) {
           p.isRetired = true;
-          const retMoney = 400 + (p.salary ? Math.round(p.salary * 1.5) : 100);
+          let retMoney = 0;
+          if (p.occupation?.id === 'unemployed') {
+            retMoney = 0;
+          } else if (p.occupation?.id === 'freeter') {
+            retMoney = 200;
+          } else {
+            retMoney = Math.round((p.salary || 100) * 8);
+          }
           p.money += retMoney;
-          G.logs.unshift(`🎖️ 【定年退職式典】Player ${p.id} が定年退職！退職金 +${retMoney}万円 支給！`);
+          G.logs.unshift(`🎖️ 【定年退職式典】Player ${p.id} が定年退職！職業【${p.occupation?.title || '無職'}】の功績に応じた退職金 +${retMoney}万円 支給！`);
         }
       });
       G.era = 5;
-      G.eraMaxTurns = 3;
+      G.eraMaxTurns = 4;
       Object.values(G.players).forEach((p) => {
         p.eraTurns = 0;
         p.position = 0;
+        p.eraRoute = null;
       });
       G.currentSpaceModal = {
         type: 'era_milestone',
         title: '🏰【祝・定年退職＆シニア・老後時代スタート！】',
-        desc: '長年の会社員生活お疲れ様でした！全員に退職金が支給されました！ここからは悠々自適のセカンドライフ。定期年金を受け取りながら人生の集大成へ向かいましょう！',
+        desc: '長年の会社員生活お疲れ様でした！全員に退職金が支給されました！ここからは悠々自適のセカンドライフ（全4ターン）。定期年金を受け取りながら人生の集大成へ向かいましょう！',
       };
-      G.logs.unshift('🏰【時代進行】第4時代が終了！全員退職金を受給し、第5時代（シニア・老後時代）へ突入しました！');
+      G.logs.unshift('🏰【時代進行】第4時代が終了！全員退職金を受給し、第5時代（シニア・老後時代・全4ターン）へ突入しました！');
     } else if (G.era === 5) {
       // 第5時代終了 ➔ ゲーム終了＆最終資産決算！
       JinseiGame.calculateFinalSettlement(G);
@@ -222,21 +272,27 @@ export const applyPrefectureChoice = (G, random, playerID, prefId) => {
     G.logs.unshift(`🛡️ 【${pref.traitName}】により、保険（生命・火災）が無料付帯されました！`);
   }
 
-  // ハードモード時：親ガチャルーレット＆偏差値決定！
+  // ハードモード時：親ガチャルーレット＆偏差値・体力決定！
   if (G.isHardMode) {
     const pRoll = random ? random.Die(10) : (Math.floor(Math.random() * 10) + 1);
     const parentTier = PARENT_INCOME_TIERS[pRoll - 1];
     const luckDelta = random ? (random.Die(9) - 4) : (Math.floor(Math.random() * 9) - 4);
     const finalHensachi = Math.max(35, Math.min(78, parentTier.baseHensachi + luckDelta));
 
+    // 体力も生まれ持った運動素質・バイタリティとして決定！（35〜80）
+    const stamRoll = random ? (random.Die(11) - 6) : (Math.floor(Math.random() * 11) - 6);
+    const finalStamina = Math.max(35, Math.min(80, 50 + stamRoll * 3));
+    p.stamina = finalStamina;
+    p.academic = Math.max(25, Math.min(95, Math.round(finalHensachi * 1.05 - 8)));
+
     p.parentIncome = parentTier;
     p.hensachi = finalHensachi;
-
-    if (pRoll === 1) {
-      p.debt = Math.max(p.debt, 1); // 奨学金100万スタート
+    p.money = parentTier.startMoney !== undefined ? parentTier.startMoney : 100;
+    if (parentTier.startDebt) {
+      p.debt = parentTier.startDebt;
     }
 
-    G.logs.unshift(`💀【出生地＆親ガチャ結果】Player ${playerID} は運命により【${pref.name}】に誕生！実家年収: ${parentTier.income}万円（${parentTier.title}）➔ 初期偏差値【${finalHensachi}】！`);
+    G.logs.unshift(`💀【出生地＆親ガチャ結果】Player ${playerID} は運命により【${pref.name}】に誕生！実家年収: ${parentTier.income}万円（${parentTier.title}）➔ 初期資金【${p.money}万円】${p.debt > 0 ? `（借金${p.debt * 100}万）` : ''} ＆ 🎓偏差値【${finalHensachi}】 ＆ 🏃体力【${finalStamina}】！`);
   }
 
   // 全員が出身地を選び終えたらゲーム開始
@@ -263,12 +319,15 @@ export const JinseiGame = {
         name: `Player ${i}`,
         color: colors[i % colors.length],
         money: 500, // 初期所持金 500万円
+        academic: 50, // 学力（知性・勉強パラメータ: 0〜100）
+        stamina: 50,  // 体力（運動・体力パラメータ: 0〜100）
         prefecture: null,
         parentIncome: null, // 親ガチャ情報 (ハードモード用)
         hensachi: 50,       // 偏差値 (ハードモード用)
         position: 0,
         eraTurns: 0,        // 現在の時代でのターン数
         totalTurns: 0,      // 人生総ターン数
+        eraRoute: null,     // 現在の時代で選択したコース ('A' or 'B')
         branchRoute: null,
         midlifeRoute: null,
         occupation: null,
@@ -296,7 +355,7 @@ export const JinseiGame = {
       gameState: 'lobby', // 'lobby' | 'select_prefecture' | 'playing' | 'game_over'
       isHardMode: false,  // 隠しリアル格差ハードモード
       era: 1,             // 1: 子ども時代, 2: 青年期, 3: 大人前半, 4: 大人後半, 5: シニア
-      eraMaxTurns: 4,     // 現在の時代の規定ターン数
+      eraMaxTurns: 6,     // 現在の時代の規定ターン数（1.5倍：旧4 -> 6ターン）
       players,
       currentTurnPlayer: '0',
       rouletteValue: null,
@@ -376,7 +435,7 @@ export const JinseiGame = {
       applyPrefectureChoice(G, random, playerID, chosenPref.id);
     },
 
-    // 2. ルーレットを回す（ニンテンドースイッチ風 時代サーキット周回）
+    // 2. ルーレットを回す（ニンテンドースイッチ風 時代サーキット周回・分岐対応）
     spinRoulette: ({ G, ctx, random }, playerID) => {
       if (G.gameState !== 'playing') return;
       if (ctx.currentPlayer !== playerID) return;
@@ -398,9 +457,41 @@ export const JinseiGame = {
 
       const currentEra = getEraById(G.era);
       const eraSpaces = currentEra.spaces;
+      const branchInfo = currentEra.branchInfo;
+      const lastSpaceId = eraSpaces.length - 1;
 
-      // 移動処理（時代サーキット周回）
-      const targetPos = (p.position + totalSteps) % eraSpaces.length;
+      // すでに時代のゴール（最終マス）に到達している場合は待機ボーナス（ループ完全防止）
+      if (p.position >= lastSpaceId) {
+        p.eraTurns = (p.eraTurns || 0) + 1;
+        p.totalTurns = (p.totalTurns || 0) + 1;
+        const standbyBonus = 30;
+        p.money += standbyBonus;
+        G.turnStep = 'resolve_space';
+        const remainingTurns = Math.max(0, G.eraMaxTurns - p.eraTurns);
+        G.logs.unshift(`🌟 Player ${playerID} は既に【${currentEra.name}・ゴール】に到達しています！優雅なバカンス待機ボーナス +${standbyBonus}万円 獲得！（残り${remainingTurns}ターン）`);
+        G.currentSpaceModal = {
+          spaceId: lastSpaceId,
+          title: `🌟 【${currentEra.name}・ゴール待機中】`,
+          desc: `すでに時代のゴールに到達しています！他のプレイヤーの進行を待つ間、優雅に過ごして特別待機ボーナス +${standbyBonus}万円 を獲得しました！`,
+          type: 'goal_standby',
+          beforeMoney: p.money - standbyBonus,
+          afterMoney: p.money,
+          deltaMoney: standbyBonus,
+          details: `ゴール待機ボーナス: +${standbyBonus}万円 を受領しました！`,
+          hometownPerk: null,
+          travelData: null,
+        };
+        return;
+      }
+
+      // 分岐点ストップ判定：まだコース未選択の状態で分岐点に到達・通過する場合は必ず分岐点でストップ
+      let targetPos;
+      if (branchInfo && p.position < branchInfo.branchSpaceId && p.position + totalSteps >= branchInfo.branchSpaceId && !p.eraRoute) {
+        targetPos = branchInfo.branchSpaceId;
+      } else {
+        targetPos = calculateNextPosition(p.position, totalSteps, p.eraRoute, branchInfo, eraSpaces.length);
+      }
+
       p.position = targetPos;
       p.eraTurns = (p.eraTurns || 0) + 1;
       p.totalTurns = (p.totalTurns || 0) + 1;
@@ -408,10 +499,40 @@ export const JinseiGame = {
 
       const space = eraSpaces[targetPos] || eraSpaces[0];
       const remainingTurns = Math.max(0, G.eraMaxTurns - p.eraTurns);
-      G.logs.unshift(`🎯 Player ${playerID} がルーレット【${roll}${bonus ? '+1' : ''}】！【${space.title}】に到着！（${currentEra.name} 残り${remainingTurns}ターン）`);
+      const isGoalSpace = targetPos === lastSpaceId;
+
+      G.logs.unshift(
+        isGoalSpace
+          ? `🏁 🎉 Player ${playerID} が【${currentEra.name}・ゴール】に到達！【${space.title}】お祝い金獲得！（残り${remainingTurns}ターン）`
+          : `🎯 Player ${playerID} がルーレット【${roll}${bonus ? '+1' : ''}】！【${space.title}】に到着！（${currentEra.name} 残り${remainingTurns}ターン）`
+      );
 
       // マスイベント適用
       JinseiGame.resolveSpaceEffects(G, ctx, playerID, space, random);
+    },
+
+    // 2-B. 時代コース分岐選択 (Aコース vs Bコース)
+    chooseEraBranch: ({ G, ctx, events }, playerID, routeKey) => {
+      if (G.gameState !== 'playing') return;
+      if (ctx.currentPlayer !== playerID) return;
+      const p = G.players[playerID];
+      if (!p) return;
+
+      const currentEra = getEraById(G.era);
+      const branchInfo = currentEra?.branchInfo;
+      if (!branchInfo) return;
+
+      const chosenRoute = branchInfo.routes[routeKey] || branchInfo.routes.A;
+      p.eraRoute = routeKey;
+
+      if (routeKey === 'A') {
+        p.academic = Math.min(100, (p.academic || 50) + 5);
+      } else {
+        p.stamina = Math.min(100, (p.stamina || 50) + 5);
+      }
+
+      G.logs.unshift(`🛤️ Player ${playerID} は【${chosenRoute.name}】を選択しました！（${chosenRoute.desc}）`);
+      advanceToNextTurn(G, ctx, events);
     },
 
     // 3. 職業選択 (通常または学歴フィルター/逆転面接)
@@ -449,17 +570,24 @@ export const JinseiGame = {
             advanceToNextTurn(G, ctx, events);
           }
         } else {
-          if ((p.hensachi || 50) >= occ.minHensachi) {
+          const devReq = occ.minHensachi || 0;
+          const stamReq = occ.minStamina || 0;
+          const devPass = devReq === 0 || (p.hensachi || 50) >= devReq;
+          const stamPass = stamReq === 0 || (p.stamina || 50) >= stamReq;
+          if (devPass && stamPass) {
             p.occupation = occ;
             p.salary = occ.baseSalary;
-            G.logs.unshift(`🎓【正規採用！】偏差値【${p.hensachi}】の実力で見事【${occ.title}】に合格！（初任給: ${occ.baseSalary}万円）`);
+            G.logs.unshift(`🎓【正規採用！】偏差値【${p.hensachi || 50}】＆ 体力【${p.stamina || 50}】の実力で見事【${occ.title}】に合格！（初任給: ${occ.baseSalary}万円）`);
             advanceToNextTurn(G, ctx, events);
           } else {
-            p.money -= 20;
+            p.money -= 30;
             const unempOcc = OCCUPATIONS.find((o) => o.id === 'unemployed') || { id: 'unemployed', title: '無職・求職中', baseSalary: 0, maxSalary: 0, icon: '🏚️' };
             p.occupation = unempOcc;
             p.salary = 0;
-            G.logs.unshift(`⚠️ 偏差値不足のため採用見送り！就活費用 -20万円。【無職】として人生を続行します。`);
+            const reasons = [];
+            if (!devPass) reasons.push(`要偏差値【${devReq}】に対し偏差値【${p.hensachi || 50}】`);
+            if (!stamPass) reasons.push(`要体力【${stamReq}】に対し体力【${p.stamina || 50}】`);
+            G.logs.unshift(`⚠️ ${reasons.join(' ＆ ')}が不足のため採用見送り！就活費用 -30万円。【無職】として人生を続行します。`);
             advanceToNextTurn(G, ctx, events);
           }
         }
@@ -481,6 +609,8 @@ export const JinseiGame = {
       const roll = random ? random.Die(10) : (Math.floor(Math.random() * 10) + 1);
       const jobId = JOB_ROULETTE_TABLE[roll] || 'salaryman';
       const candidateOcc = OCCUPATIONS.find((o) => o.id === jobId) || OCCUPATIONS[0];
+      const pDev = p.hensachi || 50;
+      const pStam = p.stamina || 50;
 
       let resultData = {
         roll,
@@ -488,19 +618,27 @@ export const JinseiGame = {
         passed: true,
         finalOcc: candidateOcc,
         isHardMode: !!G.isHardMode,
+        playerID,
+        playerHensachi: pDev,
+        playerStamina: pStam,
         penalty: 0,
+        failReason: '',
       };
 
       if (G.isHardMode) {
-        const pDev = p.hensachi || 50;
-        if (pDev >= candidateOcc.minHensachi) {
+        const devReq = candidateOcc.minHensachi || 0;
+        const stamReq = candidateOcc.minStamina || 0;
+        const devPass = devReq === 0 || pDev >= devReq;
+        const stamPass = stamReq === 0 || pStam >= stamReq;
+
+        if (devPass && stamPass) {
           p.occupation = candidateOcc;
           p.salary = candidateOcc.baseSalary;
           resultData.passed = true;
           resultData.finalOcc = candidateOcc;
-          G.logs.unshift(`🎓【就職ルーレット】出目【${roll}】！偏差値【${pDev}】で見事【${candidateOcc.title}】（要偏差値:${candidateOcc.minHensachi}）を突破して正規採用！（初任給: ${candidateOcc.baseSalary}万円）`);
+          G.logs.unshift(`🎓【就職ルーレット】出目【${roll}】！偏差値【${pDev}】(要:${devReq}) ＆ 体力【${pStam}】(要:${stamReq})で見事【${candidateOcc.title}】に正規採用！（初任給: ${candidateOcc.baseSalary}万円）`);
         } else {
-          // 学歴フィルター不合格 -> 就活費 -30万、無職で続行
+          // 学歴・体力選考フィルター不合格 -> 就活費 -30万、無職で続行
           p.money -= 30;
           const unempOcc = OCCUPATIONS.find((o) => o.id === 'unemployed') || { id: 'unemployed', title: '無職・求職中', baseSalary: 0, maxSalary: 0, icon: '🏚️' };
           p.occupation = unempOcc;
@@ -508,7 +646,14 @@ export const JinseiGame = {
           resultData.passed = false;
           resultData.finalOcc = unempOcc;
           resultData.penalty = 30;
-          G.logs.unshift(`💀【就職ルーレット】出目【${roll}】…志望先【${candidateOcc.title}】（要偏差値:${candidateOcc.minHensachi}）に対し偏差値【${pDev}】が不足して不合格！就活費用 -30万円、【無職・求職中】として人生を続行します…！`);
+
+          const reasons = [];
+          if (!devPass) reasons.push(`要偏差値【${devReq}】に対し偏差値【${pDev}】`);
+          if (!stamPass) reasons.push(`要体力【${stamReq}】に対し体力【${pStam}】`);
+          const reasonStr = reasons.join(' ＆ ') + ' が不足';
+          resultData.failReason = reasonStr;
+
+          G.logs.unshift(`💀【就職ルーレット】出目【${roll}】…志望先【${candidateOcc.title}】の選考に対し、${reasonStr}のため不採用！就活費用 -30万円、【無職・求職中】として人生を続行します…！`);
         }
       } else {
         // 通常モード：出目の職業に即就任
@@ -521,14 +666,69 @@ export const JinseiGame = {
 
       G.currentSpaceModal = {
         spaceId: p.position,
-        title: resultData.passed ? '🎉 【採用決定！】就職ルーレット結果' : '💀 【学歴フィルター不採用…】就職ルーレット結果',
+        title: resultData.passed ? '🎉 【採用決定！】就職ルーレット結果' : '💀 【選考フィルター不採用…】就職ルーレット結果',
         desc: resultData.passed
-          ? `出目【${roll}】で【${resultData.finalOcc.title}】に内定しました！`
-          : `出目【${roll}】の【${candidateOcc.title}】（要偏差値:${candidateOcc.minHensachi}）は学歴フィルターにより不合格となりました…！`,
+          ? `出目【${roll}】で【${resultData.finalOcc.title}】に内定しました！（初任給: ${resultData.finalOcc.baseSalary}万円）`
+          : `出目【${roll}】の【${candidateOcc.title}】の選考は、${resultData.failReason}のため不合格となりました…！`,
         type: 'job_result',
         resultData,
       };
       G.turnStep = 'end_turn';
+    },
+
+    // 3-C. 転職チャンス（学力・体力ラインを参照して転職または現状維持）
+    changeJob: ({ G, ctx, events }, playerID, jobId) => {
+      if (G.gameState !== 'playing') return;
+      if (ctx.currentPlayer !== playerID) return;
+      const p = G.players[playerID];
+      if (!p) return;
+
+      const modal = G.currentSpaceModal;
+      const isForced = modal?.isForced;
+      const currentOcc = p.occupation;
+
+      // 現状維持（転職しない・現在の職業を継続）
+      if (!jobId || jobId === 'keep' || jobId === currentOcc?.id) {
+        if (isForced) {
+          G.logs.unshift(`⚠️ 年齢・引退規定により現在の職業【${currentOcc?.title}】を維持することはできません！別のセカンドキャリアを選択してください。`);
+          return;
+        }
+        G.logs.unshift(`💼 Player ${playerID} は転職を見送り、現在の職業【${currentOcc?.icon || ''} ${currentOcc?.title || '無職'}】（給料:${p.salary}万円）を誇りを持って継続します！`);
+        advanceToNextTurn(G, ctx, events);
+        return;
+      }
+
+      const targetOcc = OCCUPATIONS.find((o) => o.id === jobId);
+      if (!targetOcc) {
+        advanceToNextTurn(G, ctx, events);
+        return;
+      }
+
+      // 年齢制限チェック：壮年期（Era 3）以降はアイドルへの新規就任不可、熟年期（Era 4）以降はアイドル・アスリートへの新規就任不可
+      if ((G.era >= 3 && targetOcc.id === 'idol') || (G.era >= 4 && (targetOcc.id === 'idol' || targetOcc.id === 'athlete'))) {
+        G.logs.unshift(`⚠️ 年齢規定により【${targetOcc.icon} ${targetOcc.title}】へ就任することはできません！別の職業を選択してください。`);
+        return;
+      }
+
+      const reqAcad = targetOcc.reqAcademic || 0;
+      const reqStam = targetOcc.reqStamina || 0;
+      const pAcad = p.academic || 50;
+      const pStam = p.stamina || 50;
+
+      if (pAcad >= reqAcad && pStam >= reqStam) {
+        const oldTitle = currentOcc ? `${currentOcc.icon} ${currentOcc.title}` : '無職';
+        p.occupation = targetOcc;
+        p.salary = targetOcc.baseSalary;
+        G.logs.unshift(`🎉 ✨【キャリアアップ大成功！】Player ${playerID} は【${oldTitle}】から【${targetOcc.icon} ${targetOcc.title}】へ転職！（給料: ${targetOcc.baseSalary}万円 / 学力:${pAcad}≧${reqAcad}, 体力:${pStam}≧${reqStam}）`);
+      } else {
+        G.logs.unshift(`⚠️ 学力または体力の要件を満たしていないため、転職は行われませんでした。（必要学力:${reqAcad}/現在:${pAcad}, 必要体力:${reqStam}/現在:${pStam}）`);
+        if (isForced) {
+          // 強制転職の場合は要件を満たす職を選ばせるためリターン
+          return;
+        }
+      }
+
+      advanceToNextTurn(G, ctx, events);
     },
 
     // 4. 分岐ルート選択 (進路分岐 または 中年キャリア分岐)
@@ -561,9 +761,9 @@ export const JinseiGame = {
         // 直ちに運命の就職ルーレットモーダルを開く
         G.currentSpaceModal = {
           spaceId: p.position,
-          title: G.isHardMode ? '💀【運命の就職ルーレット・学歴フィルター】' : '🎡【運命の就職ルーレット】就職先を決定！',
+          title: G.isHardMode ? '💀【運命の就職ルーレット・学歴＆体力選考フィルター】' : '🎡【運命の就職ルーレット】就職先を決定！',
           desc: G.isHardMode
-            ? `進路決定！ルーレット（1〜10）を回して就職先を決定します。現在の偏差値【${p.hensachi || 50}】で学歴フィルターを突破できるか！？不合格時は就活費 -30万円、【無職】で人生続行！`
+            ? `進路決定！ルーレット（1〜10）を回して就職先を決定します。現在の偏差値【${p.hensachi || 50}】＆ 体力【${p.stamina || 50}】で採用基準を突破できるか！？不合格時は就活費 -30万円、【無職】で人生続行！`
             : '進路決定！運命の就職ルーレット（1〜10）を回してあなたの職業を決定しよう！',
           type: 'choose_job',
         };
@@ -610,6 +810,166 @@ export const JinseiGame = {
       }
 
       advanceToNextTurn(G, ctx, events);
+    },
+
+    // 5-B. ハードモード親ガチャ旅行決断（行く vs キャンセル）
+    decideTravel: ({ G, ctx, random, events }, playerID, choice) => {
+      if (G.gameState !== 'playing') return;
+      if (ctx.currentPlayer !== playerID) return;
+      const p = G.players[playerID];
+      if (!p) return;
+
+      const modal = G.currentSpaceModal;
+      if (!modal || modal.type !== 'choose_travel') return;
+
+      const space = modal.space;
+      const parentTier = p.parentIncome || { income: 500, title: '平均的一般家庭', icon: '🏠' };
+      const beforeMoney = p.money;
+
+      if (choice === 'cancel') {
+        let deltaMoney = 0;
+        let acadDelta = 0;
+        let stamDelta = 0;
+        let hensachiDelta = 0;
+        let summaryDesc = '';
+
+        if (parentTier.income < 400) {
+          deltaMoney = 5;
+          acadDelta = 5;
+          stamDelta = 5;
+          p.money += deltaMoney;
+          p.academic = Math.min(100, (p.academic || 50) + acadDelta);
+          p.stamina = Math.min(100, (p.stamina || 50) + stamDelta);
+          summaryDesc = `親から「うちはよそと違うの！」と言われ旅行はあえなくキャンセル…！しかし涙を拭ってお留守番とお手伝いでお駄賃 +5万円 獲得！さらに図書館での独学と走り込みで【学力 +5】【体力 +5】大幅アップ！`;
+          G.logs.unshift(`🏠 💀【親ガチャの現実・旅行キャンセル】Player ${playerID} は実家年収（${parentTier.income}万）のため旅行を断念してお留守番。お駄賃 +5万円 ＆ 独学とお手伝いでたくましく成長！（学力+5/体力+5）`);
+        } else if (parentTier.income < 1000) {
+          deltaMoney = 15;
+          acadDelta = 4;
+          p.money += deltaMoney;
+          p.academic = Math.min(100, (p.academic || 50) + acadDelta);
+          summaryDesc = `家族と相談して旅行を賢くキャンセル！浮いた家族旅行代から特別お小遣い・貯蓄として +15万円 獲得！自宅でじっくり読書と自習をして【学力 +4】アップ！`;
+          G.logs.unshift(`🏠 【旅行キャンセル・堅実貯金】Player ${playerID} は旅行をキャンセルして貯金 +15万円 ＆ 自宅学習で学力+4！`);
+        } else {
+          deltaMoney = 50;
+          hensachiDelta = 1;
+          p.money += deltaMoney;
+          p.hensachi = Math.min(80, (p.hensachi || 50) + hensachiDelta);
+          summaryDesc = `「旅行に行かないならこれで好きなものを買いなさい！」富豪の親から自由に使っていいとお小遣い +50万円 支給！さらに余裕ある家庭環境で【偏差値 +1】UP！`;
+          G.logs.unshift(`🏠 👑【親ガチャ大勝利・旅行キャンセル】Player ${playerID} は旅行をパスしたものの、富豪の親（実家年収:${parentTier.income}万）から自由資金 +50万円 支給＆偏差値+1！`);
+        }
+
+        G.currentSpaceModal = {
+          spaceId: space?.id || p.position,
+          title: parentTier.income < 400 ? '🏠 💀【親ガチャの現実・旅行キャンセル】' : parentTier.income >= 1000 ? '🏠 👑【親ガチャ大勝利・旅行キャンセル】' : '🏠 【旅行キャンセル・堅実貯金】',
+          desc: summaryDesc,
+          type: 'travel_cancel_result',
+          deltaMoney,
+          beforeMoney,
+          afterMoney: p.money,
+          details: `所持金: ${beforeMoney}万 ➔ ${p.money}万 ${acadDelta > 0 ? `| 学力 +${acadDelta}` : ''} ${stamDelta > 0 ? `| 体力 +${stamDelta}` : ''} ${hensachiDelta > 0 ? `| 偏差値 +${hensachiDelta}` : ''}`,
+        };
+        G.turnStep = 'end_turn';
+        return;
+      }
+
+      // choice === 'go'
+      const baseCost = Math.abs(space?.amount || 25);
+      let effectiveCost = baseCost;
+      let travelBonus = 0;
+      const perkNotes = [];
+
+      // 親の年収による補正
+      if (parentTier.income < 400) {
+        effectiveCost += 10;
+        perkNotes.push(`困窮実家（年収${parentTier.income}万）:親支援なし・自腹追加+10万`);
+      } else if (parentTier.income >= 1000) {
+        effectiveCost = 0;
+        travelBonus += 30;
+        p.hensachi = Math.min(80, (p.hensachi || 50) + 1);
+        perkNotes.push(`富裕層実家（年収${parentTier.income}万）:親全額負担＆お小遣い+30万＆偏差値+1`);
+      } else if (parentTier.income >= 680) {
+        effectiveCost = Math.round(effectiveCost / 2);
+        perkNotes.push(`安定実家（年収${parentTier.income}万）:親が旅費半額負担`);
+      }
+
+      // 出身地恩恵チェック
+      if (p.prefecture?.passiveType === 'real_estate_discount') {
+        travelBonus += 50;
+        perkNotes.push('北海道「でっかい大地」:+50万');
+      }
+      if (p.prefecture?.passiveType === 'amusement_bonus') {
+        travelBonus += 40;
+        perkNotes.push('千葉「夢の国パワー」:+40万');
+      }
+      if (p.prefecture?.passiveType === 'onsen_heal_bonus') {
+        travelBonus += 60;
+        perkNotes.push('大分「日本一のおんせん県」:+60万');
+      }
+      if (p.prefecture?.passiveType === 'udon_cost_saver') {
+        effectiveCost = 0;
+        perkNotes.push('香川「讃岐うどんコスパ」:旅費0円');
+      }
+      if (p.prefecture?.passiveType === 'penalty_half') {
+        effectiveCost = Math.round(effectiveCost / 2);
+        perkNotes.push('静岡「富士山と駿河湾」:旅費半額');
+      }
+
+      const otherPrefs = PREFECTURES.filter((pr) => pr.id !== p.prefecture?.id);
+      const candidates = otherPrefs.length > 0 ? otherPrefs : PREFECTURES;
+      const destIdx = random ? (random.Die(candidates.length) - 1) : Math.floor(Math.random() * candidates.length);
+      const destination = candidates[destIdx] || PREFECTURES[0];
+
+      const newSouvenir = {
+        id: `${destination.id}_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+        prefId: destination.id,
+        prefName: destination.name,
+        regionName: destination.regionName,
+        name: destination.souvenir.name,
+        icon: destination.souvenir.icon,
+        value: destination.souvenir.value,
+        flavor: destination.flavor,
+        count: 1
+      };
+      p.souvenirs = p.souvenirs || [];
+      p.souvenirs.push(newSouvenir);
+
+      const netMoney = travelBonus - effectiveCost;
+      p.money += netMoney;
+
+      let perkMsg = '';
+      if (perkNotes.length > 0) {
+        perkMsg = `【実家・出身恩恵: ${perkNotes.join(', ')}】`;
+      }
+
+      const detailsText = `🗾【${destination.emoji} ${destination.name}（${destination.regionName}）】へ旅行！\nご当地名産品【${destination.souvenir.icon} ${destination.souvenir.name}】（資産価値 +${destination.souvenir.value}万円）を獲得！\n` +
+        `旅費: ${effectiveCost}万円 ${travelBonus > 0 ? `| ボーナス: +${travelBonus}万円` : ''} ➔ 収支: ${netMoney >= 0 ? '+' + netMoney : netMoney}万円`;
+
+      G.logs.unshift(
+        `✈️ 【家族旅行出発！】Player ${playerID} が【${destination.emoji} ${destination.name}】へ旅行！名産品【${destination.souvenir.icon} ${destination.souvenir.name}】（価値+${destination.souvenir.value}万）獲得！${perkMsg ? ` ✨${perkMsg}` : ''}`
+      );
+
+      const travelData = {
+        destination,
+        souvenir: newSouvenir,
+        baseCost,
+        effectiveCost,
+        travelBonus,
+        netMoney,
+        perkMsg
+      };
+
+      G.currentSpaceModal = {
+        spaceId: space?.id || p.position,
+        title: space?.title || '【全国ご当地旅行】',
+        desc: space?.desc || '全国の名所へ旅行！ご当地名産品を獲得！',
+        type: 'travel',
+        travelData,
+        deltaMoney: netMoney,
+        beforeMoney,
+        afterMoney: p.money,
+        details: detailsText,
+      };
+      G.turnStep = 'end_turn';
     },
 
     // 6. 手番終了
@@ -701,6 +1061,7 @@ export const JinseiGame = {
 
       case 'study': {
         let studyAmt = space.amount || 20;
+        p.academic = Math.min(100, (p.academic || 50) + 6);
         if (p.prefecture?.passiveType === 'artisan_bonus') {
           // 岐阜: 美濃飛騨の名工魂
           studyAmt += 30;
@@ -714,24 +1075,26 @@ export const JinseiGame = {
         if (G.isHardMode) {
           p.hensachi = Math.min(80, (p.hensachi || 50) + 3);
           p.money += (studyAmt - (space.amount || 20));
-          detailsText = `知性と教養がUP！偏差値 +3 上昇！${studyAmt > (space.amount || 20) ? `（名工奨励金 +${studyAmt - (space.amount || 20)}万）` : ''}`;
-          G.logs.unshift(`📖 【猛勉強の成果！】知性と教養がUPし、偏差値が +3 上昇！（現在: 偏差値【${p.hensachi}】）`);
+          detailsText = `知性と教養がUP！学力 +6（現在:${p.academic}）＆ 偏差値 +3 上昇！${studyAmt > (space.amount || 20) ? `（名工奨励金 +${studyAmt - (space.amount || 20)}万）` : ''}`;
+          G.logs.unshift(`📖 【猛勉強の成果！】学力 +6（現在:${p.academic}）＆ 偏差値 +3 上昇！（現在: 偏差値【${p.hensachi}】）`);
         } else {
           p.money += studyAmt;
-          detailsText = `特別奨励金 +${studyAmt}万円 獲得！`;
-          G.logs.unshift(`📖 【学問と教養】猛勉強の成果で特別奨励金 +${studyAmt}万円 獲得！`);
+          detailsText = `知性と教養がUP！学力 +6（現在:${p.academic}）＆ 特別奨励金 +${studyAmt}万円 獲得！`;
+          G.logs.unshift(`📖 【学問と教養】学力 +6（現在:${p.academic}）＆ 猛勉強の成果で特別奨励金 +${studyAmt}万円 獲得！`);
         }
         break;
       }
 
       case 'sports':
+        p.stamina = Math.min(100, (p.stamina || 50) + 6);
         p.money += (space.amount || 20);
         if (G.isHardMode) {
           p.hensachi = Math.min(80, (p.hensachi || 50) + 1);
-          detailsText = `大会賞金 +${space.amount || 20}万円 ＆ 偏差値 +1 UP！`;
-          G.logs.unshift(`🏃 【文武両道！】大会で大活躍し、偏差値が +1 UP！（現在: 偏差値【${p.hensachi}】）`);
+          detailsText = `体力 +6（現在:${p.stamina}）＆ 大会賞金 +${space.amount || 20}万円 ＆ 偏差値 +1 UP！`;
+          G.logs.unshift(`🏃 【文武両道！】体力 +6（現在:${p.stamina}）＆ 大会で大活躍、偏差値 +1 UP！（現在: 偏差値【${p.hensachi}】）`);
         } else {
-          detailsText = `大会賞金 +${space.amount || 20}万円 獲得！`;
+          detailsText = `体力 +6（現在:${p.stamina}）＆ 大会賞金 +${space.amount || 20}万円 獲得！`;
+          G.logs.unshift(`🏃 【スポーツ躍動！】体力 +6（現在:${p.stamina}）＆ 大会賞金 +${space.amount || 20}万円 獲得！`);
         }
         break;
 
@@ -807,12 +1170,24 @@ export const JinseiGame = {
         }
         break;
 
+      case 'child':
       case 'baby': {
-        const kCount = space.count || 1;
-        p.car.kids += kCount;
-        let babyBonus = 100 * kCount;
+        const bonusPerKid = space.amount || 50;
+        let isShotgunWedding = false;
+
+        // まだ結婚していない場合は「授かり婚・電撃結婚」として配偶者ピンも自動追加！
+        if (!p.car.spouse) {
+          p.car.spouse = true;
+          isShotgunWedding = true;
+        }
+
+        // 赤ちゃん誕生
+        p.car.kids = (p.car.kids || 0) + 1;
+        const kidNum = p.car.kids;
+
+        let babyBonus = bonusPerKid;
         if (p.prefecture?.passiveType === 'child_bonus') {
-          babyBonus = 150 * kCount;
+          babyBonus = Math.round(bonusPerKid * 1.5);
           hometownPerkTriggered = {
             prefName: p.prefecture.name,
             emoji: p.prefecture.emoji,
@@ -820,9 +1195,31 @@ export const JinseiGame = {
             effect: `上毛かるたの英才教育により出産祝い金が +${babyBonus}万円 に増額！`
           };
         }
+
         p.money += babyBonus;
-        detailsText = `子供ピン+${kCount}人追加（計${p.car.kids}人）！お祝い金 +${babyBonus}万円 獲得！（給料日手当毎月+${p.car.kids * 15}万＆決算資産+${p.car.kids * 200}万確定）`;
-        G.logs.unshift(`👶 赤ちゃん誕生！Player ${playerID} に子供ピン+${kCount}人追加（計${p.car.kids}人）！お祝い金 +${babyBonus}万円！`);
+
+        const kidTitle = kidNum === 1 ? '第1子' : (kidNum === 2 ? '第2子' : `第${kidNum}子`);
+
+        if (isShotgunWedding) {
+          detailsText = `【授かり婚＆出産！】素敵なパートナーと電撃結婚し、待望の${kidTitle}が誕生！（配偶者＋子どもピン追加、計${p.car.kids}人）出産祝い金 +${babyBonus}万円 獲得！（給料手当毎月+${p.car.kids * 15}万＆決算資産+${p.car.kids * 200}万確定）`;
+          G.logs.unshift(`👶 💍 【授かり婚＆出産！】Player ${playerID} は電撃結婚し、待望の${kidTitle}が誕生！（配偶者＆子どもピン追加、計${p.car.kids}人）出産祝い金 +${babyBonus}万円！`);
+        } else {
+          detailsText = `【祝・${kidTitle}誕生！】元気な赤ちゃんが誕生しました！（子どもピン追加、計${p.car.kids}人）出産祝い金 +${babyBonus}万円 獲得！（給料手当毎月+${p.car.kids * 15}万＆決算資産+${p.car.kids * 200}万確定）`;
+          G.logs.unshift(`👶 【祝・${kidTitle}誕生！】Player ${playerID} に${kidTitle}が誕生！（子どもピン追加、計${p.car.kids}人）出産祝い金 +${babyBonus}万円！`);
+        }
+        break;
+      }
+
+      case 'child_event': {
+        const amt = space.amount || 30;
+        p.money += amt;
+        if ((p.car.kids || 0) > 0) {
+          detailsText = `わが子の成長を家族みんなでお祝い！お祝い金 +${amt}万円 を受領しました！`;
+          G.logs.unshift(`🎒 👨‍👩‍👧‍👦 Player ${playerID} はわが子の成長をお祝い！お祝い金 +${amt}万円 獲得！`);
+        } else {
+          detailsText = `親戚や友人の子どものお祝いに参列！お返しや感謝の謝礼 +${amt}万円 を受け取りました！`;
+          G.logs.unshift(`🎁 Player ${playerID} は親戚・友人の子どもの成長祝いに参列し、感謝のお礼 +${amt}万円 獲得！`);
+        }
         break;
       }
 
@@ -870,6 +1267,13 @@ export const JinseiGame = {
         detailsText = '物件価格: 900万〜2000万円（最終資産価値 1300万〜2400万円）';
         break;
 
+      case 'branch_route': {
+        const curEra = getEraById(G.era);
+        const bInfo = curEra?.branchInfo;
+        detailsText = bInfo ? bInfo.branchDesc : '運命のコース分岐点です！進みたいコースを選択してください。';
+        break;
+      }
+
       case 'branch_career':
         detailsText = '自立・上京コース（引越し費 -20万/偏差値+2）または 地元・地方コース（定着祝い金 +30万）';
         break;
@@ -877,6 +1281,59 @@ export const JinseiGame = {
       case 'branch_midlife':
         detailsText = 'ベンチャー起業（特別出資 +80万）または 堅実継続（特別手当 +30万）';
         break;
+
+      case 'job_change': {
+        const isIdol = p.occupation?.id === 'idol';
+        const isAthleteInLateEra = p.occupation?.id === 'athlete' && G.era >= 4;
+        const isForcedRetire = isIdol || isAthleteInLateEra;
+
+        if (isForcedRetire) {
+          const bonus = 50;
+          p.money += bonus;
+          const title = isIdol ? '🎤 💐【祝・アイドル卒業！セカンドキャリア強制転職】' : '⚽ 🏆【祝・現役引退！セカンドキャリア強制転職】';
+          const desc = isIdol
+            ? `30代を迎え、ファンや事務所から温かく見送られアイドルを卒業！卒業準備金 +${bonus}万円 を受領しました！規約によりアイドル継続は不可のため、これまでの学力と体力を活かして新しい職業へ転職してください！`
+            : `体力の限界を迎え、惜しまれつつ現役引退！引退功労金 +${bonus}万円 を受領しました！アスリート継続は不可のため、新しいセカンドキャリアを選択してください！`;
+
+          G.currentSpaceModal = {
+            spaceId: space.id,
+            title,
+            desc,
+            type: 'job_change',
+            isForced: true,
+            retireReason: isIdol ? 'idol_graduation' : 'athlete_retirement',
+            bonusMoney: bonus,
+            beforeMoney: p.money - bonus,
+            afterMoney: p.money,
+            deltaMoney: bonus,
+            details: `${isIdol ? 'アイドル卒業祝い金' : '現役引退功労金'}: +${bonus}万円 獲得！現状維持は不可、新しい職業を選択してください。`,
+            hometownPerk: null,
+            travelData: null,
+          };
+          G.logs.unshift(
+            isIdol
+              ? `🎤 💐【アイドル卒業勧告】Player ${playerID} はアイドル卒業を迎え、卒業祝い金 +${bonus}万円 獲得！セカンドキャリアへ強制転職となります！`
+              : `⚽ 🏆【現役引退勧告】Player ${playerID} は現役引退を迎え、引退祝い金 +${bonus}万円 獲得！セカンドキャリアへ強制転職となります！`
+          );
+          return;
+        }
+
+        detailsText = '学力と体力を活かして新しい職業へ転職できます！転職するか現在の職業を継続するか選択してください。';
+        G.currentSpaceModal = {
+          spaceId: space.id,
+          title: space.title,
+          desc: space.desc,
+          type: 'job_change',
+          beforeMoney: p.money,
+          afterMoney: p.money,
+          deltaMoney: 0,
+          details: detailsText,
+          hometownPerk: null,
+          travelData: null,
+        };
+        G.logs.unshift(`💼 【転職チャンス到来！】Player ${playerID} は転職チャンスマスに到着！学力(${p.academic || 50})・体力(${p.stamina || 50})を活かして転職するか選択できます！`);
+        return;
+      }
 
       case 'health_check': {
         const isCovered = p.insurance?.life;
@@ -960,29 +1417,70 @@ export const JinseiGame = {
           };
         }
         if (lRoll >= 8) {
-          let winAmt = 100;
+          let winAmt = 1000;
           if (p.prefecture?.passiveType === 'gamble_boost') {
             // 石川: 加賀百万石の豪運
-            winAmt = 200;
+            winAmt = 2000;
             hometownPerkTriggered = {
               prefName: p.prefecture.name,
               emoji: p.prefecture.emoji,
               traitName: p.prefecture.traitName,
-              effect: '加賀百万石の豪運により当せん金が2倍（+200万円）！'
+              effect: '加賀百万石の豪運により当せん金が2倍（+2000万円）！'
             };
           }
           p.money += winAmt;
           detailsText = `ルーレット出目【${lRoll}】！見事1等当せん +${winAmt}万円 獲得！`;
-          G.logs.unshift(`🎰 【宝くじ大勝負・大当たり！】ルーレット【${lRoll}】で見事1等 +${winAmt}万円 に当選！`);
+          G.logs.unshift(`🎰 【宝くじ大勝負・超大当たり！】ルーレット【${lRoll}】で見事1等 +${winAmt}万円 に当選！一攫千金！`);
+        } else if (lRoll >= 5) {
+          p.money += 200;
+          detailsText = `ルーレット出目【${lRoll}】！見事2等当せんで +200万円 獲得！`;
+          G.logs.unshift(`🎰 【宝くじ中当たり！】ルーレット【${lRoll}】で見事2等 +200万円 に当選！`);
         } else {
-          p.money += 10;
-          detailsText = `ルーレット出目【${lRoll}】…末等当せんで +10万円 獲得！`;
-          G.logs.unshift(`🎰 【宝くじ大勝負】ルーレット【${lRoll}】…末等当選で +10万円 獲得！`);
+          p.money += 30;
+          detailsText = `ルーレット出目【${lRoll}】…末等当せんで +30万円 獲得！`;
+          G.logs.unshift(`🎰 【宝くじ】ルーレット【${lRoll}】…末等当選で +30万円 獲得！`);
         }
         break;
       }
 
       case 'travel': {
+        // ハードモード＆子ども時代・青年期（親と同居中）：親の年収に応じた家族旅行分岐モーダル！
+        if (G.isHardMode && p.parentIncome && G.era <= 2) {
+          const parentTier = p.parentIncome;
+          let adviceText = '';
+          let goPreview = '';
+          let cancelPreview = '';
+
+          if (parentTier.income < 400) {
+            adviceText = '「うちは毎日の生活費だけでギリギリなの…旅行なんて贅沢は絶対に無理！（親の援助: 0円）」';
+            goPreview = '親の支援ゼロ！自腹＆追加負担で強行（-25万〜）➔ 意地で名産品獲得';
+            cancelPreview = '旅費0円！お留守番でお駄賃 +5万＆独学とお手伝いで学力+5・体力+5！';
+          } else if (parentTier.income < 1000) {
+            adviceText = '「やりくりすれば行けるけれど、キャンセルして貯金や勉強に回すのも賢いわね。」';
+            goPreview = parentTier.income >= 680 ? '親が旅費を半額負担！お得に名産品獲得！' : '家族で計画通り旅行へ！名産品獲得！';
+            cancelPreview = '旅費0円！浮いた旅費を貯金 +15万 ＆ 自宅で勉強（学力+4）！';
+          } else {
+            adviceText = '「旅費くらい全部親が出してあげるわ！行かないならお小遣いをあげるわよ！」';
+            goPreview = '親が全額負担（旅費0円）＆お小遣い +30万 ＆ 名産品獲得 ＆ 偏差値+1！';
+            cancelPreview = '親から自由資金 +50万円 支給 ＆ 偏差値+1！';
+          }
+
+          G.currentSpaceModal = {
+            spaceId: space.id,
+            title: '✈️ 【親の年収と家族会議】旅行に行く？それともキャンセル？',
+            desc: `実家年収【${parentTier.income}万円】（${parentTier.title}）。家族旅行マスに到着しましたが、実家の経済状況を踏まえてどうしますか？`,
+            type: 'choose_travel',
+            space,
+            parentIncome: parentTier,
+            adviceText,
+            goPreview,
+            cancelPreview,
+          };
+          G.turnStep = 'resolve_space';
+          G.logs.unshift(`✈️ 【親の年収と家族会議】Player ${playerID} は実家年収【${parentTier.income}万】の家庭環境で旅行に行くかキャンセルかの岐路に立ちました！`);
+          return;
+        }
+
         const baseCost = Math.abs(space.amount || 25);
         let effectiveCost = baseCost;
         let travelBonus = 0;
@@ -1084,10 +1582,17 @@ export const JinseiGame = {
       case 'retirement':
         if (!p.isRetired) {
           p.isRetired = true;
-          const retirementFund = 400 + (p.salary ? Math.round(p.salary * 1.5) : 100);
+          let retirementFund = 0;
+          if (p.occupation?.id === 'unemployed') {
+            retirementFund = 0;
+          } else if (p.occupation?.id === 'freeter') {
+            retirementFund = 200;
+          } else {
+            retirementFund = Math.round((p.salary || 100) * 8);
+          }
           p.money += retirementFund;
           detailsText = `長年の功績を讃え、退職金 +${retirementFund}万円 支給！`;
-          G.logs.unshift(`🎖️ 【定年退職】長年のお勤めお疲れ様でした！退職金 +${retirementFund}万円 支給！`);
+          G.logs.unshift(`🎖️ 【定年退職】長年のお勤めお疲れ様でした！職業【${p.occupation?.title || '無職'}】の功績に応じた退職金 +${retirementFund}万円 支給！`);
         } else {
           detailsText = 'すでに退職金を受給済みです';
         }
@@ -1098,12 +1603,20 @@ export const JinseiGame = {
           p.isGoal = true;
           G.goalCount += 1;
           p.goalRank = G.goalCount;
-          const rankBonus = p.goalRank === 1 ? 500 : (p.goalRank === 2 ? 300 : 100);
+          const rankBonus = p.goalRank === 1 ? 2000 : (p.goalRank === 2 ? 1000 : (p.goalRank === 3 ? 400 : 100));
           p.money += rankBonus;
-          detailsText = `第${p.goalRank}位でゴール！着順ボーナス +${rankBonus}万円 獲得！`;
-          G.logs.unshift(`🏁 【祝・ゴール！】Player ${playerID} が着順ボーナス +${rankBonus}万円 獲得！`);
+          detailsText = `第${p.goalRank}位で生涯ゴール！着順ボーナス +${rankBonus}万円 獲得！`;
+          G.logs.unshift(`🏁 【祝・ゴール！】Player ${playerID} が第${p.goalRank}位で生涯ゴール！着順ボーナス +${rankBonus}万円 獲得！`);
         }
         break;
+
+      case 'era_goal': {
+        const bonus = space.amount || 100;
+        p.money += bonus;
+        detailsText = `時代のゴールに堂々到達！ゴールお祝い金 +${bonus}万円 を獲得！`;
+        G.logs.unshift(`🏁 🎉 【祝・時代ゴール到達！】Player ${playerID} が【${space.title}】に到達！お祝い金 +${bonus}万円 獲得！`);
+        break;
+      }
 
       default:
         break;
@@ -1144,10 +1657,10 @@ export const JinseiGame = {
         totalAsset += houseVal;
       }
 
-      if (p.car.spouse) totalAsset += 300;
-      let kidVal = 200;
-      if (p.prefecture?.passiveType === 'family_bonus_boost') kidVal = 300;
-      totalAsset += p.car.kids * kidVal;
+      if (p.car.spouse) totalAsset += 500;
+      let kidVal = 300;
+      if (p.prefecture?.passiveType === 'family_bonus_boost') kidVal = 500;
+      totalAsset += (p.car.kids || 0) * kidVal;
 
       // ご当地名産品の資産加算
       let souvenirTotal = 0;
@@ -1163,14 +1676,28 @@ export const JinseiGame = {
 
       // 全国トラベラー賞ボーナス
       if (p.souvenirs.length >= 5) {
-        totalAsset += 300;
-        G.logs.unshift(`🗾 🏆【日本一周グランドトラベラー賞！】Player ${p.id} は全国の名産品を${p.souvenirs.length}品収集！特別ボーナス +300万円！`);
+        totalAsset += 500;
+        G.logs.unshift(`🗾 🏆【日本一周グランドトラベラー賞！】Player ${p.id} は全国の名産品を${p.souvenirs.length}品収集！特別ボーナス +500万円！`);
       } else if (p.souvenirs.length >= 3) {
-        totalAsset += 150;
-        G.logs.unshift(`🗾 🎖️【全国旅行マスター賞！】Player ${p.id} は全国の名産品を${p.souvenirs.length}品収集！特別ボーナス +150万円！`);
+        totalAsset += 250;
+        G.logs.unshift(`🗾 🎖️【全国旅行マスター賞！】Player ${p.id} は全国の名産品を${p.souvenirs.length}品収集！特別ボーナス +250万円！`);
       }
 
-      totalAsset -= p.debt * 100;
+      // 文武両道・学力賞・体力賞ボーナス
+      const acad = p.academic || 50;
+      const stam = p.stamina || 50;
+      if (acad >= 75 && stam >= 75) {
+        totalAsset += 400;
+        G.logs.unshift(`🏅 🏆【文武両道マスター賞！】Player ${p.id} は学力【${acad}】＆体力【${stam}】を共に極めた！特別ボーナス +400万円！`);
+      } else if (acad >= 80) {
+        totalAsset += 200;
+        G.logs.unshift(`📚 🎖️【知性マスター賞！】Player ${p.id} は学力【${acad}】に到達！特別学術ボーナス +200万円！`);
+      } else if (stam >= 80) {
+        totalAsset += 200;
+        G.logs.unshift(`🏃 🎖️【健康バイタリティ賞！】Player ${p.id} は体力【${stam}】に到達！特別健康ボーナス +200万円！`);
+      }
+
+      totalAsset -= (p.debt || 0) * 100;
       p.finalAsset = totalAsset;
     });
 

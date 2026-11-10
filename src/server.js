@@ -9,6 +9,8 @@ import { CrashIceGame } from './CrashIceGame.js';
 import { NimmtGame } from './NimmtGame.js';
 import { IndigoGame } from './IndigoGame.js';
 import { JinseiGame } from './JinseiGame.js';
+import { DeepSeaGame } from './DeepSeaGame.js';
+import { OnsokuGame } from './OnsokuGame.js';
 import serve from 'koa-static';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -17,7 +19,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const server = Server({
-  games: [Splendor, Ito, Haa, Propose, HanninGame, CrashIceGame, NimmtGame, IndigoGame, JinseiGame],
+  games: [Splendor, Ito, Haa, Propose, HanninGame, CrashIceGame, NimmtGame, IndigoGame, JinseiGame, DeepSeaGame, OnsokuGame],
   origins: [Origins.ANY],
 });
 

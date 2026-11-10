@@ -22,6 +22,7 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
   const [isSpinningJob, setIsSpinningJob] = useState(false);
   const [tempJobRoll, setTempJobRoll] = useState(null);
   const [isSpectatorDismissed, setIsSpectatorDismissed] = useState(false);
+  const [showCareerGuideModal, setShowCareerGuideModal] = useState(false);
 
   useEffect(() => {
     setIsSpectatorDismissed(false);
@@ -254,7 +255,7 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
               </h2>
               <p style={{ fontSize: '14px', color: '#fecaca', margin: 0, lineHeight: 1.5 }}>
                 ハードモードは<strong>【強制ランダム】</strong>です！<br />
-                日本のどこに産み落とされるか、そして実家の年収・初期偏差値まで、すべては神のみぞ知る運命のガチャで決まります！
+                日本のどこに産み落とされるか、そして実家の年収・初期偏差値・初期体力まで、すべては神のみぞ知る運命のガチャで決まります！
               </p>
             </div>
 
@@ -277,7 +278,7 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
                 </h3>
                 <p style={{ color: '#fecaca', fontSize: '14px', maxWidth: '580px', margin: '0 auto 20px', lineHeight: 1.6 }}>
                   ボタンを押すと、47都道府県からあなたの生まれ故郷が強制決定されます。<br />
-                  親の年収（親ガチャ）と初期偏差値も同時にルーレットで決定されます！（※再選択不可）
+                  親の年収（親ガチャ）と初期偏差値・初期体力も同時にルーレットで決定されます！（※再選択不可）
                 </p>
                 <button
                   disabled={isRollingRandom}
@@ -348,7 +349,7 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
                       </div>
                       {myPlayer.parentIncome && (
                         <div style={{ fontSize: '13px', color: '#fca5a5', fontWeight: 'bold', marginTop: '3px' }}>
-                          💀 親ガチャ結果: 実家年収 {myPlayer.parentIncome.income}万円（${myPlayer.parentIncome.title}）➔ 初期偏差値【${myPlayer.hensachi}】
+                          💀 親ガチャ結果: 実家年収 {myPlayer.parentIncome.income}万円（{myPlayer.parentIncome.title}）➔ 🎓偏差値【{myPlayer.hensachi}】 • 🏃体力【{myPlayer.stamina || 50}】
                           {myPlayer.debt > 0 && '（※奨学金借金100万スタート）'}
                         </div>
                       )}
@@ -776,7 +777,7 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
                   </strong>
                   {G.isHardMode && p.parentIncome && (
                     <span style={{ fontSize: '11px', color: '#fca5a5' }}>
-                      (親年収${p.parentIncome.income}万/偏差値${p.hensachi})
+                      (親年収${p.parentIncome.income}万 / 偏差値${p.hensachi} / 体力${p.stamina || 50})
                     </span>
                   )}
                 </span>
@@ -845,7 +846,7 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
                   </div>
                   {G.isHardMode && p.parentIncome && (
                     <div style={{ fontSize: '11px', color: '#fde047', fontWeight: 'bold', margin: '2px 0' }}>
-                      親年収: {p.parentIncome.income}万円 ({p.parentIncome.title}) ➔ 偏差値【{p.hensachi}】
+                      親年収: {p.parentIncome.income}万円 ({p.parentIncome.title}) ➔ 🎓偏差値【{p.hensachi}】 • 🏃体力【{p.stamina || 50}】
                       {p.parentIncome.roll <= 3 && idx === 0 && ' 🔥【下剋上キング賞獲得！】'}
                     </div>
                   )}
@@ -899,21 +900,308 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
   const playersOnSpace = Object.values(G.players).filter((p) => G.era === viewingEra.id && p.position === activeInspectSpace.id);
   const inspectMoneyInfo = getSpaceMoneyDetails(activeInspectSpace, turnPlayer);
 
+  const allPlayers = Object.values(G.players);
+  const leftPlayers = allPlayers.length > 2 ? allPlayers.slice(0, 2) : [allPlayers[0]].filter(Boolean);
+  const rightPlayers = allPlayers.length > 2 ? allPlayers.slice(2, 4) : [allPlayers[1]].filter(Boolean);
+
+  const renderPlayerCard = (p) => {
+    if (!p) return null;
+    const isCurrent = ctx.currentPlayer === p.id;
+    return (
+      <div
+        key={p.id}
+        style={{
+          background: isCurrent ? 'linear-gradient(135deg, #065f46, #047857)' : 'rgba(15, 23, 42, 0.85)',
+          border: isCurrent ? '2px solid #34d399' : '1px solid rgba(255,255,255,0.12)',
+          borderRadius: '12px',
+          padding: '8px 10px',
+          color: '#ffffff',
+          fontSize: '11px',
+          boxShadow: isCurrent ? '0 4px 12px rgba(52, 211, 153, 0.25)' : 'none'
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <strong style={{ color: p.color, fontSize: '12px' }}>
+            {getPlayerName(p.id)} {isCurrent && '🎯'}
+          </strong>
+          <span style={{ fontSize: '10px', background: 'rgba(255,255,255,0.15)', padding: '1px 6px', borderRadius: '6px' }}>
+            {p.prefecture?.emoji} {p.prefecture?.shortName}
+          </span>
+        </div>
+        <div style={{ fontSize: '15px', fontWeight: '900', color: '#fde047', margin: '2px 0' }}>
+          {p.money.toLocaleString()} <span style={{ fontSize: '10px', color: '#fff' }}>万円</span>
+        </div>
+
+        {/* 学力 ＆ 体力 パラメータバー */}
+        <div style={{
+          marginTop: '4px',
+          background: 'rgba(0,0,0,0.3)',
+          borderRadius: '7px',
+          padding: '4px 6px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '3px',
+          border: '1px solid rgba(255,255,255,0.06)'
+        }}>
+          {/* 学力 */}
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', marginBottom: '1px' }}>
+              <span style={{ color: '#7dd3fc', fontWeight: 'bold' }}>📚 学力</span>
+              <span style={{ color: '#38bdf8', fontWeight: '900' }}>{p.academic || 50} / 100</span>
+            </div>
+            <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.12)', borderRadius: '2px', overflow: 'hidden' }}>
+              <div style={{
+                width: `${Math.min(100, Math.max(0, p.academic || 50))}%`,
+                height: '100%',
+                background: 'linear-gradient(90deg, #0284c7, #38bdf8)',
+                borderRadius: '2px',
+                transition: 'width 0.3s ease'
+              }} />
+            </div>
+          </div>
+          {/* 体力 */}
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', marginBottom: '1px' }}>
+              <span style={{ color: '#86efac', fontWeight: 'bold' }}>🏃 体力</span>
+              <span style={{ color: '#4ade80', fontWeight: '900' }}>{p.stamina || 50} / 100</span>
+            </div>
+            <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.12)', borderRadius: '2px', overflow: 'hidden' }}>
+              <div style={{
+                width: `${Math.min(100, Math.max(0, p.stamina || 50))}%`,
+                height: '100%',
+                background: 'linear-gradient(90deg, #059669, #34d399)',
+                borderRadius: '2px',
+                transition: 'width 0.3s ease'
+              }} />
+            </div>
+          </div>
+        </div>
+
+        {G.isHardMode ? (
+          <div style={{
+            fontSize: '10px',
+            color: '#fca5a5',
+            lineHeight: 1.3,
+            marginTop: '3px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            background: 'rgba(0,0,0,0.25)',
+            padding: '2px 5px',
+            borderRadius: '5px'
+          }}>
+            <span>実家:{p.parentIncome ? `${p.parentIncome.income}万` : '未定'}</span>
+            <span>🎓偏差値:<strong style={{ color: '#fde047' }}>{p.hensachi || 50}</strong></span>
+            <span>🏃体力:<strong style={{ color: '#86efac' }}>{p.stamina || 50}</strong></span>
+          </div>
+        ) : (
+          <div style={{
+            fontSize: '10px',
+            color: '#94a3b8',
+            lineHeight: 1.3,
+            marginTop: '3px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            background: 'rgba(0,0,0,0.25)',
+            padding: '2px 5px',
+            borderRadius: '5px'
+          }}>
+            <span>📚学力:<strong style={{ color: '#7dd3fc' }}>{p.academic || 50}</strong></span>
+            <span>🏃体力:<strong style={{ color: '#86efac' }}>{p.stamina || 50}</strong></span>
+          </div>
+        )}
+        <div style={{ fontSize: '10px', color: '#cbd5e1', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '2px' }}>
+          💼 {p.occupation ? p.occupation.title : '無職（求職中）'}
+        </div>
+        {/* 時代進行ターン＆コースバッジ */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginTop: '3px',
+          fontSize: '9px',
+          background: 'rgba(0,0,0,0.25)',
+          padding: '2px 5px',
+          borderRadius: '5px'
+        }}>
+          <span style={{ color: '#38bdf8' }}>
+            ⏳ 残り {Math.max(0, G.eraMaxTurns - (p.eraTurns || 0))} / {G.eraMaxTurns}T
+          </span>
+          {p.eraRoute ? (
+            <span style={{
+              color: p.eraRoute === 'A' ? '#7dd3fc' : '#fde047',
+              fontWeight: 'bold'
+            }}>
+              🛤️ {p.eraRoute === 'A' ? 'Aルート' : 'Bルート'}
+            </span>
+          ) : (
+            <span style={{ color: '#94a3b8' }}>共通区間</span>
+          )}
+        </div>
+        {/* 家族・子供ステータスバッジ */}
+        <div style={{
+          marginTop: '4px',
+          padding: '3px 6px',
+          borderRadius: '7px',
+          background: p.car.kids > 0 ? 'rgba(244, 114, 182, 0.2)' : 'rgba(255,255,255,0.06)',
+          border: p.car.kids > 0 ? '1px solid #f472b6' : '1px solid rgba(255,255,255,0.1)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '3px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <span style={{ fontSize: '12px' }}>{p.car.kids > 0 ? '👨‍👩‍👧‍👦' : (p.car.spouse ? '👫' : '👤')}</span>
+            <strong style={{ fontSize: '10px', color: p.car.kids > 0 ? '#fbcfe8' : '#cbd5e1' }}>
+              {p.car.kids > 0 ? `子ども ${p.car.kids}人` : '子どもなし'}
+            </strong>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+            {p.car.spouse && (
+              <span style={{ background: '#f43f5e', color: '#fff', padding: '1px 4px', borderRadius: '4px', fontSize: '8px', fontWeight: 'bold' }}>
+                配偶者
+              </span>
+            )}
+            {p.car.kids > 0 ? (
+              Array.from({ length: p.car.kids }).map((_, i) => (
+                <span
+                  key={i}
+                  style={{
+                    background: '#ec4899',
+                    color: '#fff',
+                    padding: '1px 4px',
+                    borderRadius: '3px',
+                    fontSize: '8px',
+                    fontWeight: '900',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.3)'
+                  }}
+                  title={`第${i + 1}子（毎給料手当 +15万 / 決算資産 +200万）`}
+                >
+                  👶 子{i + 1}
+                </span>
+              ))
+            ) : null}
+          </div>
+        </div>
+        {p.car.kids > 0 && (
+          <div style={{ fontSize: '8px', color: '#6ee7b7', marginTop: '1px', textAlign: 'right' }}>
+            給料手当 +{p.car.kids * 15}万 / 決算 +{p.car.kids * 200}万
+          </div>
+        )}
+
+        {/* 出身県＆パッシブ恩恵 */}
+        {p.prefecture && (
+          <div style={{
+            marginTop: '4px',
+            padding: '4px 6px',
+            borderRadius: '7px',
+            background: 'rgba(245, 158, 11, 0.12)',
+            border: '1px solid rgba(245, 158, 11, 0.3)',
+            fontSize: '9px',
+            color: '#fef3c7'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontWeight: 'bold', color: '#fde047' }}>
+                🗾 {p.prefecture.emoji} {p.prefecture.name}
+              </span>
+              <span style={{ fontSize: '8px', background: p.prefecture.color, color: '#fff', padding: '1px 4px', borderRadius: '3px', fontWeight: 'bold' }}>
+                {p.prefecture.regionName}
+              </span>
+            </div>
+            <div style={{ color: '#fed7aa', fontWeight: 'bold', marginTop: '1px', fontSize: '8px' }}>
+              ✨【{p.prefecture.traitName}】
+            </div>
+            <div style={{ color: '#cbd5e1', fontSize: '8px', lineHeight: 1.2, marginTop: '1px' }}>
+              {p.prefecture.traitDesc}
+            </div>
+            {(p.insurance?.life || p.insurance?.fire) && (
+              <div style={{ display: 'flex', gap: '3px', marginTop: '2px' }}>
+                {p.insurance?.life && (
+                  <span style={{ fontSize: '7px', background: '#0284c7', color: '#fff', padding: '0 3px', borderRadius: '3px' }}>
+                    🛡️ 生命保険付帯
+                  </span>
+                )}
+                {p.insurance?.fire && (
+                  <span style={{ fontSize: '7px', background: '#dc2626', color: '#fff', padding: '0 3px', borderRadius: '3px' }}>
+                    🛡️ 火災保険付帯
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ご当地特産品・お土産コレクション */}
+        {p.souvenirs && p.souvenirs.length > 0 && (() => {
+          const sTotal = p.souvenirs.reduce((acc, s) => acc + (s.value || 0), 0);
+          return (
+            <div style={{
+              marginTop: '4px',
+              padding: '3px 5px',
+              borderRadius: '7px',
+              background: 'rgba(56, 189, 248, 0.12)',
+              border: '1px solid rgba(56, 189, 248, 0.25)',
+              fontSize: '8px',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+                <span style={{ color: '#7dd3fc', fontWeight: 'bold' }}>
+                  🎁 名産品 ({p.souvenirs.length}品)
+                </span>
+                <span style={{ color: '#4ade80', fontWeight: 'bold' }}>
+                  +{sTotal}万
+                </span>
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px', maxHeight: '45px', overflowY: 'auto' }}>
+                {p.souvenirs.map((s, sIdx) => (
+                  <span
+                    key={sIdx}
+                    style={{
+                      background: 'rgba(255,255,255,0.12)',
+                      borderRadius: '3px',
+                      padding: '1px 3px',
+                      fontSize: '8px',
+                      color: '#e2e8f0',
+                      whiteSpace: 'nowrap',
+                      border: '1px solid rgba(255,255,255,0.08)'
+                    }}
+                    title={`${s.prefName || ''}: ${s.name} (資産価値 +${s.value}万)\n${s.flavor || ''}`}
+                  >
+                    {s.icon} {s.name.split(' ')[0]} (+{s.value}万)
+                  </span>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
+      </div>
+    );
+  };
+
   return (
     <div style={{
-      maxWidth: '1300px',
-      margin: '12px auto',
-      padding: '0 12px',
+      maxWidth: '1600px',
+      margin: '10px auto',
+      padding: '0 10px',
       fontFamily: "'Segoe UI', -apple-system, sans-serif"
     }}>
       <style>{`
         .game-main-layout {
           display: grid;
-          grid-template-columns: 350px 1fr;
-          gap: 16px;
+          grid-template-columns: 265px 1fr 265px;
+          gap: 12px;
           align-items: start;
+          width: 100%;
         }
-        @media (max-width: 940px) {
+        @media (max-width: 1280px) {
+          .game-main-layout {
+            grid-template-columns: 235px 1fr 235px;
+            gap: 10px;
+          }
+        }
+        @media (max-width: 980px) {
           .game-main-layout {
             grid-template-columns: 1fr;
           }
@@ -944,7 +1232,7 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
           fontWeight: 'bold',
           boxShadow: '0 2px 10px rgba(220, 38, 38, 0.3)'
         }}>
-          <span>💀 【隠しモード】リアル格差社会ハードモード稼働中（親ガチャ ➔ 偏差値 ➔ 学歴フィルター）</span>
+          <span>💀 【隠しモード】リアル格差社会ハードモード稼働中（親ガチャ ➔ 偏差値＆体力 ➔ 就職選考フィルター）</span>
           <span style={{ fontSize: '11px', color: '#fde047' }}>下剋上で親ガチャの壁を打ち破れ！</span>
         </div>
       )}
@@ -975,18 +1263,43 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'rgba(0,0,0,0.3)', padding: '6px 14px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '10px', color: '#94a3b8' }}>時代ターン残</div>
-              <div style={{ fontSize: '15px', fontWeight: '900', color: '#38bdf8' }}>
-                残り {Math.max(0, G.eraMaxTurns - (myPlayer?.eraTurns || 0))} / {G.eraMaxTurns} ターン
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => setShowCareerGuideModal(true)}
+              style={{
+                background: 'linear-gradient(135deg, #0284c7, #0369a1)',
+                border: '1.5px solid #38bdf8',
+                color: '#ffffff',
+                borderRadius: '12px',
+                padding: '7px 14px',
+                fontSize: '12px',
+                fontWeight: '900',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 2px 10px rgba(2, 132, 199, 0.4)',
+                transition: 'all 0.15s'
+              }}
+              title="全12職業の給料・必要学力・必要体力を確認できます"
+            >
+              <span style={{ fontSize: '15px' }}>📋</span>
+              <span>職業一覧・転職ライン確認</span>
+            </button>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'rgba(0,0,0,0.3)', padding: '6px 14px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '10px', color: '#94a3b8' }}>時代ターン残</div>
+                <div style={{ fontSize: '15px', fontWeight: '900', color: '#38bdf8' }}>
+                  残り {Math.max(0, G.eraMaxTurns - (myPlayer?.eraTurns || 0))} / {G.eraMaxTurns} ターン
+                </div>
               </div>
-            </div>
-            <div style={{ width: '1px', height: '24px', background: 'rgba(255,255,255,0.15)' }} />
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '10px', color: '#94a3b8' }}>人生総年数</div>
-              <div style={{ fontSize: '15px', fontWeight: '900', color: '#facc15' }}>
-                第 {(myPlayer?.totalTurns || 0) + 1} 年目
+              <div style={{ width: '1px', height: '24px', background: 'rgba(255,255,255,0.15)' }} />
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '10px', color: '#94a3b8' }}>人生総年数</div>
+                <div style={{ fontSize: '15px', fontWeight: '900', color: '#facc15' }}>
+                  第 {(myPlayer?.totalTurns || 0) + 1} 年目
+                </div>
               </div>
             </div>
           </div>
@@ -1350,163 +1663,170 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
             })()}
 
             {/* 就職ルーレット（強制ストップ就職マス） */}
-            {G.currentSpaceModal.type === 'choose_job' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div style={{
-                  padding: '10px 14px',
-                  background: G.isHardMode ? 'rgba(239, 68, 68, 0.15)' : 'rgba(56, 189, 248, 0.15)',
-                  border: G.isHardMode ? '1px solid #ef4444' : '1px solid #38bdf8',
-                  borderRadius: '12px',
-                  fontSize: '12px',
-                  lineHeight: 1.6,
-                  color: G.isHardMode ? '#fca5a5' : '#7dd3fc'
-                }}>
-                  {G.isHardMode
-                    ? `💀 ハードモード学歴フィルター：あなたの偏差値【${myPlayer.hensachi || 50}】！ルーレット（1〜10）を回して運命の就職先が決まります。偏差値が基準に満たない場合は学歴フィルターにより不採用となり、就活費 -30万円＆【無職（給料0円）】で人生続行となります！（※ループなし）`
-                    : '🎡 人生の運命の分かれ道！就職ルーレット（1〜10）を回してあなたの職業と給料を決定しましょう！（強制ストップマス）'}
-                </div>
+            {G.currentSpaceModal.type === 'choose_job' && (() => {
+              const targetHensachi = turnPlayer.hensachi || 50;
+              const targetStamina = turnPlayer.stamina || 50;
+              const targetName = isActionPlayer ? 'あなた' : getPlayerName(turnPid);
 
-                {/* ルーレット出目と職業の対応一覧 */}
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
-                  gap: '8px',
-                  maxHeight: '260px',
-                  overflowY: 'auto',
-                  paddingRight: '4px',
-                  background: 'rgba(0,0,0,0.25)',
-                  padding: '10px',
-                  borderRadius: '12px',
-                  border: '1px solid rgba(255,255,255,0.08)'
-                }}>
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => {
-                    const jobId = JOB_ROULETTE_TABLE[num];
-                    const occ = OCCUPATIONS.find((o) => o.id === jobId) || OCCUPATIONS[0];
-                    const myHensachi = myPlayer.hensachi || 50;
-                    const isQualified = !G.isHardMode || myHensachi >= occ.minHensachi;
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div style={{
+                    padding: '10px 14px',
+                    background: G.isHardMode ? 'rgba(239, 68, 68, 0.15)' : 'rgba(56, 189, 248, 0.15)',
+                    border: G.isHardMode ? '1px solid #ef4444' : '1px solid #38bdf8',
+                    borderRadius: '12px',
+                    fontSize: '12px',
+                    lineHeight: 1.6,
+                    color: G.isHardMode ? '#fca5a5' : '#7dd3fc'
+                  }}>
+                    {G.isHardMode
+                      ? `💀 ハードモード採用選考フィルター：${targetName}のステータス【🎓偏差値 ${targetHensachi} / 🏃体力 ${targetStamina}】！ルーレット（1〜10）を回して運命の就職先が決まります。偏差値または体力が採用基準に満たない場合は不採用となり、就活費 -30万円＆【無職（給料0円）】で人生続行となります！（※ループなし）`
+                      : '🎡 人生の運命の分かれ道！就職ルーレット（1〜10）を回してあなたの職業と給料を決定しましょう！（強制ストップマス）'}
+                  </div>
 
-                    return (
-                      <div
-                        key={num}
-                        style={{
-                          padding: '8px 10px',
-                          borderRadius: '10px',
-                          background: isQualified ? 'rgba(255,255,255,0.06)' : 'rgba(239, 68, 68, 0.12)',
-                          border: isQualified ? '1px solid rgba(255,255,255,0.12)' : '1px dashed #ef4444',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px'
-                        }}
-                      >
-                        <span style={{
-                          width: '26px',
-                          height: '26px',
-                          borderRadius: '50%',
-                          background: isQualified ? '#38bdf8' : '#ef4444',
-                          color: '#0f172a',
-                          fontWeight: '900',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: '13px',
-                          flexShrink: 0
-                        }}>
-                          {num}
-                        </span>
-                        <span style={{ fontSize: '18px', flexShrink: 0 }}>{occ.icon}</span>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{
-                            fontSize: '12px',
-                            fontWeight: 'bold',
-                            color: isQualified ? '#ffffff' : '#fca5a5',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis'
-                          }}>
-                            {occ.title}
-                          </div>
-                          <div style={{ fontSize: '10px', color: '#94a3b8' }}>
-                            給料: {occ.baseSalary}万 {G.isHardMode && occ.minHensachi > 0 ? `• 要偏差値: ${occ.minHensachi}` : '• 学歴不問'}
-                          </div>
-                        </div>
-                        {G.isHardMode && (
+                  {/* ルーレット出目と職業の対応一覧 */}
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+                    gap: '8px',
+                    maxHeight: '260px',
+                    overflowY: 'auto',
+                    paddingRight: '4px',
+                    background: 'rgba(0,0,0,0.25)',
+                    padding: '10px',
+                    borderRadius: '12px',
+                    border: '1px solid rgba(255,255,255,0.08)'
+                  }}>
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => {
+                      const jobId = JOB_ROULETTE_TABLE[num];
+                      const occ = OCCUPATIONS.find((o) => o.id === jobId) || OCCUPATIONS[0];
+                      const devOk = !occ.minHensachi || targetHensachi >= occ.minHensachi;
+                      const stamOk = !occ.minStamina || targetStamina >= occ.minStamina;
+                      const isQualified = !G.isHardMode || (devOk && stamOk);
+
+                      return (
+                        <div
+                          key={num}
+                          style={{
+                            padding: '8px 10px',
+                            borderRadius: '10px',
+                            background: isQualified ? 'rgba(255,255,255,0.06)' : 'rgba(239, 68, 68, 0.12)',
+                            border: isQualified ? '1px solid rgba(255,255,255,0.12)' : '1px dashed #ef4444',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px'
+                          }}
+                        >
                           <span style={{
-                            fontSize: '10px',
+                            width: '26px',
+                            height: '26px',
+                            borderRadius: '50%',
+                            background: isQualified ? '#38bdf8' : '#ef4444',
+                            color: '#0f172a',
                             fontWeight: '900',
-                            color: isQualified ? '#4ade80' : '#f87171',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '13px',
                             flexShrink: 0
                           }}>
-                            {isQualified ? '◯ 合格' : '✕ 不可'}
+                            {num}
                           </span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+                          <span style={{ fontSize: '18px', flexShrink: 0 }}>{occ.icon}</span>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{
+                              fontSize: '12px',
+                              fontWeight: 'bold',
+                              color: isQualified ? '#ffffff' : '#fca5a5',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis'
+                            }}>
+                              {occ.title}
+                            </div>
+                            <div style={{ fontSize: '10px', color: '#94a3b8' }}>
+                              給料: {occ.baseSalary}万 {G.isHardMode ? `• 🎓偏差値:${occ.minHensachi || '不問'} • 🏃体力:${occ.minStamina || '不問'}` : ''}
+                            </div>
+                          </div>
+                          {G.isHardMode && (
+                            <span style={{
+                              fontSize: '10px',
+                              fontWeight: '900',
+                              color: isQualified ? '#4ade80' : '#f87171',
+                              flexShrink: 0
+                            }}>
+                              {isQualified ? '◯ 合格' : '✕ 不可'}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
 
-                {/* ルーレット回転ボタン（行動者） または 観戦中メッセージ */}
-                {isActionPlayer ? (
-                  <button
-                    disabled={isSpinningJob}
-                    onClick={() => {
-                      if (isSpinningJob) return;
-                      setIsSpinningJob(true);
-                      let ticks = 0;
-                      const interval = setInterval(() => {
-                        ticks++;
-                        setTempJobRoll(Math.floor(Math.random() * 10) + 1);
-                        if (ticks >= 14) {
-                          clearInterval(interval);
-                          setIsSpinningJob(false);
-                          moves.spinJobRoulette(pid);
-                        }
-                      }, 70);
-                    }}
-                    style={{
-                      width: '100%',
+                  {/* ルーレット回転ボタン（行動者） または 観戦中メッセージ */}
+                  {isActionPlayer ? (
+                    <button
+                      disabled={isSpinningJob}
+                      onClick={() => {
+                        if (isSpinningJob) return;
+                        setIsSpinningJob(true);
+                        let ticks = 0;
+                        const interval = setInterval(() => {
+                          ticks++;
+                          setTempJobRoll(Math.floor(Math.random() * 10) + 1);
+                          if (ticks >= 14) {
+                            clearInterval(interval);
+                            setIsSpinningJob(false);
+                            moves.spinJobRoulette(pid);
+                          }
+                        }, 70);
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '16px',
+                        borderRadius: '16px',
+                        background: isSpinningJob
+                          ? 'linear-gradient(135deg, #475569, #334155)'
+                          : 'linear-gradient(135deg, #f59e0b, #d97706)',
+                        color: '#fff',
+                        border: 'none',
+                        fontWeight: '900',
+                        fontSize: '18px',
+                        cursor: isSpinningJob ? 'wait' : 'pointer',
+                        boxShadow: isSpinningJob ? 'none' : '0 6px 20px rgba(245, 158, 11, 0.4)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '10px',
+                        transition: 'all 0.2s ease',
+                        marginTop: '6px'
+                      }}
+                    >
+                      <span style={{ fontSize: '24px' }}>🎡</span>
+                      <span>
+                        {isSpinningJob ? `運命のルーレット回転中… 【 出目: ${tempJobRoll || 1} 】` : '運命の就職ルーレットを回す！'}
+                      </span>
+                    </button>
+                  ) : (
+                    <div style={{
                       padding: '16px',
                       borderRadius: '16px',
-                      background: isSpinningJob
-                        ? 'linear-gradient(135deg, #475569, #334155)'
-                        : 'linear-gradient(135deg, #f59e0b, #d97706)',
-                      color: '#fff',
-                      border: 'none',
-                      fontWeight: '900',
-                      fontSize: '18px',
-                      cursor: isSpinningJob ? 'wait' : 'pointer',
-                      boxShadow: isSpinningJob ? 'none' : '0 6px 20px rgba(245, 158, 11, 0.4)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '10px',
-                      transition: 'all 0.2s ease',
+                      background: 'rgba(0,0,0,0.4)',
+                      border: `1.5px dashed ${turnPlayer.color}`,
+                      textAlign: 'center',
                       marginTop: '6px'
-                    }}
-                  >
-                    <span style={{ fontSize: '24px' }}>🎡</span>
-                    <span>
-                      {isSpinningJob ? `運命のルーレット回転中… 【 出目: ${tempJobRoll || 1} 】` : '運命の就職ルーレットを回す！'}
-                    </span>
-                  </button>
-                ) : (
-                  <div style={{
-                    padding: '16px',
-                    borderRadius: '16px',
-                    background: 'rgba(0,0,0,0.4)',
-                    border: `1.5px dashed ${turnPlayer.color}`,
-                    textAlign: 'center',
-                    marginTop: '6px'
-                  }}>
-                    <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#facc15' }}>
-                      🎡 {getPlayerName(turnPid)} が就職ルーレットを回しています…
+                    }}>
+                      <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#facc15' }}>
+                        🎡 {getPlayerName(turnPid)} が就職ルーレットを回しています…
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '4px' }}>
+                        どの職業に決定するか固唾をのんで見守ろう！
+                      </div>
                     </div>
-                    <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '4px' }}>
-                      どの職業に決定するか固唾をのんで見守ろう！
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+                  )}
+                </div>
+              );
+            })()}
 
             {/* 就職ルーレット結果発表モーダル */}
             {G.currentSpaceModal.type === 'job_result' && G.currentSpaceModal.resultData && (
@@ -1514,6 +1834,12 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
                 {(() => {
                   const res = G.currentSpaceModal.resultData;
                   const passed = res.passed;
+                  const resHensachi = res.playerHensachi ?? turnPlayer.hensachi ?? 50;
+                  const resStamina = res.playerStamina ?? turnPlayer.stamina ?? 50;
+                  const targetName = isActionPlayer ? 'あなた' : getPlayerName(turnPid);
+                  const devReq = res.candidate.minHensachi || 0;
+                  const stamReq = res.candidate.minStamina || 0;
+
                   return (
                     <div style={{
                       padding: '20px',
@@ -1540,7 +1866,7 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
                       </div>
 
                       <div style={{ fontSize: '20px', fontWeight: '900', color: passed ? '#ffffff' : '#fca5a5', marginBottom: '4px' }}>
-                        {passed ? `採用決定！【${res.finalOcc.title}】` : `学歴フィルター不採用…【${res.candidate.title}】`}
+                        {passed ? `採用決定！【${res.finalOcc.title}】` : `採用選考不合格…【${res.candidate.title}】`}
                       </div>
 
                       {passed ? (
@@ -1548,16 +1874,17 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
                           <div style={{ fontSize: '15px', color: '#34d399', fontWeight: 'bold', marginTop: '6px' }}>
                             初任給: {res.finalOcc.baseSalary}万円
                           </div>
-                          {res.isHardMode && res.candidate.minHensachi > 0 && (
-                            <div style={{ fontSize: '12px', color: '#a7f3d0', marginTop: '6px' }}>
-                              🎓 あなたの偏差値【${myPlayer.hensachi || 50}】 ≧ 採用基準【${res.candidate.minHensachi}】（書類選考突破！）
+                          {res.isHardMode && (devReq > 0 || stamReq > 0) && (
+                            <div style={{ fontSize: '12px', color: '#a7f3d0', marginTop: '6px', lineHeight: 1.5 }}>
+                              {devReq > 0 && <div>🎓 {targetName}の偏差値【{resHensachi}】 ≧ 採用基準【{devReq}】（書類選考突破！）</div>}
+                              {stamReq > 0 && <div>🏃 {targetName}の体力【{resStamina}】 ≧ 採用基準【{stamReq}】（体力選考突破！）</div>}
                             </div>
                           )}
                         </div>
                       ) : (
                         <div>
                           <div style={{ fontSize: '13px', color: '#f87171', marginTop: '6px', lineHeight: 1.5 }}>
-                            志望先: 要偏差値【{res.candidate.minHensachi}】に対し あなたの偏差値【{myPlayer.hensachi || 50}】<br />
+                            {res.failReason ? `不採用理由: ${res.failReason}` : '採用基準に達しませんでした'}<br />
                             就活費用として <strong>-30万円</strong> 支払い。
                           </div>
                           <div style={{
@@ -1614,6 +1941,475 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
                 )}
               </div>
             )}
+
+            {/* 転職チャンス選択モーダル（学力・体力を参照して転職または現状維持） */}
+            {G.currentSpaceModal.type === 'job_change' && (() => {
+              const modal = G.currentSpaceModal;
+              const isForced = modal.isForced;
+              const currentOcc = turnPlayer.occupation;
+              const pAcad = turnPlayer.academic || 50;
+              const pStam = turnPlayer.stamina || 50;
+
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  {/* 強制転職・卒業引退バナー */}
+                  {isForced && (
+                    <div style={{
+                      padding: '12px 16px',
+                      borderRadius: '14px',
+                      background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.25), rgba(185, 28, 28, 0.4))',
+                      border: '1.5px solid #ef4444',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px'
+                    }}>
+                      <span style={{ fontSize: '32px' }}>
+                        {modal.retireReason === 'idol_graduation' ? '🎤' : '⚽'}
+                      </span>
+                      <div>
+                        <div style={{ fontSize: '15px', fontWeight: '900', color: '#fca5a5' }}>
+                          {modal.retireReason === 'idol_graduation' ? '🎤 💐【祝・アイドル卒業＆引退勧告！】' : '⚽ 🏆【祝・プロアスリート現役引退！】'}
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#fee2e2', marginTop: '2px', lineHeight: 1.4 }}>
+                          {modal.retireReason === 'idol_graduation'
+                            ? `年齢規定により「アイドル」は卒業（現役終了）となります！卒業祝い金 +${modal.bonusMoney || 50}万円 を受領しました！現状維持は不可のため、セカンドキャリアを選択してください！`
+                            : `年齢規定により「プロアスリート」は現役引退となります！引退功労金 +${modal.bonusMoney || 50}万円 を受領しました！現状維持は不可のため、セカンドキャリアを選択してください！`}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 現在のステータス ＆ 職業バナー */}
+                  <div style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '10px',
+                    padding: '12px 16px',
+                    borderRadius: '14px',
+                    background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.85), rgba(15, 23, 42, 0.95))',
+                    border: '1.5px solid #38bdf8'
+                  }}>
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#94a3b8' }}>現在の職業 ＆ 給料</div>
+                      <div style={{ fontSize: '15px', fontWeight: '900', color: '#ffffff' }}>
+                        {currentOcc ? `${currentOcc.icon} ${currentOcc.title}` : '🏚️ 無職・求職中'}
+                        <span style={{ fontSize: '13px', color: '#facc15', marginLeft: '8px' }}>
+                          （給料: {turnPlayer.salary || 0}万円）
+                        </span>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <div style={{
+                        padding: '6px 12px',
+                        borderRadius: '10px',
+                        background: 'rgba(56, 189, 248, 0.2)',
+                        border: '1px solid #38bdf8',
+                        textAlign: 'center'
+                      }}>
+                        <div style={{ fontSize: '10px', color: '#7dd3fc', fontWeight: 'bold' }}>📚 学力</div>
+                        <div style={{ fontSize: '16px', fontWeight: '900', color: '#38bdf8' }}>{pAcad}</div>
+                      </div>
+                      <div style={{
+                        padding: '6px 12px',
+                        borderRadius: '10px',
+                        background: 'rgba(52, 211, 153, 0.2)',
+                        border: '1px solid #34d399',
+                        textAlign: 'center'
+                      }}>
+                        <div style={{ fontSize: '10px', color: '#6ee7b7', fontWeight: 'bold' }}>🏃 体力</div>
+                        <div style={{ fontSize: '16px', fontWeight: '900', color: '#34d399' }}>{pStam}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{
+                    padding: '10px 14px',
+                    borderRadius: '10px',
+                    background: isForced ? 'rgba(239, 68, 68, 0.1)' : 'rgba(56, 189, 248, 0.1)',
+                    border: isForced ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(56, 189, 248, 0.3)',
+                    fontSize: '12px',
+                    color: '#cbd5e1',
+                    lineHeight: 1.5
+                  }}>
+                    {isForced ? (
+                      <span>⚠️ <strong>【セカンドキャリア選択】</strong> これまでの学力と体力を活かし、以下の職業の中から新しい進路を選択してクリックしてください！（現状維持は不可）</span>
+                    ) : (
+                      <span>💡 <strong>【転職判定ルール】</strong> あなたの「学力」と「体力」が職業ごとの要求ラインを満たしていれば転職できます！給料アップを狙って転職するか、愛着のある現在の職業を維持するか選択してください。</span>
+                    )}
+                  </div>
+
+                  {/* 職業一覧グリッド */}
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+                    gap: '10px',
+                    maxHeight: '340px',
+                    overflowY: 'auto',
+                    paddingRight: '4px'
+                  }}>
+                    {OCCUPATIONS.map((occ) => {
+                      const isCurrent = currentOcc?.id === occ.id;
+                      const reqAcad = occ.reqAcademic || 0;
+                      const reqStam = occ.reqStamina || 0;
+                      const acadPass = pAcad >= reqAcad;
+                      const stamPass = pStam >= reqStam;
+                      const isQualified = acadPass && stamPass;
+                      const isAgeBlocked = (G.era >= 3 && occ.id === 'idol') || (G.era >= 4 && (occ.id === 'idol' || occ.id === 'athlete'));
+
+                      return (
+                        <div
+                          key={occ.id}
+                          style={{
+                            padding: '12px',
+                            borderRadius: '12px',
+                            background: isCurrent
+                              ? (isForced ? 'rgba(239, 68, 68, 0.2)' : 'rgba(59, 130, 246, 0.25)')
+                              : isAgeBlocked
+                              ? 'rgba(15, 23, 42, 0.4)'
+                              : isQualified
+                              ? 'rgba(16, 185, 129, 0.14)'
+                              : 'rgba(15, 23, 42, 0.65)',
+                            border: isCurrent
+                              ? (isForced ? '2px dashed #ef4444' : '2px solid #3b82f6')
+                              : isAgeBlocked
+                              ? '1px dashed rgba(239, 68, 68, 0.3)'
+                              : isQualified
+                              ? '1.5px solid #10b981'
+                              : '1px dashed rgba(255, 255, 255, 0.15)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '6px',
+                            opacity: isAgeBlocked ? 0.45 : (isQualified || isCurrent ? 1 : 0.6),
+                            transition: 'all 0.15s'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span style={{ fontSize: '20px' }}>{occ.icon}</span>
+                              <strong style={{ fontSize: '13px', color: '#ffffff' }}>{occ.title}</strong>
+                            </div>
+                            <span style={{
+                              fontSize: '12px',
+                              fontWeight: '900',
+                              color: '#facc15',
+                              background: 'rgba(250, 204, 21, 0.15)',
+                              padding: '2px 6px',
+                              borderRadius: '6px'
+                            }}>
+                              給料: {occ.baseSalary}万
+                            </span>
+                          </div>
+
+                          <div style={{ fontSize: '10px', color: '#94a3b8' }}>
+                            {occ.tierDesc}
+                          </div>
+
+                          {/* Requirements Badges */}
+                          <div style={{ display: 'flex', gap: '6px', fontSize: '11px' }}>
+                            <span style={{
+                              flex: 1,
+                              padding: '2px 6px',
+                              borderRadius: '6px',
+                              background: acadPass ? 'rgba(56, 189, 248, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                              color: acadPass ? '#38bdf8' : '#f87171',
+                              fontWeight: 'bold',
+                              textAlign: 'center'
+                            }}>
+                              📚 学力 {reqAcad} {acadPass ? '✓' : `(不足${reqAcad - pAcad})`}
+                            </span>
+                            <span style={{
+                              flex: 1,
+                              padding: '2px 6px',
+                              borderRadius: '6px',
+                              background: stamPass ? 'rgba(52, 211, 153, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                              color: stamPass ? '#34d399' : '#f87171',
+                              fontWeight: 'bold',
+                              textAlign: 'center'
+                            }}>
+                              🏃 体力 {reqStam} {stamPass ? '✓' : `(不足${reqStam - pStam})`}
+                            </span>
+                          </div>
+
+                          {/* Action Button */}
+                          {isActionPlayer && (
+                            <div style={{ marginTop: '4px' }}>
+                              {isAgeBlocked ? (
+                                <div style={{
+                                  padding: '5px',
+                                  textAlign: 'center',
+                                  fontSize: '11px',
+                                  color: '#f87171',
+                                  background: 'rgba(239, 68, 68, 0.15)',
+                                  borderRadius: '6px'
+                                }}>
+                                  ⛔ 年齢制限（引退済）
+                                </div>
+                              ) : isCurrent ? (
+                                isForced ? (
+                                  <div style={{
+                                    padding: '6px',
+                                    textAlign: 'center',
+                                    fontSize: '11px',
+                                    color: '#fca5a5',
+                                    background: 'rgba(239, 68, 68, 0.2)',
+                                    borderRadius: '6px',
+                                    fontWeight: 'bold'
+                                  }}>
+                                    ❌ 引退・卒業のため継続不可
+                                  </div>
+                                ) : (
+                                  <button
+                                    onClick={() => moves.changeJob(pid, 'keep')}
+                                    style={{
+                                      width: '100%',
+                                      padding: '7px',
+                                      borderRadius: '8px',
+                                      background: 'rgba(59, 130, 246, 0.3)',
+                                      border: '1px solid #3b82f6',
+                                      color: '#93c5fd',
+                                      fontWeight: 'bold',
+                                      fontSize: '11px',
+                                      cursor: 'pointer'
+                                    }}
+                                  >
+                                    現在の職業（現状維持）
+                                  </button>
+                                )
+                              ) : isQualified ? (
+                                <button
+                                  onClick={() => moves.changeJob(pid, occ.id)}
+                                  style={{
+                                    width: '100%',
+                                    padding: '7px',
+                                    borderRadius: '8px',
+                                    background: 'linear-gradient(135deg, #10b981, #059669)',
+                                    border: 'none',
+                                    color: '#ffffff',
+                                    fontWeight: '900',
+                                    fontSize: '12px',
+                                    cursor: 'pointer',
+                                    boxShadow: '0 2px 8px rgba(16, 185, 129, 0.4)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '4px'
+                                  }}
+                                >
+                                  <span>✨</span>
+                                  <span>この職業に転職する！（給料{occ.baseSalary}万）</span>
+                                </button>
+                              ) : (
+                                <div style={{
+                                  padding: '5px',
+                                  textAlign: 'center',
+                                  fontSize: '11px',
+                                  color: '#94a3b8',
+                                  background: 'rgba(0,0,0,0.2)',
+                                  borderRadius: '6px'
+                                }}>
+                                  🔒 資格ライン未達
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* 現状維持ボタン or 観戦メッセージ */}
+                  {isActionPlayer ? (
+                    isForced ? (
+                      <div style={{
+                        padding: '12px 16px',
+                        borderRadius: '12px',
+                        background: 'rgba(239, 68, 68, 0.15)',
+                        border: '1.5px dashed #ef4444',
+                        textAlign: 'center',
+                        color: '#fca5a5',
+                        fontSize: '13px',
+                        fontWeight: 'bold'
+                      }}>
+                        ⚠️ 卒業・引退のため「現状維持」は選択できません。上記から資格を満たす職業を選択してください。
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => moves.changeJob(pid, 'keep')}
+                        style={{
+                          width: '100%',
+                          padding: '14px',
+                          borderRadius: '14px',
+                          background: 'linear-gradient(135deg, #475569, #334155)',
+                          border: '1px solid rgba(255,255,255,0.2)',
+                          color: '#ffffff',
+                          fontWeight: '900',
+                          fontSize: '14px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '8px',
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                          marginTop: '4px'
+                        }}
+                      >
+                        <span>🛡️</span>
+                        <span>転職せず、現在の職業【{currentOcc?.title || '無職'}】を継続する（現状維持）</span>
+                      </button>
+                    )
+                  ) : (
+                    <div style={{
+                      padding: '14px',
+                      borderRadius: '12px',
+                      background: 'rgba(0,0,0,0.3)',
+                      textAlign: 'center',
+                      color: '#94a3b8',
+                      fontSize: '13px'
+                    }}>
+                      💼 {getPlayerName(turnPid)} が転職先{isForced ? '（セカンドキャリア）' : '（または現状維持）'}を検討中…
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* 時代コース分岐選択（Aルート vs Bルート） */}
+            {G.currentSpaceModal.type === 'branch_route' && (() => {
+              const curEra = getEraById(G.era || 1);
+              const bInfo = curEra?.branchInfo;
+              if (!bInfo) return null;
+              const routeA = bInfo.routes.A;
+              const routeB = bInfo.routes.B;
+
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', margin: '8px 0' }}>
+                  <div style={{ fontSize: '13px', color: '#e2e8f0', textAlign: 'center', lineHeight: 1.5 }}>
+                    {bInfo.branchDesc}
+                  </div>
+
+                  {isActionPlayer ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px' }}>
+                      {/* Aコース */}
+                      <div
+                        onClick={() => moves.chooseEraBranch(pid, 'A')}
+                        style={{
+                          background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.15), rgba(37, 99, 235, 0.25))',
+                          border: `2px solid ${routeA.color}`,
+                          borderRadius: '16px',
+                          padding: '16px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'space-between',
+                          boxShadow: '0 4px 15px rgba(56, 189, 248, 0.25)',
+                          transition: 'transform 0.15s ease'
+                        }}
+                      >
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                            <span style={{ fontSize: '28px' }}>{routeA.icon}</span>
+                            <div>
+                              <span style={{ fontSize: '10px', background: routeA.color, color: '#000', padding: '1px 6px', borderRadius: '4px', fontWeight: '900' }}>
+                                Aルート
+                              </span>
+                              <div style={{ fontSize: '15px', fontWeight: '900', color: '#ffffff', marginTop: '2px' }}>
+                                {routeA.name}
+                              </div>
+                            </div>
+                          </div>
+                          <p style={{ fontSize: '12px', color: '#cbd5e1', lineHeight: 1.4, margin: '8px 0' }}>
+                            {routeA.desc}
+                          </p>
+                        </div>
+                        <button
+                          style={{
+                            width: '100%',
+                            padding: '10px',
+                            borderRadius: '10px',
+                            background: `linear-gradient(135deg, ${routeA.color}, #1d4ed8)`,
+                            color: '#ffffff',
+                            border: 'none',
+                            fontWeight: 'bold',
+                            fontSize: '13px',
+                            cursor: 'pointer',
+                            marginTop: '10px'
+                          }}
+                        >
+                          👉 このルートを選択！
+                        </button>
+                      </div>
+
+                      {/* Bコース */}
+                      <div
+                        onClick={() => moves.chooseEraBranch(pid, 'B')}
+                        style={{
+                          background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(217, 119, 6, 0.25))',
+                          border: `2px solid ${routeB.color}`,
+                          borderRadius: '16px',
+                          padding: '16px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'space-between',
+                          boxShadow: '0 4px 15px rgba(245, 158, 11, 0.25)',
+                          transition: 'transform 0.15s ease'
+                        }}
+                      >
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                            <span style={{ fontSize: '28px' }}>{routeB.icon}</span>
+                            <div>
+                              <span style={{ fontSize: '10px', background: routeB.color, color: '#000', padding: '1px 6px', borderRadius: '4px', fontWeight: '900' }}>
+                                Bルート
+                              </span>
+                              <div style={{ fontSize: '15px', fontWeight: '900', color: '#ffffff', marginTop: '2px' }}>
+                                {routeB.name}
+                              </div>
+                            </div>
+                          </div>
+                          <p style={{ fontSize: '12px', color: '#cbd5e1', lineHeight: 1.4, margin: '8px 0' }}>
+                            {routeB.desc}
+                          </p>
+                        </div>
+                        <button
+                          style={{
+                            width: '100%',
+                            padding: '10px',
+                            borderRadius: '10px',
+                            background: `linear-gradient(135deg, ${routeB.color}, #b45309)`,
+                            color: '#ffffff',
+                            border: 'none',
+                            fontWeight: 'bold',
+                            fontSize: '13px',
+                            cursor: 'pointer',
+                            marginTop: '10px'
+                          }}
+                        >
+                          👉 このルートを選択！
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{
+                      padding: '16px',
+                      borderRadius: '14px',
+                      background: 'rgba(0,0,0,0.4)',
+                      border: `1.5px dashed ${turnPlayer.color}`,
+                      textAlign: 'center'
+                    }}>
+                      <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#38bdf8' }}>
+                        🚩 {getPlayerName(turnPid)} がコースを選択しています…
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '4px' }}>
+                        「{routeA.name}」か「{routeB.name}」か選択中
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* 進路分岐選択 */}
             {G.currentSpaceModal.type === 'branch_career' && (() => {
@@ -1839,8 +2635,149 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
               </div>
             )}
 
+            {/* ハードモード：親の年収による旅行決断モーダル（行く vs キャンセル） */}
+            {G.currentSpaceModal.type === 'choose_travel' && (() => {
+              const modal = G.currentSpaceModal;
+              const pIncome = modal.parentIncome || turnPlayer.parentIncome || { income: 500, title: '平均的家庭', icon: '🏠' };
+              const isPoor = pIncome.income < 400;
+              const isRich = pIncome.income >= 1000;
+
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', margin: '4px 0 12px' }}>
+                  {/* 親ガチャ・実家ステータスバナー */}
+                  <div style={{
+                    padding: '12px 16px',
+                    borderRadius: '14px',
+                    background: isPoor
+                      ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(185, 28, 28, 0.35))'
+                      : isRich
+                      ? 'linear-gradient(135deg, rgba(234, 179, 8, 0.2), rgba(202, 138, 4, 0.35))'
+                      : 'linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(30, 64, 175, 0.3))',
+                    border: isPoor ? '1.5px solid #ef4444' : isRich ? '1.5px solid #facc15' : '1.5px solid #38bdf8',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                      <span style={{ fontSize: '11px', color: '#cbd5e1', fontWeight: 'bold' }}>
+                        💀 ハードモード【親ガチャ・実家経済状況】
+                      </span>
+                      <span style={{
+                        fontSize: '11px',
+                        padding: '2px 8px',
+                        borderRadius: '10px',
+                        fontWeight: '900',
+                        background: isPoor ? '#ef4444' : isRich ? '#facc15' : '#38bdf8',
+                        color: isRich ? '#000' : '#fff'
+                      }}>
+                        {isPoor ? '⚠️ 困窮・自力必須' : isRich ? '👑 富豪・親ガチャ大勝利' : '🏡 一般家庭'}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '15px', fontWeight: '900', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span>{pIncome.icon}</span>
+                      <span>{pIncome.title}</span>
+                      <span style={{ fontSize: '13px', color: '#facc15', marginLeft: 'auto' }}>
+                        実家年収: {pIncome.income} 万円
+                      </span>
+                    </div>
+                    {modal.adviceText && (
+                      <div style={{
+                        marginTop: '8px',
+                        padding: '8px 12px',
+                        borderRadius: '8px',
+                        background: 'rgba(0,0,0,0.3)',
+                        fontSize: '12px',
+                        color: '#f1f5f9',
+                        fontStyle: 'italic',
+                        borderLeft: isPoor ? '3px solid #ef4444' : isRich ? '3px solid #facc15' : '3px solid #38bdf8'
+                      }}>
+                        💬 親「{modal.adviceText.replace(/^「|」$/g, '')}」
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 選択肢ボタン */}
+                  {isActionPlayer ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      {/* ボタン1: 旅行に行く */}
+                      <button
+                        onClick={() => moves.decideTravel(pid, 'go')}
+                        style={{
+                          width: '100%',
+                          padding: '14px 16px',
+                          borderRadius: '14px',
+                          background: 'linear-gradient(135deg, #0284c7, #0369a1)',
+                          border: '1.5px solid #38bdf8',
+                          color: '#fff',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '4px',
+                          textAlign: 'left',
+                          boxShadow: '0 4px 15px rgba(2, 132, 199, 0.4)',
+                          transition: 'transform 0.15s ease'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px', fontWeight: '900' }}>
+                          <span>🛫</span>
+                          <span>【予定通り旅行に行く！】</span>
+                          <span style={{ fontSize: '11px', background: 'rgba(255,255,255,0.2)', padding: '2px 8px', borderRadius: '10px', marginLeft: 'auto' }}>
+                            名産品獲得
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#bae6fd', paddingLeft: '26px' }}>
+                          {modal.goPreview}
+                        </div>
+                      </button>
+
+                      {/* ボタン2: 旅行をキャンセルする */}
+                      <button
+                        onClick={() => moves.decideTravel(pid, 'cancel')}
+                        style={{
+                          width: '100%',
+                          padding: '14px 16px',
+                          borderRadius: '14px',
+                          background: isPoor
+                            ? 'linear-gradient(135deg, #10b981, #059669)'
+                            : 'linear-gradient(135deg, #d97706, #b45309)',
+                          border: isPoor ? '1.5px solid #34d399' : '1.5px solid #f59e0b',
+                          color: '#fff',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '4px',
+                          textAlign: 'left',
+                          boxShadow: '0 4px 15px rgba(245, 158, 11, 0.35)',
+                          transition: 'transform 0.15s ease'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px', fontWeight: '900' }}>
+                          <span>🏠</span>
+                          <span>【旅行をキャンセルする】</span>
+                          <span style={{ fontSize: '11px', background: 'rgba(255,255,255,0.2)', padding: '2px 8px', borderRadius: '10px', marginLeft: 'auto' }}>
+                            {isPoor ? '能力大幅UP＆お駄賃' : isRich ? '自由資金+50万' : '旅費浮いて貯金'}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '12px', color: isPoor ? '#a7f3d0' : '#fde68a', paddingLeft: '26px' }}>
+                          {modal.cancelPreview}
+                        </div>
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{
+                      padding: '14px',
+                      borderRadius: '12px',
+                      background: 'rgba(0,0,0,0.3)',
+                      textAlign: 'center',
+                      color: '#94a3b8',
+                      fontSize: '13px'
+                    }}>
+                      ✈️ {getPlayerName(turnPid)} が実家年収（{pIncome.income}万）を踏まえて旅行に行くかキャンセルするか検討中…
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
             {/* 通常イベントマス（了解して次へ進む） */}
-            {!['branch_career', 'branch_midlife', 'buy_house', 'choose_job', 'job_result', 'era_milestone'].includes(G.currentSpaceModal.type) && (
+            {!['branch_route', 'branch_career', 'branch_midlife', 'buy_house', 'choose_job', 'job_result', 'era_milestone', 'job_change', 'choose_travel'].includes(G.currentSpaceModal.type) && (
               isActionPlayer ? (
                 <button
                   onClick={() => moves.endTurn(pid)}
@@ -1882,10 +2819,300 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
         </div>
       )}
 
-      {/* 2-COLUMN COMPACT RESPONSIVE MAIN LAYOUT */}
+      {/* 📋 職業一覧・転職ライン確認モーダル */}
+      {showCareerGuideModal && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.8)',
+          backdropFilter: 'blur(6px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1100,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: 'linear-gradient(145deg, #1e293b, #0f172a)',
+            border: '2px solid #38bdf8',
+            borderRadius: '24px',
+            padding: '26px',
+            maxWidth: '780px',
+            width: '100%',
+            color: '#ffffff',
+            boxShadow: '0 25px 60px rgba(0,0,0,0.9)',
+            maxHeight: '90vh',
+            overflowY: 'auto'
+          }}>
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '26px' }}>📋</span>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '900', color: '#38bdf8' }}>
+                    全職業一覧 ＆ 転職ライン確認ガイド
+                  </h3>
+                  <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+                    体力と学力を高めて、高給エリート・専門職へのキャリアアップを目指そう！
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowCareerGuideModal(false)}
+                style={{
+                  background: 'rgba(255,255,255,0.1)',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '34px',
+                  height: '34px',
+                  color: '#cbd5e1',
+                  fontSize: '18px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* あなたの現在のステータス */}
+            <div style={{
+              background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.12), rgba(15, 23, 42, 0.7))',
+              border: '1.5px solid rgba(56, 189, 248, 0.35)',
+              borderRadius: '16px',
+              padding: '12px 18px',
+              marginBottom: '14px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '12px'
+            }}>
+              <div>
+                <div style={{ fontSize: '11px', color: '#94a3b8' }}>あなたの現在の職業 ＆ 給料</div>
+                <div style={{ fontSize: '16px', fontWeight: '900', color: '#ffffff' }}>
+                  {myPlayer?.occupation ? `${myPlayer.occupation.icon} ${myPlayer.occupation.title}` : '🏚️ 未就職・求職中'}
+                  <span style={{ fontSize: '13px', color: '#facc15', marginLeft: '8px' }}>
+                    （給料: {myPlayer?.salary || 0}万円）
+                  </span>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <div style={{
+                  padding: '6px 14px',
+                  borderRadius: '10px',
+                  background: 'rgba(56, 189, 248, 0.2)',
+                  border: '1px solid #38bdf8',
+                  textAlign: 'center'
+                }}>
+                  <div style={{ fontSize: '10px', color: '#7dd3fc', fontWeight: 'bold' }}>📚 あなたの学力</div>
+                  <div style={{ fontSize: '18px', fontWeight: '900', color: '#38bdf8' }}>{myPlayer?.academic || 50}</div>
+                </div>
+                <div style={{
+                  padding: '6px 14px',
+                  borderRadius: '10px',
+                  background: 'rgba(52, 211, 153, 0.2)',
+                  border: '1px solid #34d399',
+                  textAlign: 'center'
+                }}>
+                  <div style={{ fontSize: '10px', color: '#6ee7b7', fontWeight: 'bold' }}>🏃 あなたの体力</div>
+                  <div style={{ fontSize: '18px', fontWeight: '900', color: '#34d399' }}>{myPlayer?.stamina || 50}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* パラメータ育成のコツ */}
+            <div style={{
+              background: 'rgba(0,0,0,0.3)',
+              borderRadius: '12px',
+              padding: '10px 14px',
+              marginBottom: '16px',
+              fontSize: '11px',
+              color: '#cbd5e1',
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '12px',
+              lineHeight: 1.5,
+              border: '1px solid rgba(255,255,255,0.08)'
+            }}>
+              <span style={{ color: '#38bdf8', fontWeight: 'bold' }}>💡 パラメータ育成のヒント:</span>
+              <span>📖 <strong>勉強マス</strong>: 学力+6</span>
+              <span>🏃 <strong>運動マス</strong>: 体力+6</span>
+              <span>✈️ <strong>旅行マス</strong>: 学力+2 & 体力+2</span>
+              <span>🛤️ <strong>コース分岐</strong>: Aコース(学力+5) / Bコース(体力+5)</span>
+              <span>💼 <strong>転職チャンスマス</strong>: 壮年期・熟年期で止まると資格を満たした職業へ転職可能！</span>
+            </div>
+
+            {/* 職業一覧グリッド */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+              gap: '10px',
+              maxHeight: '440px',
+              overflowY: 'auto',
+              paddingRight: '6px'
+            }}>
+              {OCCUPATIONS.map((occ) => {
+                const myAcad = myPlayer?.academic || 50;
+                const myStam = myPlayer?.stamina || 50;
+                const reqAcad = occ.reqAcademic || 0;
+                const reqStam = occ.reqStamina || 0;
+                const acadPass = myAcad >= reqAcad;
+                const stamPass = myStam >= reqStam;
+                const isQualified = acadPass && stamPass;
+                const isCurrent = myPlayer?.occupation?.id === occ.id;
+
+                return (
+                  <div
+                    key={occ.id}
+                    style={{
+                      padding: '12px 14px',
+                      borderRadius: '14px',
+                      background: isCurrent
+                        ? 'rgba(59, 130, 246, 0.2)'
+                        : isQualified
+                        ? 'rgba(16, 185, 129, 0.12)'
+                        : 'rgba(30, 41, 59, 0.5)',
+                      border: isCurrent
+                        ? '2px solid #3b82f6'
+                        : isQualified
+                        ? '1.5px solid #10b981'
+                        : '1px solid rgba(255, 255, 255, 0.1)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '24px' }}>{occ.icon}</span>
+                        <div>
+                          <div style={{ fontSize: '14px', fontWeight: '900', color: '#ffffff' }}>
+                            {occ.title}
+                          </div>
+                          {isCurrent && (
+                            <span style={{ fontSize: '10px', background: '#3b82f6', color: '#fff', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
+                              現在のあなたの職業
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <span style={{
+                        fontSize: '13px',
+                        fontWeight: '900',
+                        color: '#facc15',
+                        background: 'rgba(250, 204, 21, 0.15)',
+                        padding: '3px 8px',
+                        borderRadius: '8px'
+                      }}>
+                        給料: {occ.baseSalary}万
+                      </span>
+                    </div>
+
+                    <div style={{ fontSize: '11px', color: '#94a3b8', lineHeight: 1.3 }}>
+                      {occ.tierDesc}
+                    </div>
+
+                    {/* Requirement comparisons */}
+                    <div style={{ display: 'flex', gap: '8px', fontSize: '11px' }}>
+                      <div style={{
+                        flex: 1,
+                        padding: '4px 8px',
+                        borderRadius: '8px',
+                        background: acadPass ? 'rgba(56, 189, 248, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                        border: acadPass ? '1px solid rgba(56, 189, 248, 0.4)' : '1px solid rgba(239, 68, 68, 0.4)',
+                        color: acadPass ? '#38bdf8' : '#fca5a5'
+                      }}>
+                        <div style={{ fontSize: '9px', color: '#94a3b8' }}>📚 必要学力</div>
+                        <div style={{ fontWeight: 'bold' }}>
+                          {reqAcad} {acadPass ? `✓ (現在${myAcad})` : `(あと+${reqAcad - myAcad})`}
+                        </div>
+                      </div>
+
+                      <div style={{
+                        flex: 1,
+                        padding: '4px 8px',
+                        borderRadius: '8px',
+                        background: stamPass ? 'rgba(52, 211, 153, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                        border: stamPass ? '1px solid rgba(52, 211, 153, 0.4)' : '1px solid rgba(239, 68, 68, 0.4)',
+                        color: stamPass ? '#34d399' : '#fca5a5'
+                      }}>
+                        <div style={{ fontSize: '9px', color: '#94a3b8' }}>🏃 必要体力</div>
+                        <div style={{ fontWeight: 'bold' }}>
+                          {reqStam} {stamPass ? `✓ (現在${myStam})` : `(あと+${reqStam - myStam})`}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Status pill */}
+                    <div style={{
+                      padding: '4px 8px',
+                      borderRadius: '8px',
+                      textAlign: 'center',
+                      fontSize: '11px',
+                      fontWeight: 'bold',
+                      background: isQualified ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.15)',
+                      color: isQualified ? '#34d399' : '#f87171'
+                    }}>
+                      {isQualified ? '✅ 転職ライン達成！（転職マスで就任可能）' : '🔒 資格未達（学力・体力を上げよう）'}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <button
+              onClick={() => setShowCareerGuideModal(false)}
+              style={{
+                width: '100%',
+                padding: '14px',
+                borderRadius: '14px',
+                background: 'linear-gradient(135deg, #38bdf8, #0284c7)',
+                color: '#ffffff',
+                border: 'none',
+                fontWeight: '900',
+                fontSize: '15px',
+                cursor: 'pointer',
+                marginTop: '16px',
+                boxShadow: '0 4px 16px rgba(56, 189, 248, 0.4)'
+              }}
+            >
+              閉じる
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 3-COLUMN COMPACT RESPONSIVE MAIN LAYOUT: LEFT (2 Players) | CENTER (Controls, Map, Logs) | RIGHT (2 Players) */}
       <div className="game-main-layout">
-        {/* LEFT COLUMN: CONTROLS, INSPECTOR, STATUS, LOGS */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {/* LEFT COLUMN: 2 PLAYERS (Player 0 & 1) */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <div style={{
+            fontSize: '11px',
+            fontWeight: '900',
+            color: '#94a3b8',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '5px',
+            padding: '2px 4px'
+          }}>
+            <span>👥 プレイヤー陣営（左）</span>
+          </div>
+          {leftPlayers.map((p) => renderPlayerCard(p))}
+        </div>
+
+        {/* CENTER COLUMN: CONTROLS, INSPECTOR, BOARD MAP, LOGS */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', minWidth: 0 }}>
+          {/* Top Row: Roulette Controls & Space Inspector */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(290px, 1fr))',
+            gap: '10px',
+            alignItems: 'stretch'
+          }}>
           {/* 1. ROULETTE & CONTROLS COMPACT PANEL */}
           <div style={{
             background: 'linear-gradient(145deg, #111827 0%, #1e293b 100%)',
@@ -2099,215 +3326,9 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
               {isHovering ? '👀 カーソル位置のマスを表示中' : '💡 マスにカーソルを合わせると詳細表示'}
             </div>
           </div>
-
-          {/* 3. PLAYERS STATUS PANEL */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: Object.keys(G.players).length <= 2 ? '1fr 1fr' : '1fr',
-            gap: '8px'
-          }}>
-            {Object.values(G.players).map((p) => {
-              const isCurrent = ctx.currentPlayer === p.id;
-              return (
-                <div
-                  key={p.id}
-                  style={{
-                    background: isCurrent ? 'linear-gradient(135deg, #065f46, #047857)' : 'rgba(15, 23, 42, 0.85)',
-                    border: isCurrent ? '2px solid #34d399' : '1px solid rgba(255,255,255,0.12)',
-                    borderRadius: '12px',
-                    padding: '8px 10px',
-                    color: '#ffffff',
-                    fontSize: '11px',
-                    boxShadow: isCurrent ? '0 4px 12px rgba(52, 211, 153, 0.25)' : 'none'
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <strong style={{ color: p.color, fontSize: '12px' }}>
-                      {getPlayerName(p.id)} {isCurrent && '🎯'}
-                    </strong>
-                    <span style={{ fontSize: '10px', background: 'rgba(255,255,255,0.15)', padding: '1px 6px', borderRadius: '6px' }}>
-                      {p.prefecture?.emoji} {p.prefecture?.shortName}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: '15px', fontWeight: '900', color: '#fde047', margin: '2px 0' }}>
-                    {p.money.toLocaleString()} <span style={{ fontSize: '10px', color: '#fff' }}>万円</span>
-                  </div>
-                  {G.isHardMode && (
-                    <div style={{ fontSize: '10px', color: '#fca5a5', lineHeight: 1.3 }}>
-                      実家: {p.parentIncome ? `${p.parentIncome.income}万` : '未定'} • 偏差値: <strong style={{ color: '#fde047' }}>【{p.hensachi || 50}】</strong>
-                    </div>
-                  )}
-                  <div style={{ fontSize: '10px', color: '#cbd5e1', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    💼 {p.occupation ? p.occupation.title : '無職（求職中）'}
-                  </div>
-                  {/* 家族・子供ステータスバッジ */}
-                  <div style={{
-                    marginTop: '5px',
-                    padding: '4px 6px',
-                    borderRadius: '8px',
-                    background: p.car.kids > 0 ? 'rgba(244, 114, 182, 0.2)' : 'rgba(255,255,255,0.06)',
-                    border: p.car.kids > 0 ? '1px solid #f472b6' : '1px solid rgba(255,255,255,0.1)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    flexWrap: 'wrap',
-                    gap: '4px'
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <span style={{ fontSize: '13px' }}>{p.car.kids > 0 ? '👨‍👩‍👧‍👦' : (p.car.spouse ? '👫' : '👤')}</span>
-                      <strong style={{ fontSize: '11px', color: p.car.kids > 0 ? '#fbcfe8' : '#cbd5e1' }}>
-                        {p.car.kids > 0 ? `子ども ${p.car.kids}人` : '子どもなし'}
-                      </strong>
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-                      {p.car.spouse && (
-                        <span style={{ background: '#f43f5e', color: '#fff', padding: '1px 4px', borderRadius: '4px', fontSize: '8px', fontWeight: 'bold' }}>
-                          配偶者
-                        </span>
-                      )}
-                      {p.car.kids > 0 ? (
-                        Array.from({ length: p.car.kids }).map((_, i) => (
-                          <span
-                            key={i}
-                            style={{
-                              background: '#ec4899',
-                              color: '#fff',
-                              padding: '1px 5px',
-                              borderRadius: '4px',
-                              fontSize: '9px',
-                              fontWeight: '900',
-                              boxShadow: '0 1px 3px rgba(0,0,0,0.3)'
-                            }}
-                            title={`第${i + 1}子（毎給料手当 +15万 / 決算資産 +200万）`}
-                          >
-                            👶 子{i + 1}
-                          </span>
-                        ))
-                      ) : null}
-                    </div>
-                  </div>
-                  {p.car.kids > 0 && (
-                    <div style={{ fontSize: '9px', color: '#6ee7b7', marginTop: '2px', textAlign: 'right' }}>
-                      給料手当 +{p.car.kids * 15}万 / 決算資産 +{p.car.kids * 200}万
-                    </div>
-                  )}
-
-                  {/* 出身県＆パッシブ恩恵 */}
-                  {p.prefecture && (
-                    <div style={{
-                      marginTop: '6px',
-                      padding: '5px 7px',
-                      borderRadius: '8px',
-                      background: 'rgba(245, 158, 11, 0.12)',
-                      border: '1px solid rgba(245, 158, 11, 0.3)',
-                      fontSize: '9px',
-                      color: '#fef3c7'
-                    }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontWeight: 'bold', color: '#fde047' }}>
-                          🗾 {p.prefecture.emoji} {p.prefecture.name}
-                        </span>
-                        <span style={{ fontSize: '8px', background: p.prefecture.color, color: '#fff', padding: '1px 5px', borderRadius: '4px', fontWeight: 'bold' }}>
-                          {p.prefecture.regionName}
-                        </span>
-                      </div>
-                      <div style={{ color: '#fed7aa', fontWeight: 'bold', marginTop: '2px' }}>
-                        ✨【{p.prefecture.traitName}】
-                      </div>
-                      <div style={{ color: '#cbd5e1', fontSize: '8px', lineHeight: 1.25, marginTop: '2px' }}>
-                        {p.prefecture.traitDesc}
-                      </div>
-                      {(p.insurance?.life || p.insurance?.fire) && (
-                        <div style={{ display: 'flex', gap: '3px', marginTop: '3px' }}>
-                          {p.insurance?.life && (
-                            <span style={{ fontSize: '7px', background: '#0284c7', color: '#fff', padding: '0 4px', borderRadius: '3px' }}>
-                              🛡️ 生命保険付帯
-                            </span>
-                          )}
-                          {p.insurance?.fire && (
-                            <span style={{ fontSize: '7px', background: '#dc2626', color: '#fff', padding: '0 4px', borderRadius: '3px' }}>
-                              🛡️ 火災保険付帯
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* ご当地特産品・お土産コレクション */}
-                  {p.souvenirs && p.souvenirs.length > 0 && (() => {
-                    const sTotal = p.souvenirs.reduce((acc, s) => acc + (s.value || 0), 0);
-                    return (
-                      <div style={{
-                        marginTop: '5px',
-                        padding: '4px 6px',
-                        borderRadius: '8px',
-                        background: 'rgba(56, 189, 248, 0.12)',
-                        border: '1px solid rgba(56, 189, 248, 0.25)',
-                        fontSize: '9px',
-                      }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
-                          <span style={{ color: '#7dd3fc', fontWeight: 'bold' }}>
-                            🎁 名産品お土産 ({p.souvenirs.length}品)
-                          </span>
-                          <span style={{ color: '#4ade80', fontWeight: 'bold' }}>
-                            +{sTotal}万
-                          </span>
-                        </div>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', maxHeight: '55px', overflowY: 'auto' }}>
-                          {p.souvenirs.map((s, sIdx) => (
-                            <span
-                              key={sIdx}
-                              style={{
-                                background: 'rgba(255,255,255,0.12)',
-                                borderRadius: '4px',
-                                padding: '1px 4px',
-                                fontSize: '8px',
-                                color: '#e2e8f0',
-                                whiteSpace: 'nowrap',
-                                border: '1px solid rgba(255,255,255,0.08)'
-                              }}
-                              title={`${s.prefName || ''}: ${s.name} (資産価値 +${s.value}万)\n${s.flavor || ''}`}
-                            >
-                              {s.icon} {s.name.split(' ')[0]} (+{s.value}万)
-                            </span>
-                          ))}
-                        </div>
-                        {p.souvenirs.length >= 3 && (
-                          <div style={{ fontSize: '8px', color: '#fde047', marginTop: '2px', textAlign: 'right', fontWeight: 'bold' }}>
-                            {p.souvenirs.length >= 5 ? '🏆 日本一周グランドトラベラー（決算+300万）' : '🎖️ 全国旅行マスター（決算+150万）'}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* 4. EVENT LOGS */}
-          <div style={{
-            background: 'rgba(0,0,0,0.35)',
-            borderRadius: '12px',
-            padding: '10px 12px',
-            fontSize: '11px',
-            color: '#cbd5e1',
-            maxHeight: '120px',
-            overflowY: 'auto',
-            border: '1px solid rgba(255,255,255,0.08)'
-          }}>
-            <div style={{ fontWeight: 'bold', color: '#94a3b8', marginBottom: '4px', fontSize: '10px' }}>
-              📜 人生イベントログ:
-            </div>
-            {G.logs.map((log, idx) => (
-              <div key={idx} style={{ marginBottom: '2px', lineHeight: 1.3 }}>{log}</div>
-            ))}
-          </div>
         </div>
 
-        {/* RIGHT COLUMN: BOARD GAME MAP */}
+        {/* BOARD GAME MAP */}
         <div style={{
           background: 'linear-gradient(160deg, #1e293b 0%, #0f172a 100%)',
           borderRadius: '18px',
@@ -2397,6 +3418,73 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
             ))}
           </div>
 
+          {/* Branch Route Info Banner */}
+          {viewingEra.branchInfo && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '8px',
+              padding: '8px 12px',
+              borderRadius: '10px',
+              background: 'linear-gradient(90deg, rgba(56, 189, 248, 0.12) 0%, rgba(245, 158, 11, 0.12) 100%)',
+              border: '1px solid rgba(255, 255, 255, 0.12)',
+              fontSize: '11px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '14px' }}>🛤️</span>
+                <span style={{ fontWeight: 'bold', color: '#e2e8f0' }}>{viewingEra.branchInfo.branchTitle}</span>
+                <span style={{ color: '#94a3b8', fontSize: '10px' }}>#{viewingEra.branchInfo.branchSpaceId}マスで進路選択</span>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <span style={{
+                  padding: '3px 8px',
+                  borderRadius: '6px',
+                  background: 'rgba(56, 189, 248, 0.2)',
+                  border: '1px solid #38bdf8',
+                  color: '#38bdf8',
+                  fontWeight: 'bold',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}>
+                  {viewingEra.branchInfo.routes.A.icon} A: {viewingEra.branchInfo.routes.A.name}
+                  {viewEraId === G.era && myPlayer.eraRoute === 'A' && (
+                    <span style={{ background: '#38bdf8', color: '#000', padding: '0 4px', borderRadius: '3px', fontSize: '9px', fontWeight: '900' }}>選択中</span>
+                  )}
+                </span>
+                <span style={{ color: '#64748b', fontWeight: 'bold' }}>vs</span>
+                <span style={{
+                  padding: '3px 8px',
+                  borderRadius: '6px',
+                  background: 'rgba(245, 158, 11, 0.2)',
+                  border: '1px solid #f59e0b',
+                  color: '#f59e0b',
+                  fontWeight: 'bold',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}>
+                  {viewingEra.branchInfo.routes.B.icon} B: {viewingEra.branchInfo.routes.B.name}
+                  {viewEraId === G.era && myPlayer.eraRoute === 'B' && (
+                    <span style={{ background: '#f59e0b', color: '#000', padding: '0 4px', borderRadius: '3px', fontSize: '9px', fontWeight: '900' }}>選択中</span>
+                  )}
+                </span>
+                <span style={{
+                  padding: '3px 8px',
+                  borderRadius: '6px',
+                  background: 'rgba(52, 211, 153, 0.15)',
+                  border: '1px solid rgba(52, 211, 153, 0.4)',
+                  color: '#34d399',
+                  fontSize: '10px'
+                }}>
+                  #{viewingEra.branchInfo.mergeSpaceId}〜 合流
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Board Grid */}
           <div style={{
             display: 'grid',
@@ -2409,6 +3497,14 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
               const isHovered = hoveredSpace?.id === space.id && hoveredSpace?.eraId === viewingEra.id;
               const isMyPieceHere = G.era === viewingEra.id && myPlayer.position === space.id;
               const isTurnLandingSpace = viewEraId === G.era && space.id === G.players[turnPid]?.position;
+              const isBranchChoice = space.type === 'branch_route';
+              const isEraGoal = space.type === 'era_goal';
+              const isRouteA = space.route === 'A';
+              const isRouteB = space.route === 'B';
+              const isDimmed = viewEraId === G.era && myPlayer.eraRoute && (
+                (myPlayer.eraRoute === 'A' && isRouteB) ||
+                (myPlayer.eraRoute === 'B' && isRouteA)
+              );
 
               return (
                 <div
@@ -2423,6 +3519,14 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
                       ? 'radial-gradient(circle at 50% 0%, rgba(245, 158, 11, 0.28) 0%, rgba(30, 41, 59, 0.95) 100%)'
                       : isMyPieceHere
                       ? 'rgba(16, 185, 129, 0.2)'
+                      : isEraGoal
+                      ? 'linear-gradient(135deg, rgba(234, 179, 8, 0.18) 0%, rgba(30, 41, 59, 0.9) 100%)'
+                      : isBranchChoice
+                      ? 'rgba(192, 132, 252, 0.12)'
+                      : isRouteA
+                      ? 'rgba(56, 189, 248, 0.08)'
+                      : isRouteB
+                      ? 'rgba(245, 158, 11, 0.08)'
                       : 'rgba(255,255,255,0.05)',
                     border: isHovered
                       ? '2px solid #38bdf8'
@@ -2430,6 +3534,14 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
                       ? '2.5px solid #f59e0b'
                       : isMyPieceHere
                       ? '2px solid #34d399'
+                      : isEraGoal
+                      ? '2px solid #eab308'
+                      : isBranchChoice
+                      ? '2px solid #c084fc'
+                      : isRouteA
+                      ? '1.5px solid rgba(56, 189, 248, 0.55)'
+                      : isRouteB
+                      ? '1.5px solid rgba(245, 158, 11, 0.55)'
                       : `1.5px solid ${viewingEra.color}66`,
                     borderRadius: '12px',
                     padding: '8px 10px',
@@ -2439,6 +3551,7 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
                     justifyContent: 'space-between',
                     position: 'relative',
                     cursor: 'pointer',
+                    opacity: isDimmed && !isHovered ? 0.45 : 1,
                     transform: isHovered ? 'translateY(-2px)' : (isTurnLandingSpace ? 'scale(1.02)' : 'none'),
                     boxShadow: isHovered
                       ? '0 6px 14px rgba(56, 189, 248, 0.35)'
@@ -2446,6 +3559,10 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
                       ? '0 0 18px rgba(245, 158, 11, 0.65)'
                       : isMyPieceHere
                       ? '0 0 12px rgba(52, 211, 153, 0.4)'
+                      : isEraGoal
+                      ? '0 0 14px rgba(234, 179, 8, 0.4)'
+                      : isBranchChoice
+                      ? '0 0 10px rgba(192, 132, 252, 0.3)'
                       : 'none',
                     transition: 'all 0.15s ease'
                   }}
@@ -2454,6 +3571,54 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '9px', color: '#94a3b8' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
                         <span style={{ fontWeight: 'bold' }}>#{space.id}</span>
+                        {isEraGoal && (
+                          <span style={{
+                            background: '#eab308',
+                            color: '#000',
+                            padding: '1px 5px',
+                            borderRadius: '3px',
+                            fontSize: '8px',
+                            fontWeight: '900'
+                          }}>
+                            🏁 GOAL
+                          </span>
+                        )}
+                        {isBranchChoice && (
+                          <span style={{
+                            background: '#a855f7',
+                            color: '#fff',
+                            padding: '1px 4px',
+                            borderRadius: '3px',
+                            fontSize: '8px',
+                            fontWeight: '900'
+                          }}>
+                            分岐
+                          </span>
+                        )}
+                        {isRouteA && (
+                          <span style={{
+                            background: '#0284c7',
+                            color: '#fff',
+                            padding: '1px 4px',
+                            borderRadius: '3px',
+                            fontSize: '8px',
+                            fontWeight: '900'
+                          }}>
+                            A
+                          </span>
+                        )}
+                        {isRouteB && (
+                          <span style={{
+                            background: '#d97706',
+                            color: '#fff',
+                            padding: '1px 4px',
+                            borderRadius: '3px',
+                            fontSize: '8px',
+                            fontWeight: '900'
+                          }}>
+                            B
+                          </span>
+                        )}
                         {isTurnLandingSpace && (
                           <span style={{
                             background: '#f59e0b',
@@ -2567,7 +3732,57 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
             })}
           </div>
         </div>
+
+        {/* EVENT LOGS (Center Column Bottom) */}
+        <div style={{
+          background: 'rgba(0,0,0,0.35)',
+          borderRadius: '12px',
+          padding: '10px 14px',
+          fontSize: '11px',
+          color: '#cbd5e1',
+          maxHeight: '130px',
+          overflowY: 'auto',
+          border: '1px solid rgba(255,255,255,0.08)'
+        }}>
+          <div style={{ fontWeight: 'bold', color: '#94a3b8', marginBottom: '4px', fontSize: '10px' }}>
+            📜 人生イベントログ:
+          </div>
+          {G.logs.map((log, idx) => (
+            <div key={idx} style={{ marginBottom: '2px', lineHeight: 1.3 }}>{log}</div>
+          ))}
+        </div>
+      </div>
+
+      {/* RIGHT COLUMN: 2 PLAYERS (Player 2 & 3) */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <div style={{
+          fontSize: '11px',
+          fontWeight: '900',
+          color: '#94a3b8',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '5px',
+          padding: '2px 4px'
+        }}>
+          <span>👥 プレイヤー陣営（右）</span>
+        </div>
+        {rightPlayers.length > 0 ? (
+          rightPlayers.map((p) => renderPlayerCard(p))
+        ) : (
+          <div style={{
+            padding: '16px',
+            textAlign: 'center',
+            color: '#64748b',
+            fontSize: '11px',
+            background: 'rgba(0,0,0,0.2)',
+            borderRadius: '12px',
+            border: '1px dashed rgba(255,255,255,0.1)'
+          }}>
+            プレイヤーなし
+          </div>
+        )}
       </div>
     </div>
-  );
+  </div>
+);
 };
