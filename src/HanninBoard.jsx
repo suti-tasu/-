@@ -9,8 +9,9 @@ export const HanninBoard = ({ G, ctx, moves, playerID, events, matchData }) => {
   const [confirmDialog, setConfirmDialog] = useState(null); // { type: 'play' | 'info' | 'trade', cardIdx: number, card: string }
   const [alertMessage, setAlertMessage] = useState(null);
 
-  const pid = playerID || '0';
-  const activeStage = ctx.activePlayers && ctx.activePlayers[pid];
+  const isSpectator = playerID === null || playerID === undefined;
+  const pid = isSpectator ? '0' : playerID.toString();
+  const activeStage = (!isSpectator && ctx.activePlayers) ? ctx.activePlayers[pid] : null;
   const isTradeSelect = activeStage === 'tradeSelect';
   const isInfoSelect = activeStage === 'infoSelect';
 
@@ -69,9 +70,9 @@ export const HanninBoard = ({ G, ctx, moves, playerID, events, matchData }) => {
           themeGradient="linear-gradient(135deg, #334155, #0f172a)"
           numPlayers={Object.keys(G.players).length}
           playerIds={Object.keys(G.players)}
-          pid={pid}
+          pid={isSpectator ? null : pid}
           getPlayerName={getPlayerName}
-          isHost={pid === '0'}
+          isHost={!isSpectator && pid === '0'}
           hostOnlyStart={true}
           onStart={() => moves.startGame()}
           onShowRules={() => setShowRules(true)}
@@ -81,8 +82,8 @@ export const HanninBoard = ({ G, ctx, moves, playerID, events, matchData }) => {
     );
   }
 
-  const player = G.players[pid];
-  const isActivePlayer = ctx.currentPlayer === pid;
+  const player = isSpectator ? { hand: [], privateKnowledge: [] } : G.players[pid];
+  const isActivePlayer = !isSpectator && ctx.currentPlayer === pid;
   
   const numPlayers = ctx.numPlayers;
   const myIdx = parseInt(pid, 10);
@@ -244,14 +245,16 @@ export const HanninBoard = ({ G, ctx, moves, playerID, events, matchData }) => {
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflowX: 'auto', paddingBottom: '6px' }}>
               {orderedPlayerIds.map((id, index) => {
-                const isMe = id === pid;
+                const isMe = !isSpectator && id === pid;
                 const isCurrent = ctx.currentPlayer === id;
-                const isLeft = id === leftId;
-                const isRight = id === rightId;
+                const isLeft = !isSpectator && id === leftId;
+                const isRight = !isSpectator && id === rightId;
                 const p = G.players[id];
 
                 let relationBadge = null;
-                if (isMe) {
+                if (isSpectator) {
+                  relationBadge = <span style={{ background: '#64748b', color: '#fff', fontSize: '10px', padding: '2px 8px', borderRadius: '10px' }}>座席 {parseInt(id, 10) + 1}</span>;
+                } else if (isMe) {
                   relationBadge = <span style={{ background: '#4caf50', color: '#fff', fontSize: '11px', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold' }}>👤 あなた</span>;
                 } else if (isLeft && isRight) {
                   relationBadge = <span style={{ background: '#9c27b0', color: '#fff', fontSize: '11px', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold' }}>左右の相手</span>;
@@ -261,6 +264,44 @@ export const HanninBoard = ({ G, ctx, moves, playerID, events, matchData }) => {
                   relationBadge = <span style={{ background: '#f57c00', color: '#fff', fontSize: '11px', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold' }}>👉 右隣（引く元）</span>;
                 } else {
                   relationBadge = <span style={{ background: '#757575', color: '#fff', fontSize: '10px', padding: '2px 6px', borderRadius: '10px' }}>向かい側</span>;
+                }
+
+                // 取り引き / 情報操作のカード選択状況バッジ
+                let selectionBadge = null;
+                if (G.pendingTrade) {
+                  if (id === G.pendingTrade.initiator || id === G.pendingTrade.target) {
+                    const picked = id === G.pendingTrade.initiator
+                      ? G.pendingTrade.initiatorCard !== null
+                      : G.pendingTrade.targetCard !== null;
+                    selectionBadge = picked ? (
+                      <div style={{ marginTop: '5px', fontSize: '11px', fontWeight: 'bold', background: '#dcfce7', color: '#15803d', border: '1px solid #4ade80', borderRadius: '8px', padding: '2px 6px' }}>
+                        ✅ 選択済み
+                      </div>
+                    ) : (
+                      <div style={{ marginTop: '5px', fontSize: '11px', fontWeight: 'bold', background: '#fef3c7', color: '#b45309', border: '1px solid #f59e0b', borderRadius: '8px', padding: '2px 6px' }}>
+                        ⏳ 選択中…
+                      </div>
+                    );
+                  }
+                } else if (G.pendingInfo) {
+                  if (G.pendingInfo.participants?.includes(id)) {
+                    const picked = G.pendingInfo.selections?.[id] !== undefined;
+                    selectionBadge = picked ? (
+                      <div style={{ marginTop: '5px', fontSize: '11px', fontWeight: 'bold', background: '#dcfce7', color: '#15803d', border: '1px solid #4ade80', borderRadius: '8px', padding: '2px 6px' }}>
+                        ✅ 選択済み
+                      </div>
+                    ) : (
+                      <div style={{ marginTop: '5px', fontSize: '11px', fontWeight: 'bold', background: '#fee2e2', color: '#b91c1c', border: '1px solid #f87171', borderRadius: '8px', padding: '2px 6px' }}>
+                        ⏳ 未選択
+                      </div>
+                    );
+                  } else {
+                    selectionBadge = (
+                      <div style={{ marginTop: '5px', fontSize: '10px', color: '#64748b', background: '#f1f5f9', borderRadius: '8px', padding: '2px 6px' }}>
+                        ➖ 手札なし
+                      </div>
+                    );
+                  }
                 }
 
                 return (
@@ -293,11 +334,78 @@ export const HanninBoard = ({ G, ctx, moves, playerID, events, matchData }) => {
                       <div style={{ marginTop: '4px' }}>
                         {relationBadge}
                       </div>
+                      {selectionBadge}
                     </div>
                   </React.Fragment>
                 );
               })}
             </div>
+
+            {/* 取り引き・情報操作の選択状況サマリーバナー */}
+            {(G.pendingTrade || G.pendingInfo) && (
+              <div style={{
+                marginTop: '12px',
+                padding: '10px 14px',
+                borderRadius: '10px',
+                background: G.pendingTrade ? '#fff7ed' : '#eef2ff',
+                border: G.pendingTrade ? '1.5px solid #fb923c' : '1.5px solid #818cf8',
+                display: 'flex',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '8px',
+                fontSize: '13px'
+              }}>
+                {G.pendingTrade ? (() => {
+                  const iDone = G.pendingTrade.initiatorCard !== null;
+                  const tDone = G.pendingTrade.targetCard !== null;
+                  return (
+                    <>
+                      <strong style={{ color: '#c2410c' }}>
+                        🤝 【取り引き進行中】{getPlayerName(G.pendingTrade.initiator)} ⇄ {getPlayerName(G.pendingTrade.target)}
+                      </strong>
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        <span style={{
+                          padding: '3px 10px', borderRadius: '999px', fontWeight: 'bold', fontSize: '12px',
+                          background: iDone ? '#dcfce7' : '#fef3c7',
+                          color: iDone ? '#15803d' : '#b45309',
+                          border: iDone ? '1px solid #4ade80' : '1px solid #f59e0b'
+                        }}>
+                          {getPlayerName(G.pendingTrade.initiator)}: {iDone ? '✅ 選択済み' : '⏳ まだ未選択'}
+                        </span>
+                        <span style={{
+                          padding: '3px 10px', borderRadius: '999px', fontWeight: 'bold', fontSize: '12px',
+                          background: tDone ? '#dcfce7' : '#fef3c7',
+                          color: tDone ? '#15803d' : '#b45309',
+                          border: tDone ? '1px solid #4ade80' : '1px solid #f59e0b'
+                        }}>
+                          {getPlayerName(G.pendingTrade.target)}: {tDone ? '✅ 選択済み' : '⏳ まだ未選択'}
+                        </span>
+                      </div>
+                    </>
+                  );
+                })() : (() => {
+                  const parts = G.pendingInfo.participants || [];
+                  const doneIds = parts.filter((id) => G.pendingInfo.selections?.[id] !== undefined);
+                  const pendingIds = parts.filter((id) => G.pendingInfo.selections?.[id] === undefined);
+                  return (
+                    <>
+                      <strong style={{ color: '#3730a3' }}>
+                        🔀 【情報操作進行中】選択完了: {doneIds.length} / {parts.length}人
+                      </strong>
+                      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', fontSize: '12px' }}>
+                        <span style={{ color: '#15803d', fontWeight: 'bold' }}>
+                          ✅ 選択済み: {doneIds.length > 0 ? doneIds.map(getPlayerName).join('・') : 'なし'}
+                        </span>
+                        <span style={{ color: '#b91c1c', fontWeight: 'bold' }}>
+                          ⏳ 未選択: {pendingIds.length > 0 ? pendingIds.map(getPlayerName).join('・') : 'なし'}
+                        </span>
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+            )}
           </div>
 
           {/* DISCARD PILE */}
@@ -369,6 +477,11 @@ export const HanninBoard = ({ G, ctx, moves, playerID, events, matchData }) => {
       </div>
 
       {/* MY HAND CONTAINER */}
+      {isSpectator ? (
+        <div style={{ background: '#e0f2fe', padding: '20px', borderTop: '4px solid #0284c7', textAlign: 'center', color: '#0369a1', fontWeight: 'bold', fontSize: '15px' }}>
+          👀 観戦モード中！（プレイヤーの手札・秘密情報は非公開です。場の捨て札とログで推理を楽しめます！）
+        </div>
+      ) : (
       <div style={{ 
         background: isActivePlayer && !activeStage ? '#f1f8e9' : (isInfoSelect ? '#ede7f6' : (isTradeSelect ? '#fff8e1' : '#f0f0f0')), 
         padding: '20px', 
@@ -610,6 +723,7 @@ export const HanninBoard = ({ G, ctx, moves, playerID, events, matchData }) => {
           })}
         </div>
       </div>
+      )}
 
       {/* CONFIRM DIALOG */}
       {confirmDialog && (() => {

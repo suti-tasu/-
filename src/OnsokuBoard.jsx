@@ -1,6 +1,6 @@
 // OnsokuBoard.jsx - 音速飯店 (Onsoku Hanten) Board UI
 import React, { useState } from 'react';
-import { getAllowedNextWords, FINISHING_WORDS } from './OnsokuGame';
+import { FINISHING_WORDS } from './OnsokuGame';
 import { UnifiedLobby } from './UnifiedLobby';
 
 const MENU_LIST = [
@@ -19,7 +19,8 @@ const MENU_LIST = [
 ];
 
 export const OnsokuBoard = ({ G, ctx, moves, playerID, matchData }) => {
-  const pid = (playerID ?? '0').toString();
+  const isSpectator = playerID === null || playerID === undefined;
+  const pid = isSpectator ? null : playerID.toString();
   const [showRules, setShowRules] = useState(false);
 
   const getPlayerName = (id) => {
@@ -28,11 +29,8 @@ export const OnsokuBoard = ({ G, ctx, moves, playerID, matchData }) => {
     return meta?.name || `Player ${id}`;
   };
 
-  const myPlayer = G.players[pid];
-  const trayWords = G.tray.map((c) => c.word);
-  const allowedNext = getAllowedNextWords(trayWords);
-  const allowedSet = new Set(allowedNext);
-  const rejectNotice = G.lastRejectNotice?.[pid];
+  const myPlayer = pid !== null ? G.players[pid] : null;
+  const rejectNotice = pid !== null ? G.lastRejectNotice?.[pid] : null;
 
   const rulesModal = showRules && (
     <div style={{
@@ -101,7 +99,7 @@ export const OnsokuBoard = ({ G, ctx, moves, playerID, matchData }) => {
           playerIds={Object.keys(G.players)}
           pid={pid}
           getPlayerName={getPlayerName}
-          isHost={pid === '0'}
+          isHost={!isSpectator && pid === '0'}
           hostOnlyStart={true}
           onStart={() => moves.startGame()}
           startText="🔥 のれんを上げて開店する！"
@@ -330,32 +328,9 @@ export const OnsokuBoard = ({ G, ctx, moves, playerID, matchData }) => {
             )}
           </div>
 
-          {/* 次に出せる文字ヒント */}
-          <div style={{
-            marginTop: '12px', display: 'flex', justifyContent: 'center', alignItems: 'center',
-            gap: '6px', flexWrap: 'wrap', fontSize: '12px'
-          }}>
-            <span style={{ color: '#fcd34d', fontWeight: 'bold' }}>次に出せるカード:</span>
-            {allowedNext.map((w) => (
-              <span
-                key={w}
-                style={{
-                  padding: '2px 10px', borderRadius: '8px', fontWeight: '900',
-                  background: w === 'とりけし'
-                    ? 'rgba(100,116,139,0.5)'
-                    : FINISHING_WORDS.has(w) ? '#10b981' : 'rgba(251, 191, 36, 0.25)',
-                  border: FINISHING_WORDS.has(w) ? '1px solid #6ee7b7' : '1px solid #fbbf24',
-                  color: '#fff'
-                }}
-              >
-                {w}{FINISHING_WORDS.has(w) ? '🛎️' : ''}
-              </span>
-            ))}
-          </div>
-
           {rejectNotice && (
             <div style={{
-              marginTop: '8px', fontSize: '12px', color: '#fca5a5', fontWeight: 'bold'
+              marginTop: '10px', fontSize: '12px', color: '#fca5a5', fontWeight: 'bold'
             }}>
               💨 {rejectNotice.reason}
             </div>
@@ -363,6 +338,20 @@ export const OnsokuBoard = ({ G, ctx, moves, playerID, matchData }) => {
         </div>
 
         {/* MY HAND AREA (スピードタップゾーン) */}
+        {isSpectator ? (
+          <div style={{
+            background: 'rgba(20, 6, 6, 0.85)',
+            border: '2px solid #f59e0b',
+            borderRadius: '20px',
+            padding: '20px',
+            textAlign: 'center',
+            color: '#fde68a',
+            fontWeight: 'bold',
+            fontSize: '14px'
+          }}>
+            👀 観戦モードで実況観戦中！（手札は非公開・中華トレイと残り枚数がリアルタイム表示されます）
+          </div>
+        ) : (
         <div style={{
           background: 'rgba(20, 6, 6, 0.85)',
           border: '2px solid #b91c1c',
@@ -374,7 +363,7 @@ export const OnsokuBoard = ({ G, ctx, moves, playerID, matchData }) => {
               ✋ あなたの手札（{myPlayer?.hand.length || 0}枚）
             </span>
             <span style={{ fontSize: '11px', color: '#fca5a5' }}>
-              光っているカードをクリックすると即座に場に出ます！
+              今の注文につながるカードを見極めてクリック！
             </span>
           </div>
 
@@ -391,7 +380,6 @@ export const OnsokuBoard = ({ G, ctx, moves, playerID, matchData }) => {
               display: 'flex', flexWrap: 'wrap', gap: '10px', justifyContent: 'center'
             }}>
               {myPlayer?.hand.map((card) => {
-                const playable = G.gameState === 'playing' && allowedSet.has(card.word);
                 const isFinisher = FINISHING_WORDS.has(card.word);
                 const isCancel = card.word === 'とりけし';
 
@@ -403,31 +391,25 @@ export const OnsokuBoard = ({ G, ctx, moves, playerID, matchData }) => {
                       minWidth: '82px',
                       height: '104px',
                       borderRadius: '14px',
-                      background: playable
-                        ? (isCancel ? 'linear-gradient(135deg, #475569, #334155)' : '#fffbeb')
-                        : 'rgba(255, 255, 255, 0.12)',
-                      border: playable
-                        ? (isFinisher ? '3px solid #10b981' : '3px solid #facc15')
-                        : '1px solid rgba(255,255,255,0.18)',
-                      color: playable ? (isCancel ? '#fff' : '#1c0d0d') : '#94a3b8',
-                      opacity: playable ? 1 : 0.45,
-                      cursor: playable ? 'pointer' : 'not-allowed',
+                      background: isCancel ? 'linear-gradient(135deg, #475569, #334155)' : '#fffbeb',
+                      border: `3px solid ${card.color}`,
+                      color: isCancel ? '#ffffff' : '#1c0d0d',
+                      cursor: 'pointer',
                       display: 'flex',
                       flexDirection: 'column',
                       alignItems: 'center',
                       justifyContent: 'space-between',
                       padding: '8px 6px',
-                      animation: playable ? 'cardGlow 1.3s infinite' : 'none',
-                      transform: playable ? 'translateY(-3px)' : 'none',
-                      transition: 'transform 0.1s ease, opacity 0.15s ease',
+                      boxShadow: '0 6px 14px rgba(0,0,0,0.4)',
+                      transition: 'transform 0.08s ease',
                       boxSizing: 'border-box'
                     }}
                   >
                     <span style={{
                       fontSize: '9px', fontWeight: '900',
-                      color: playable ? (isCancel ? '#cbd5e1' : isFinisher ? '#059669' : '#b45309') : '#64748b'
+                      color: isCancel ? '#cbd5e1' : isFinisher ? '#059669' : '#b45309'
                     }}>
-                      {isCancel ? 'リセット' : isFinisher ? '🛎️ 完成!' : 'つなぐ/開始'}
+                      {isCancel ? 'リセット' : isFinisher ? '🛎️ 仕上げ' : '具材'}
                     </span>
                     <span style={{
                       fontSize: card.word.length >= 4 ? '16px' : '21px',
@@ -446,6 +428,7 @@ export const OnsokuBoard = ({ G, ctx, moves, playerID, matchData }) => {
             </div>
           )}
         </div>
+        )}
 
         {/* COMPACT MENU + LOGS */}
         <div style={{

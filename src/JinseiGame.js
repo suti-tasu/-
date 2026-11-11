@@ -233,7 +233,7 @@ export const advanceToNextTurn = (G, ctx, events) => {
 };
 
 // 都道府県確定処理の共通ヘルパー
-export const applyPrefectureChoice = (G, random, playerID, prefId) => {
+export const applyPrefectureChoice = (G, random, playerID, prefId, ctx = null, events = null) => {
   if (G.gameState !== 'select_prefecture') return;
   const pref = getPrefectureById(prefId);
   if (!pref) return;
@@ -295,12 +295,18 @@ export const applyPrefectureChoice = (G, random, playerID, prefId) => {
     G.logs.unshift(`💀【出生地＆親ガチャ結果】Player ${playerID} は運命により【${pref.name}】に誕生！実家年収: ${parentTier.income}万円（${parentTier.title}）➔ 初期資金【${p.money}万円】${p.debt > 0 ? `（借金${p.debt * 100}万）` : ''} ＆ 🎓偏差値【${finalHensachi}】 ＆ 🏃体力【${finalStamina}】！`);
   }
 
-  // 全員が出身地を選び終えたらゲーム開始
+  // 全員が出身地を選び終えたらゲーム開始（スタートプレイヤーをランダム決定）
   const allSelected = Object.values(G.players).every((pl) => pl.prefecture !== null);
   if (allSelected) {
+    const numPlayers = (ctx && ctx.numPlayers) ? ctx.numPlayers : Object.keys(G.players).length;
+    const firstPid = (random ? random.Die(numPlayers) - 1 : Math.floor(Math.random() * numPlayers)).toString();
     G.gameState = 'playing';
     G.turnStep = 'spin';
-    G.logs.unshift(`🎉 全員の出身地が決定！第1時代（子ども時代）のルーレットを回してください！`);
+    G.currentTurnPlayer = firstPid;
+    if (events && events.endTurn) {
+      events.endTurn({ next: firstPid });
+    }
+    G.logs.unshift(`🎉 全員の出身地が決定！ランダム抽選により Player ${firstPid} から第1時代スタート！`);
   }
 };
 
@@ -419,20 +425,20 @@ export const JinseiGame = {
     },
 
     // 1-A. 出身都道府県の手動選択（通常モード用）
-    choosePrefecture: ({ G, random }, playerID, prefId) => {
+    choosePrefecture: ({ G, ctx, random, events }, playerID, prefId) => {
       if (G.gameState !== 'select_prefecture') return;
       if (G.isHardMode) return;
-      applyPrefectureChoice(G, random, playerID, prefId);
+      applyPrefectureChoice(G, random, playerID, prefId, ctx, events);
     },
 
     // 1-B. 出身都道府県のランダム決定（通常モードのおまかせ / ハードモードの強制出生地ガチャ）
-    choosePrefectureRandom: ({ G, random }, playerID) => {
+    choosePrefectureRandom: ({ G, ctx, random, events }, playerID) => {
       if (G.gameState !== 'select_prefecture') return;
       if (G.isHardMode && G.players[playerID]?.prefecture !== null) return;
 
       const randIdx = random ? (random.Die(PREFECTURES.length) - 1) : Math.floor(Math.random() * PREFECTURES.length);
       const chosenPref = PREFECTURES[randIdx];
-      applyPrefectureChoice(G, random, playerID, chosenPref.id);
+      applyPrefectureChoice(G, random, playerID, chosenPref.id, ctx, events);
     },
 
     // 2. ルーレットを回す（ニンテンドースイッチ風 時代サーキット周回・分岐対応）

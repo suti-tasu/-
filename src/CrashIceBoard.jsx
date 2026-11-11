@@ -209,7 +209,8 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
   const isFirstRender = useRef(true);
   const prevLastDroppedRef = useRef([]);
 
-  const pid = playerID || '0';
+  const isSpectator = playerID === null || playerID === undefined;
+  const pid = isSpectator ? '0' : playerID.toString();
   const isTournament = G.gameFormat === 'tournament';
 
   const getPlayerName = (id) => {
@@ -257,16 +258,18 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
   }, [isTournament, G.tournament?.matches, viewedMatchId, myTournamentMatch]);
 
   // 表示中マッチにおける対戦者／観戦者判定
-  const isActivePlayer = ctx.currentPlayer === pid;
-  const isCompetitorInView = isTournament
+  const isActivePlayer = !isSpectator && ctx.currentPlayer === pid;
+  const isCompetitorInView = isSpectator
+    ? false
+    : isTournament
     ? Boolean(currentViewMatch && (currentViewMatch.p1 === pid || currentViewMatch.p2 === pid))
     : true;
-  const isMyTurnInMatch = isTournament
+  const isMyTurnInMatch = !isSpectator && (isTournament
     ? Boolean(isCompetitorInView && currentViewMatch?.currentTurnPlayer === pid && currentViewMatch?.status === 'playing')
-    : isActivePlayer;
-  const isSpectatorInView = isTournament
+    : isActivePlayer);
+  const isSpectatorInView = isSpectator || (isTournament
     ? (!isCompetitorInView || currentViewMatch?.status !== 'playing')
-    : false;
+    : false);
 
   const canSpin = isTournament
     ? (isMyTurnInMatch && currentViewMatch?.turnStep === 'spin')
@@ -570,9 +573,9 @@ export const CrashIceBoard = ({ G, ctx, moves, playerID, matchData }) => {
           themeGradient={isTournament ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'linear-gradient(135deg, #0284c7, #0369a1)'}
           numPlayers={numPlayers}
           playerIds={orderedPlayerIds}
-          pid={pid}
+          pid={isSpectator ? null : pid}
           getPlayerName={getPlayerName}
-          isHost={pid === '0'}
+          isHost={!isSpectator && pid === '0'}
           onStart={() => moves.startGame()}
           startText={isTournament ? '🏆 トーナメントを開幕する！' : '🚀 ゲームを開始する！'}
           onShowRules={() => setShowRules(true)}

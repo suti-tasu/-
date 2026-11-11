@@ -10,7 +10,8 @@ const LEVEL_STYLES = {
 };
 
 export const DeepSeaBoard = ({ G, ctx, moves, playerID, matchData }) => {
-  const pid = (playerID ?? '0').toString();
+  const isSpectator = playerID === null || playerID === undefined;
+  const pid = isSpectator ? null : playerID.toString();
   const [showRules, setShowRules] = useState(false);
 
   const getPlayerName = (id) => {
@@ -19,9 +20,9 @@ export const DeepSeaBoard = ({ G, ctx, moves, playerID, matchData }) => {
     return meta?.name || `Player ${id}`;
   };
 
-  const myPlayer = G.players[pid];
+  const myPlayer = pid !== null ? G.players[pid] : null;
   const currentDiver = G.players[G.currentPlayerId];
-  const isMyTurn = G.gameState === 'playing' && G.currentPlayerId === pid;
+  const isMyTurn = !isSpectator && G.gameState === 'playing' && G.currentPlayerId === pid;
 
   // ルール説明モーダル
   const rulesModal = showRules && (
@@ -100,20 +101,48 @@ export const DeepSeaBoard = ({ G, ctx, moves, playerID, matchData }) => {
           playerIds={Object.keys(G.players)}
           pid={pid}
           getPlayerName={getPlayerName}
-          isHost={pid === '0'}
+          isHost={!isSpectator && pid === '0'}
           hostOnlyStart={true}
           onStart={() => moves.startGame()}
           startText="🤿 海底探険を開始する！"
           onShowRules={() => setShowRules(true)}
           rulesModal={rulesModal}
         >
-          <div style={{
-            display: 'flex', justifyContent: 'center', gap: '12px', flexWrap: 'wrap',
-            fontSize: '12px', color: '#0369a1', fontWeight: 'bold'
-          }}>
-            <span style={{ background: '#e0f2fe', padding: '4px 12px', borderRadius: '12px' }}>🫧 共有酸素: 25</span>
-            <span style={{ background: '#e0f2fe', padding: '4px 12px', borderRadius: '12px' }}>⏳ 全3ラウンド</span>
-            <span style={{ background: '#e0f2fe', padding: '4px 12px', borderRadius: '12px' }}>🎲 特殊ダイス 1〜3×2個</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center' }}>
+            {!isSpectator && pid === '0' && (
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <button
+                  onClick={() => moves.setGameMode('standard')}
+                  style={{
+                    padding: '8px 16px', borderRadius: '10px', fontWeight: 'bold', fontSize: '12px', cursor: 'pointer',
+                    border: (G.gameMode || 'standard') === 'standard' ? '2px solid #0284c7' : '1px solid #cbd5e1',
+                    background: (G.gameMode || 'standard') === 'standard' ? '#e0f2fe' : '#fff',
+                    color: (G.gameMode || 'standard') === 'standard' ? '#0369a1' : '#475569'
+                  }}
+                >
+                  🌊 全3ラウンド（通常ルール）
+                </button>
+                <button
+                  onClick={() => moves.setGameMode('quick')}
+                  style={{
+                    padding: '8px 16px', borderRadius: '10px', fontWeight: 'bold', fontSize: '12px', cursor: 'pointer',
+                    border: G.gameMode === 'quick' ? '2px solid #0284c7' : '1px solid #cbd5e1',
+                    background: G.gameMode === 'quick' ? '#e0f2fe' : '#fff',
+                    color: G.gameMode === 'quick' ? '#0369a1' : '#475569'
+                  }}
+                >
+                  ⚡ 1回戦のみ（サクッと勝負）
+                </button>
+              </div>
+            )}
+            <div style={{
+              display: 'flex', justifyContent: 'center', gap: '12px', flexWrap: 'wrap',
+              fontSize: '12px', color: '#0369a1', fontWeight: 'bold'
+            }}>
+              <span style={{ background: '#e0f2fe', padding: '4px 12px', borderRadius: '12px' }}>🫧 共有酸素: 25</span>
+              <span style={{ background: '#e0f2fe', padding: '4px 12px', borderRadius: '12px' }}>⏳ {(G.maxRounds || 3) === 1 ? '1回戦のみ' : '全3ラウンド'}</span>
+              <span style={{ background: '#e0f2fe', padding: '4px 12px', borderRadius: '12px' }}>🎲 特殊ダイス 1〜3×2個</span>
+            </div>
           </div>
         </UnifiedLobby>
       </div>
@@ -186,7 +215,7 @@ export const DeepSeaBoard = ({ G, ctx, moves, playerID, matchData }) => {
                   background: '#0284c7', color: '#fff', fontSize: '11px', fontWeight: '900',
                   padding: '2px 10px', borderRadius: '10px'
                 }}>
-                  ROUND {G.round} / 3
+                  ROUND {G.round} / {G.maxRounds || 3}
                 </span>
               </div>
               <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>
@@ -800,7 +829,7 @@ export const DeepSeaBoard = ({ G, ctx, moves, playerID, matchData }) => {
           }}>
             <div style={{ fontSize: '46px', marginBottom: '6px' }}>🏆</div>
             <h2 style={{ margin: '0 0 8px', color: '#fbbf24', fontSize: '28px', fontWeight: '900' }}>
-              全3ラウンド終了！最終順位発表！
+              {(G.maxRounds || 3) === 1 ? '1回戦終了！最終順位発表！' : `全${G.maxRounds || 3}ラウンド終了！最終順位発表！`}
             </h2>
             <p style={{ margin: '0 0 20px', fontSize: '14px', color: '#cbd5e1' }}>
               もっとも価値のある海底遺跡を持ち帰ったトレジャーハンターは…

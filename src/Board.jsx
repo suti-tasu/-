@@ -65,9 +65,10 @@ const NobleView = ({ noble }) => {
 };
 
 export function SplendorBoard({ G, ctx, moves, events, playerID, matchData }) {
+  const isSpectator = playerID === null || playerID === undefined;
   const activePlayerId = ctx.currentPlayer;
-  const isMyTurn = activePlayerId === playerID;
-  const myPlayer = G.players[playerID];
+  const isMyTurn = !isSpectator && activePlayerId === playerID;
+  const myPlayer = isSpectator ? null : G.players[playerID];
   const activePlayer = G.players[activePlayerId];
   const isDiscardStage = ctx.activePlayers?.[activePlayerId] === 'discard';
   const isMyDiscard = isDiscardStage && isMyTurn;
@@ -290,8 +291,10 @@ export function SplendorBoard({ G, ctx, moves, events, playerID, matchData }) {
         </button>
         
         {!isMyTurn && (
-          <div style={{ background: '#f44336', color: 'white', padding: '10px', textAlign: 'center', fontWeight: 'bold', fontSize: '1.2em', borderRadius: '5px', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
-            相手のターンです（現在: {getPlayerName(activePlayerId)} の手番）
+          <div style={{ background: isSpectator ? '#0284c7' : '#f44336', color: 'white', padding: '10px', textAlign: 'center', fontWeight: 'bold', fontSize: '1.2em', borderRadius: '5px', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+            {isSpectator
+              ? `👀 観戦中（現在: ${getPlayerName(activePlayerId)} の手番）`
+              : `相手のターンです（現在: ${getPlayerName(activePlayerId)} の手番）`}
           </div>
         )}
 
@@ -370,7 +373,7 @@ export function SplendorBoard({ G, ctx, moves, events, playerID, matchData }) {
         {G.isLastRound && <div style={{ color: 'red', fontWeight: 'bold', fontSize: '1.2em', background: '#ffebee', padding: '5px 10px', borderRadius: '5px' }}>🚨 最終ラウンド 🚨</div>}
       </div>
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', opacity: isMyTurn ? 1 : 0.6, pointerEvents: isMyTurn ? 'auto' : 'none' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', opacity: (isMyTurn || isSpectator) ? 1 : 0.6, pointerEvents: isMyTurn ? 'auto' : 'none' }}>
         {/* Board Area */}
         <div style={{ flex: 2, minWidth: '550px', background: '#f5f5f5', padding: '15px', borderRadius: '10px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
@@ -411,7 +414,7 @@ export function SplendorBoard({ G, ctx, moves, events, playerID, matchData }) {
                   山札 L{level}<br/>({G.decks[level].length})<br/><br/>予約
                 </div>
                 {boardRow.map((card, idx) => {
-                  const affordable = canAffordCard(myPlayer, card);
+                  const affordable = myPlayer ? canAffordCard(myPlayer, card) : false;
                   const isSelected = selectedCard?.source === 'board' && selectedCard.level === level && selectedCard.index === idx;
                   return <CardView key={card ? card.id : idx} card={card} affordable={isMyTurn && affordable} isSelected={isSelected} onClick={() => card && handleCardClick(level, idx, 'board')} />
                 })}

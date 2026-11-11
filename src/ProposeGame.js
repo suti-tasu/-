@@ -92,7 +92,7 @@ export const Propose = {
       G.wordPool = pool;
       G.deck = random.Shuffle([...G.wordPool]);
       
-      G.targetPlayer = '0';
+      G.targetPlayer = (random.Die(ctx.numPlayers) - 1).toString();
       dealCards(G, random, ctx);
       G.gameState = 'thinking';
     },

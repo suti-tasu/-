@@ -150,8 +150,8 @@ const finishRound = (G, ctx, reason) => {
     G.logs.unshift(`⚓【全員生還！】すべてのダイバーが潜水艦に帰還しラウンド ${G.round} 終了！`);
   }
 
-  if (G.round >= 3 || G.track.length === 0) {
-    // 全3ラウンド終了：最終ランキング作成
+  if (G.round >= (G.maxRounds || 3) || G.track.length === 0) {
+    // 全ラウンド終了：最終ランキング作成
     const rankings = Object.values(G.players)
       .map((p) => {
         const lvlCounts = [0, 0, 0, 0];
@@ -179,7 +179,7 @@ const finishRound = (G, ctx, reason) => {
     G.winner = rankings[0]?.playerID || '0';
     G.gameState = 'game_over';
     G.turnStep = 'game_over';
-    G.logs.unshift(`🏆【探険終了】全3ラウンド完了！優勝は Player ${G.winner}（${rankings[0]?.score || 0}点）です！`);
+    G.logs.unshift(`🏆【探険終了】全${G.maxRounds || 3}ラウンド完了！優勝は Player ${G.winner}（${rankings[0]?.score || 0}点）です！`);
   } else {
     G.gameState = 'round_end';
     G.turnStep = 'round_end';
@@ -254,6 +254,8 @@ export const DeepSeaGame = {
 
     return {
       gameState: 'lobby', // 'lobby' | 'playing' | 'round_end' | 'game_over'
+      gameMode: 'standard', // 'standard' (全3ラウンド) | 'quick' (1回戦のみ)
+      maxRounds: 3,
       round: 1,
       oxygen: 25,
       maxOxygen: 25,
@@ -279,15 +281,24 @@ export const DeepSeaGame = {
   },
 
   moves: {
+    // 0. ラウンド数モード変更（全3ラウンド / 1回戦のみ）
+    setGameMode: ({ G }, mode) => {
+      if (G.gameState !== 'lobby') return;
+      G.gameMode = mode;
+      G.maxRounds = mode === 'quick' ? 1 : 3;
+    },
+
     // 1. ゲーム開始（ロビーからラウンド1スタート）
     startGame: ({ G, ctx, random }) => {
       if (G.gameState !== 'lobby') return;
+      const firstPid = (random ? random.Die(ctx.numPlayers) - 1 : Math.floor(Math.random() * ctx.numPlayers)).toString();
       G.track = createInitialTrack(random);
       G.gameState = 'playing';
+      G.maxRounds = G.gameMode === 'quick' ? 1 : 3;
       G.round = 1;
       G.oxygen = 25;
-      G.currentPlayerId = '0';
-      G.nextStarterId = '0';
+      G.currentPlayerId = firstPid;
+      G.nextStarterId = firstPid;
       G.turnStep = 'roll';
       G.turnCount = 1;
       G.returnCounter = 0;
@@ -295,7 +306,7 @@ export const DeepSeaGame = {
       G.lastOxygenEvent = null;
       G.lastActionBanner = null;
       G.roundSummary = null;
-      G.logs.unshift('🌊【海底探険スタート！】全3ラウンドの海底トレジャーハント開始！酸素25を全員で共有します！');
+      G.logs.unshift(`🌊【海底探険スタート！】全${G.maxRounds}ラウンドの海底トレジャーハント！ランダム抽選で Player ${firstPid} からスタートします！`);
     },
 
     // 2. 方向宣言＆特殊ダイスを2つ振って移動

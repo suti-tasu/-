@@ -68,9 +68,10 @@ export const IndigoBoard = ({ G, ctx, moves, playerID, matchData }) => {
   const [previewRot, setPreviewRot] = useState(0); // 0〜5
   const [showRules, setShowRules] = useState(false);
 
-  const pid = playerID || '0';
-  const isActivePlayer = ctx.currentPlayer === pid;
-  const myPlayer = G.players[pid] || { hand: null, score: 0, collectedGems: [] };
+  const isSpectator = playerID === null || playerID === undefined;
+  const pid = isSpectator ? null : playerID.toString();
+  const isActivePlayer = !isSpectator && ctx.currentPlayer === pid;
+  const myPlayer = pid !== null ? (G.players[pid] || { hand: null, score: 0, collectedGems: [] }) : { hand: null, score: 0, collectedGems: [] };
 
   const getPlayerName = (id) => {
     if (id === null || id === undefined) return '？？？';
@@ -161,7 +162,7 @@ export const IndigoBoard = ({ G, ctx, moves, playerID, matchData }) => {
           playerIds={Object.keys(G.players)}
           pid={pid}
           getPlayerName={getPlayerName}
-          isHost={pid === '0'}
+          isHost={!isSpectator && pid === '0'}
           onStart={() => moves.startGame()}
           onShowRules={() => setShowRules(true)}
           rulesModal={rulesModal}
@@ -446,10 +447,14 @@ export const IndigoBoard = ({ G, ctx, moves, playerID, matchData }) => {
           {/* TILE HAND & ROTATION */}
           <div style={{ background: '#ffffff', borderRadius: '16px', padding: '16px', boxShadow: '0 4px 15px rgba(0,0,0,0.06)', border: '1px solid #e2e8f0', textAlign: 'center' }}>
             <div style={{ fontWeight: 'bold', fontSize: '15px', color: '#0f172a', marginBottom: '10px' }}>
-              🖐️ あなたの手札タイル
+              {isSpectator ? '👀 観戦モード（手札は非公開）' : '🖐️ あなたの手札タイル'}
             </div>
 
-            {myPlayer.hand ? (
+            {isSpectator ? (
+              <div style={{ padding: '20px', color: '#0369a1', fontSize: '13px', fontWeight: 'bold', background: '#f0f9ff', borderRadius: '10px' }}>
+                盤面上の水路と宝石の動きを観戦中！
+              </div>
+            ) : myPlayer.hand ? (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                 {/* 手札タイルのプレビューSVG */}
                 <div style={{ width: '130px', height: '130px', background: '#0c1a2e', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #0284c7' }}>

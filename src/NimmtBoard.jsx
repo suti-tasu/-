@@ -144,8 +144,9 @@ export const NimmtBoard = ({ G, ctx, moves, playerID, matchData }) => {
   const [burstAnim, setBurstAnim] = useState(null); // { event, phase: 'placed' | 'collecting' }
   const lastBustNoticeIdRef = useRef(null);
 
-  const pid = playerID || '0';
-  const myPlayer = G.players[pid] || { hand: [], totalPenalty: 0, roundPenalty: 0, penaltyCards: [] };
+  const isSpectator = playerID === null || playerID === undefined;
+  const pid = isSpectator ? null : playerID.toString();
+  const myPlayer = pid !== null ? (G.players[pid] || { hand: [], totalPenalty: 0, roundPenalty: 0, penaltyCards: [] }) : { hand: [], totalPenalty: 0, roundPenalty: 0, penaltyCards: [] };
 
   const getPlayerName = (id) => {
     if (id === null || id === undefined) return '？？？';
@@ -287,7 +288,7 @@ export const NimmtBoard = ({ G, ctx, moves, playerID, matchData }) => {
           playerIds={Object.keys(G.players)}
           pid={pid}
           getPlayerName={getPlayerName}
-          isHost={pid === '0'}
+          isHost={!isSpectator && pid === '0'}
           onStart={() => moves.startGame()}
           onShowRules={() => setShowRules(true)}
           rulesModal={rulesModal}
@@ -719,6 +720,11 @@ export const NimmtBoard = ({ G, ctx, moves, playerID, matchData }) => {
       )}
 
       {/* PLAYER HAND & CARD SELECTION (手札操作エリア) */}
+      {isSpectator ? (
+        <div style={{ background: '#ffffff', borderRadius: '16px', padding: '18px', boxShadow: '0 4px 15px rgba(0,0,0,0.06)', border: '2px solid #38bdf8', marginBottom: '14px', textAlign: 'center', color: '#0369a1', fontWeight: 'bold', fontSize: '14px' }}>
+          👀 観戦モード中！（プレイヤーの手札は非公開・場の列と公開カードをリアルタイム観戦しています）
+        </div>
+      ) : (
       <div style={{ background: '#ffffff', borderRadius: '16px', padding: '16px', boxShadow: '0 4px 15px rgba(0,0,0,0.06)', border: '1px solid #e2e8f0', marginBottom: '14px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
           <div style={{ fontWeight: 'bold', fontSize: '15px', color: '#1e293b' }}>
@@ -781,6 +787,7 @@ export const NimmtBoard = ({ G, ctx, moves, playerID, matchData }) => {
           )}
         </div>
       </div>
+      )}
 
       {/* GAME LOGS */}
       <div style={{ background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '12px' }}>

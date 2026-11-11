@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Client } from 'boardgame.io/react';
 import { SocketIO } from 'boardgame.io/multiplayer';
 import { LobbyClient } from 'boardgame.io/client';
@@ -494,6 +494,29 @@ const BoardGameBox = ({ game, isSelected, onClick }) => {
 };
 
 const App = () => {
+  const [clientId] = useState(() => {
+    try {
+      let cid = sessionStorage.getItem('bg_portal_client_id');
+      if (!cid) {
+        cid = 'u_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+        sessionStorage.setItem('bg_portal_client_id', cid);
+      }
+      return cid;
+    } catch {
+      return 'u_' + Math.random().toString(36).slice(2, 10);
+    }
+  });
+
+  const [hubId, setHubId] = useState(null);
+  const [hubState, setHubState] = useState(null);
+  const [isSpectating, setIsSpectating] = useState(false);
+  const [wantsRematchJoin, setWantsRematchJoin] = useState(false);
+  const [showRoomSwitchModal, setShowRoomSwitchModal] = useState(false);
+  const [switchTargetGame, setSwitchTargetGame] = useState('splendor');
+  const [switchTargetPlayers, setSwitchTargetPlayers] = useState(4);
+  const [isSwitchingRoom, setIsSwitchingRoom] = useState(false);
+  const isJoiningHubSwitchRef = useRef(false);
+
   const [matchID, setMatchID] = useState(null);
   const [gameType, setGameType] = useState('splendor');
   const [playerID, setPlayerID] = useState(null);
@@ -547,6 +570,7 @@ const App = () => {
   
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    const rID = params.get('room');
     const mID = params.get('match');
     const gType = params.get('game') || 'splendor';
     if (gType) {
@@ -556,7 +580,10 @@ const App = () => {
         setNumPlayers(Math.min(Math.max(4, conf.minPlayers), conf.maxPlayers));
       }
     }
-    
+
+    const activeHub = rID || mID;
+    if (activeHub) setHubId(activeHub);
+
     if (mID) {
       setMatchID(mID);
       const saved = localStorage.getItem(gType + '_match_' + mID);
@@ -597,6 +624,117 @@ const App = () => {
     }
   };
 
+  const joinMatchWithRetry = async (targetGame, targetMatchId, cleanName) => {
+    let lastErr = null;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        const res = await lobbyClient.joinMatch(targetGame, targetMatchId, { playerName: cleanName });
+        return res;
+      } catch (err) {
+        lastErr = err;
+        await new Promise((r) => setTimeout(r, 80 + Math.random() * 180));
+      }
+    }
+    throw lastErr;
+  };
+
+  // Room Hub 定期同期（ゲーム切替・再戦の自動追従 ＆ 待機・観戦メンバー検知）
+  useEffect(() => {
+    const activeHubId = hubId || matchID;
+    if (!activeHubId) return;
+    if (playerID === null && !isSpectating) return;
+
+    let cancelled = false;
+    const syncHub = async () => {
+      try {
+        const myStatus = !isSpectating ? 'playing' : (wantsRematchJoin ? 'waiting' : 'spectating');
+        const res = await fetch(`${server}/api/hub/${encodeURIComponent(activeHubId)}/heartbeat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            clientId,
+            name: playerName.trim() || 'Player',
+            avatar: playerAvatar,
+            status: myStatus,
+            isHost: !isSpectating && playerID === '0',
+            gameType,
+            matchID,
+            numPlayers,
+          }),
+        });
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        if (cancelled) return;
+        setHubState(data);
+
+        // 部屋が新しいマッチ（別ゲームまたは人数変更再戦）に切り替わった場合
+        if (data.matchID && data.matchID !== matchID && !isJoiningHubSwitchRef.current) {
+          isJoiningHubSwitchRef.current = true;
+          try {
+            // 観戦専用モードのままの人は席を取らずそのまま新ゲームを観戦継続！
+            if (isSpectating && !wantsRematchJoin) {
+              setGameType(data.gameType);
+              setMatchID(data.matchID);
+              setPlayerID(null);
+              setCredentials(null);
+              window.history.replaceState({}, '', `?room=${data.hubId}&game=${data.gameType}&match=${data.matchID}`);
+              return;
+            }
+
+            const cleanName = playerName.trim() || 'Player';
+            const saved = localStorage.getItem(`${data.gameType}_match_${data.matchID}`);
+            if (saved) {
+              const { pID, creds } = JSON.parse(saved);
+              if (pID !== undefined && creds) {
+                setGameType(data.gameType);
+                setMatchID(data.matchID);
+                setPlayerID(pID);
+                setCredentials(creds);
+                setIsSpectating(false);
+                setWantsRematchJoin(false);
+                window.history.replaceState({}, '', `?room=${data.hubId}&game=${data.gameType}&match=${data.matchID}`);
+                return;
+              }
+            }
+
+            // プレイヤーまたは参加予約済みメンバーとして新マッチに参加
+            try {
+              const { playerID: newPid, playerCredentials } = await joinMatchWithRetry(data.gameType, data.matchID, cleanName);
+              if (!cancelled) {
+                setGameType(data.gameType);
+                setMatchID(data.matchID);
+                setPlayerID(newPid);
+                setCredentials(playerCredentials);
+                setIsSpectating(false);
+                setWantsRematchJoin(false);
+                saveCredentials(data.gameType, data.matchID, newPid, playerCredentials, cleanName);
+                window.history.replaceState({}, '', `?room=${data.hubId}&game=${data.gameType}&match=${data.matchID}`);
+              }
+            } catch (joinErr) {
+              // 満員だった場合はそのまま観戦継続
+              if (!cancelled) {
+                setGameType(data.gameType);
+                setMatchID(data.matchID);
+                setPlayerID(null);
+                setCredentials(null);
+                setIsSpectating(true);
+              }
+            }
+          } finally {
+            isJoiningHubSwitchRef.current = false;
+          }
+        }
+      } catch (e) {}
+    };
+
+    syncHub();
+    const timer = setInterval(syncHub, 1500);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [hubId, matchID, gameType, playerID, isSpectating, wantsRematchJoin, clientId, playerName, playerAvatar, numPlayers]);
+
   const createAndJoinMatch = async () => {
     const cleanName = playerName.trim();
     if (!cleanName) return setError('プレイヤー名を入力してください');
@@ -617,11 +755,29 @@ const App = () => {
       const { playerID: newPlayerID, playerCredentials } = await lobbyClient.joinMatch(gameType, newMatchID, {
         playerName: cleanName
       });
+
+      // Persistent Room Hub を登録
+      await fetch(`${server}/api/hub/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          hubId: newMatchID,
+          gameType,
+          matchID: newMatchID,
+          numPlayers: finalNumPlayers,
+          clientId,
+          name: cleanName,
+          avatar: playerAvatar,
+        }),
+      }).catch(() => {});
       
-      window.history.pushState({}, '', '?game=' + gameType + '&match=' + newMatchID);
+      window.history.pushState({}, '', `?room=${newMatchID}&game=${gameType}&match=${newMatchID}`);
+      setHubId(newMatchID);
       setMatchID(newMatchID);
       setPlayerID(newPlayerID);
       setCredentials(playerCredentials);
+      setIsSpectating(false);
+      setWantsRematchJoin(false);
       saveCredentials(gameType, newMatchID, newPlayerID, playerCredentials, cleanName);
     } catch (e) {
       setError('部屋の作成に失敗しました: ' + e.message);
@@ -630,119 +786,499 @@ const App = () => {
     }
   };
 
-  const joinExistingMatch = async (tGameType = gameType, tMatchID = matchID) => {
+  const resolveRoomAndMatch = async (tGameType = gameType, tMatchID = matchID, tRoomID = null) => {
+    const lookupCode = (tRoomID || tMatchID || '').trim();
+    let resolvedHubId = lookupCode;
+    let targetMatchID = (tMatchID || lookupCode).trim();
+    let finalGameType = tGameType;
+
+    try {
+      const hubRes = await fetch(`${server}/api/hub/${encodeURIComponent(lookupCode)}`);
+      if (hubRes.ok) {
+        const hubData = await hubRes.json();
+        setHubState(hubData);
+        resolvedHubId = hubData.hubId;
+        finalGameType = hubData.gameType;
+        targetMatchID = hubData.matchID;
+      }
+    } catch (e) {}
+
+    let match = null;
+    const allGames = ['splendor', 'ito', 'haa', 'propose', 'hannin', 'crashice', 'nimmt', 'indigo', 'jinsei', 'deepsea', 'onsoku'];
+
+    try {
+      match = await lobbyClient.getMatch(finalGameType, targetMatchID);
+    } catch (e) {
+      for (const g of allGames) {
+        if (g === finalGameType) continue;
+        try {
+          match = await lobbyClient.getMatch(g, targetMatchID);
+          if (match) {
+            finalGameType = g;
+            break;
+          }
+        } catch (e2) {}
+      }
+    }
+
+    if (match?.gameName) {
+      finalGameType = match.gameName;
+    }
+
+    return { match, resolvedHubId, targetMatchID, finalGameType };
+  };
+
+  const joinExistingMatch = async (tGameType = gameType, tMatchID = matchID, tRoomID = null) => {
     const cleanName = playerName.trim();
     if (!cleanName) return setError('プレイヤー名を入力してください');
     setError('');
     try {
-      let match = null;
-      let finalGameType = tGameType;
-      const allGames = ['splendor', 'ito', 'haa', 'propose', 'hannin', 'crashice', 'nimmt', 'indigo', 'jinsei', 'deepsea', 'onsoku'];
-
-      try {
-        match = await lobbyClient.getMatch(tGameType, tMatchID);
-      } catch (e) {
-        for (const g of allGames) {
-          if (g === tGameType) continue;
-          try {
-            match = await lobbyClient.getMatch(g, tMatchID);
-            if (match) {
-              finalGameType = g;
-              break;
-            }
-          } catch (e2) {}
-        }
-      }
-
+      const { match, resolvedHubId, targetMatchID, finalGameType } = await resolveRoomAndMatch(tGameType, tMatchID, tRoomID);
       if (!match) {
         return setError('部屋が見つかりませんでした。コードをご確認ください。');
       }
 
-      if (match.gameName) {
-        finalGameType = match.gameName;
+      // すでに以前このマッチに保存済みクレデンシャルがあれば復帰
+      const saved = localStorage.getItem(`${finalGameType}_match_${targetMatchID}`);
+      if (saved) {
+        try {
+          const { pID, creds } = JSON.parse(saved);
+          if (pID !== undefined && creds) {
+            setHubId(resolvedHubId);
+            setGameType(finalGameType);
+            setMatchID(targetMatchID);
+            setPlayerID(pID);
+            setCredentials(creds);
+            setIsSpectating(false);
+            setWantsRematchJoin(false);
+            window.history.pushState({}, '', `?room=${resolvedHubId}&game=${finalGameType}&match=${targetMatchID}`);
+            return;
+          }
+        } catch (e) {}
       }
       
       const availablePlayer = match.players.find(p => !p.name);
       
       if (!availablePlayer) {
-        return setError('この部屋はすでに満員です');
+        // 満員・進行中の場合はライブ観戦モード＋再戦から自動参加予約で入室！
+        setHubId(resolvedHubId);
+        setGameType(finalGameType);
+        setMatchID(targetMatchID);
+        setPlayerID(null);
+        setCredentials(null);
+        setIsSpectating(true);
+        setWantsRematchJoin(true);
+        window.history.pushState({}, '', `?room=${resolvedHubId}&game=${finalGameType}&match=${targetMatchID}`);
+        return;
       }
 
-      const { playerID: newPlayerID, playerCredentials } = await lobbyClient.joinMatch(finalGameType, tMatchID, {
-        playerID: availablePlayer.id.toString(),
-        playerName: cleanName
-      });
+      const { playerID: newPlayerID, playerCredentials } = await joinMatchWithRetry(finalGameType, targetMatchID, cleanName);
 
-      window.history.pushState({}, '', '?game=' + finalGameType + '&match=' + tMatchID);
+      window.history.pushState({}, '', `?room=${resolvedHubId}&game=${finalGameType}&match=${targetMatchID}`);
+      setHubId(resolvedHubId);
       setGameType(finalGameType);
-      setMatchID(tMatchID);
+      setMatchID(targetMatchID);
       setPlayerID(newPlayerID);
       setCredentials(playerCredentials);
-      saveCredentials(finalGameType, tMatchID, newPlayerID, playerCredentials, cleanName);
+      setIsSpectating(false);
+      setWantsRematchJoin(false);
+      saveCredentials(finalGameType, targetMatchID, newPlayerID, playerCredentials, cleanName);
     } catch (e) {
       setError('参加に失敗しました: ' + e.message);
     }
   };
 
-  const handleJoinByCode = () => {
-    if (!joinCode.trim()) return;
-    let code = joinCode.trim();
+  const joinAsSpectator = async (tGameType = gameType, tMatchID = matchID, tRoomID = null) => {
+    setError('');
+    try {
+      const { match, resolvedHubId, targetMatchID, finalGameType } = await resolveRoomAndMatch(tGameType, tMatchID, tRoomID);
+      if (!match) {
+        return setError('部屋が見つかりませんでした。コードをご確認ください。');
+      }
+      setHubId(resolvedHubId);
+      setGameType(finalGameType);
+      setMatchID(targetMatchID);
+      setPlayerID(null);
+      setCredentials(null);
+      setIsSpectating(true);
+      setWantsRematchJoin(false);
+      window.history.pushState({}, '', `?room=${resolvedHubId}&game=${finalGameType}&match=${targetMatchID}`);
+    } catch (e) {
+      setError('観戦入室に失敗しました: ' + e.message);
+    }
+  };
+
+  const parseJoinInput = (rawCode) => {
+    let code = (rawCode || '').trim();
     let g = gameType;
     let m = code;
+    let r = null;
     try {
       if (code.includes('?')) {
         const url = new URL(code.startsWith('http') ? code : 'http://localhost/' + code);
+        const urlR = url.searchParams.get('room');
         const urlG = url.searchParams.get('game');
         const urlM = url.searchParams.get('match');
+        if (urlR) r = urlR;
         if (urlG) g = urlG;
         if (urlM) m = urlM;
+        else if (urlR) m = urlR;
       }
     } catch(e) {}
-    joinExistingMatch(g, m);
+    return { g, m, r };
+  };
+
+  const handleJoinByCode = () => {
+    if (!joinCode.trim()) return;
+    const { g, m, r } = parseJoinInput(joinCode);
+    joinExistingMatch(g, m, r);
+  };
+
+  const handleSpectateByCode = () => {
+    if (!joinCode.trim()) return;
+    const { g, m, r } = parseJoinInput(joinCode);
+    joinAsSpectator(g, m, r);
+  };
+
+  const openRoomSwitchModal = () => {
+    const activeWantPlay = (hubState?.members || []).filter(m => m.status !== 'spectating').length;
+    const currentMembersCount = activeWantPlay || numPlayers || 2;
+    const conf = GAMES_CATALOG.find(g => g.id === gameType) || GAMES_CATALOG[0];
+    setSwitchTargetGame(gameType);
+    setSwitchTargetPlayers(Math.max(conf.minPlayers, Math.min(conf.maxPlayers, currentMembersCount)));
+    setShowRoomSwitchModal(true);
+  };
+
+  const handleExecuteHubSwitch = async () => {
+    if (isSwitchingRoom) return;
+    setIsSwitchingRoom(true);
+    try {
+      const conf = GAMES_CATALOG.find(g => g.id === switchTargetGame) || { minPlayers: 2, maxPlayers: 4 };
+      const finalCount = Math.max(conf.minPlayers, Math.min(switchTargetPlayers, conf.maxPlayers));
+      const matchConfig = { numPlayers: finalCount };
+      if (switchTargetGame === 'ito') matchConfig.setupData = { customThemes, themeMode };
+
+      const { matchID: newMatchID } = await lobbyClient.createMatch(switchTargetGame, matchConfig);
+      const cleanName = playerName.trim() || 'Player';
+      const { playerID: newPid, playerCredentials } = await lobbyClient.joinMatch(switchTargetGame, newMatchID, {
+        playerName: cleanName,
+      });
+
+      const activeHubId = hubId || matchID;
+      await fetch(`${server}/api/hub/${encodeURIComponent(activeHubId)}/switch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          gameType: switchTargetGame,
+          matchID: newMatchID,
+          numPlayers: finalCount,
+          clientId,
+        }),
+      });
+
+      setHubId(activeHubId);
+      setGameType(switchTargetGame);
+      setMatchID(newMatchID);
+      setPlayerID(newPid);
+      setCredentials(playerCredentials);
+      setIsSpectating(false);
+      setWantsRematchJoin(false);
+      setShowRoomSwitchModal(false);
+      saveCredentials(switchTargetGame, newMatchID, newPid, playerCredentials, cleanName);
+      window.history.replaceState({}, '', `?room=${activeHubId}&game=${switchTargetGame}&match=${newMatchID}`);
+    } catch (e) {
+      alert('ゲームの切り替え・再戦作成に失敗しました: ' + e.message);
+    } finally {
+      setIsSwitchingRoom(false);
+    }
   };
 
   const leaveMatch = () => {
+    const activeHubId = hubId || matchID;
+    if (activeHubId) {
+      fetch(`${server}/api/hub/${encodeURIComponent(activeHubId)}/leave`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId }),
+      }).catch(() => {});
+    }
     if (matchID) localStorage.removeItem(gameType + '_match_' + matchID);
     setPlayerID(null);
     setCredentials(null);
+    setIsSpectating(false);
+    setWantsRematchJoin(false);
     window.location.href = '/';
   };
 
   // ----------------------------------------------------
-  // 対戦・待機中 画面（ゲームクライアント表示）
+  // 対戦・観戦・待機中 画面（ライブゲームクライアント表示）
   // ----------------------------------------------------
-  if (playerID !== null && credentials !== null) {
+  if ((playerID !== null && credentials !== null) || (isSpectating && matchID)) {
     const currentGameMeta = GAMES_CATALOG.find(g => g.id === gameType) || { title: gameType, icon: '🎲' };
+    const displayRoomCode = hubId || matchID;
+    const hubMembers = hubState?.members || [];
+    const waitingMembers = hubMembers.filter(m => m.status === 'waiting');
+    const spectatingMembers = hubMembers.filter(m => m.status === 'spectating');
+    const selectedSwitchConf = GAMES_CATALOG.find(g => g.id === switchTargetGame) || GAMES_CATALOG[0];
+    const switchPlayerOptions = [];
+    for (let i = selectedSwitchConf.minPlayers; i <= selectedSwitchConf.maxPlayers; i++) {
+      switchPlayerOptions.push(i);
+    }
+
+    const clientPlayerId = isSpectating ? null : playerID;
+    const clientCreds = isSpectating ? undefined : credentials;
+    const clientKey = `${gameType}-${matchID}-${isSpectating ? 'spec' : playerID}`;
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: '#0f172a', boxSizing: 'border-box' }}>
+        {/* 観戦モード専用トップコントロールバー */}
+        {isSpectating && (
+          <div style={{
+            background: 'linear-gradient(90deg, rgba(14, 165, 233, 0.25), rgba(245, 158, 11, 0.25))',
+            borderBottom: '2px solid #38bdf8',
+            padding: '10px 20px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '10px',
+            color: '#f8fafc',
+            fontFamily: "'Segoe UI', -apple-system, sans-serif"
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '20px' }}>👀</span>
+              <div>
+                <div style={{ fontSize: '14px', fontWeight: '900', color: '#fde047' }}>
+                  観戦モードでライブ観戦中！（{currentGameMeta.icon} {currentGameMeta.title}）
+                </div>
+                <div style={{ fontSize: '11px', color: '#cbd5e1' }}>
+                  {wantsRematchJoin
+                    ? '🔔 部屋内で「再戦」または「別のゲームに変更」が行われると、自動でプレイヤーとして参加します！'
+                    : '📺 観戦専用中：再戦や別ゲームへ移動しても観戦を続けます（下のボタンで参加予約に切替可）'}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <button
+                onClick={() => setWantsRematchJoin((prev) => !prev)}
+                style={{
+                  padding: '7px 14px',
+                  borderRadius: '8px',
+                  border: wantsRematchJoin ? '2px solid #fde047' : '1px solid #38bdf8',
+                  background: wantsRematchJoin ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'rgba(2, 132, 199, 0.35)',
+                  color: '#fff',
+                  fontWeight: 'bold',
+                  fontSize: '12px',
+                  cursor: 'pointer'
+                }}
+              >
+                {wantsRematchJoin ? '🔔 次の再戦から参加予約: ON' : '✋ 次の再戦から参加予約する'}
+              </button>
+              <button
+                onClick={() => joinExistingMatch(gameType, matchID, hubId)}
+                style={{
+                  padding: '7px 14px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #10b981, #059669)',
+                  color: '#fff',
+                  fontWeight: 'bold',
+                  fontSize: '12px',
+                  cursor: 'pointer'
+                }}
+              >
+                🎮 空き席があれば参加
+              </button>
+            </div>
+          </div>
+        )}
+
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-          <ErrorBoundary>
+          <ErrorBoundary key={clientKey}>
             {gameType === 'ito' ? (
-              <ItoClient matchID={matchID} playerID={playerID} credentials={credentials} />
+              <ItoClient key={clientKey} matchID={matchID} playerID={clientPlayerId} credentials={clientCreds} />
             ) : gameType === 'haa' ? (
-              <HaaClient matchID={matchID} playerID={playerID} credentials={credentials} />
+              <HaaClient key={clientKey} matchID={matchID} playerID={clientPlayerId} credentials={clientCreds} />
             ) : gameType === 'propose' ? (
-              <ProposeClient matchID={matchID} playerID={playerID} credentials={credentials} />
+              <ProposeClient key={clientKey} matchID={matchID} playerID={clientPlayerId} credentials={clientCreds} />
             ) : gameType === 'hannin' ? (
-              <HanninClient matchID={matchID} playerID={playerID} credentials={credentials} />
+              <HanninClient key={clientKey} matchID={matchID} playerID={clientPlayerId} credentials={clientCreds} />
             ) : gameType === 'crashice' ? (
-              <CrashIceClient matchID={matchID} playerID={playerID} credentials={credentials} />
+              <CrashIceClient key={clientKey} matchID={matchID} playerID={clientPlayerId} credentials={clientCreds} />
             ) : gameType === 'nimmt' ? (
-              <NimmtClient matchID={matchID} playerID={playerID} credentials={credentials} />
+              <NimmtClient key={clientKey} matchID={matchID} playerID={clientPlayerId} credentials={clientCreds} />
             ) : gameType === 'indigo' ? (
-              <IndigoClient matchID={matchID} playerID={playerID} credentials={credentials} />
+              <IndigoClient key={clientKey} matchID={matchID} playerID={clientPlayerId} credentials={clientCreds} />
             ) : gameType === 'jinsei' ? (
-              <JinseiClient matchID={matchID} playerID={playerID} credentials={credentials} />
+              <JinseiClient key={clientKey} matchID={matchID} playerID={clientPlayerId} credentials={clientCreds} />
             ) : gameType === 'deepsea' ? (
-              <DeepSeaClient matchID={matchID} playerID={playerID} credentials={credentials} />
+              <DeepSeaClient key={clientKey} matchID={matchID} playerID={clientPlayerId} credentials={clientCreds} />
             ) : gameType === 'onsoku' ? (
-              <OnsokuClient matchID={matchID} playerID={playerID} credentials={credentials} />
+              <OnsokuClient key={clientKey} matchID={matchID} playerID={clientPlayerId} credentials={clientCreds} />
             ) : (
-              <SplendorClient matchID={matchID} playerID={playerID} credentials={credentials} />
+              <SplendorClient key={clientKey} matchID={matchID} playerID={clientPlayerId} credentials={clientCreds} />
             )}
           </ErrorBoundary>
         </div>
+
+        {/* ゲーム切替・人数変更再戦モーダル */}
+        {showRoomSwitchModal && (
+          <div style={{
+            position: 'fixed', inset: 0, background: 'rgba(2, 6, 23, 0.85)', backdropFilter: 'blur(8px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2500, padding: '16px'
+          }}>
+            <div style={{
+              background: 'linear-gradient(145deg, #0f172a, #1e293b)',
+              border: '2px solid #f59e0b',
+              borderRadius: '22px',
+              padding: '24px',
+              maxWidth: '680px',
+              width: '96%',
+              maxHeight: '88vh',
+              overflowY: 'auto',
+              color: '#f8fafc',
+              boxShadow: '0 25px 60px rgba(0,0,0,0.85)'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '900', color: '#fde047' }}>
+                  🎮 この部屋で別のゲーム / 人数を変えて再戦
+                </h2>
+                <button
+                  onClick={() => setShowRoomSwitchModal(false)}
+                  style={{ background: 'transparent', border: 'none', color: '#94a3b8', fontSize: '20px', cursor: 'pointer' }}
+                >✕</button>
+              </div>
+              <p style={{ margin: '0 0 14px', fontSize: '12px', color: '#cbd5e1', lineHeight: 1.5 }}>
+                部屋コード（<strong style={{ color: '#38bdf8' }}>{displayRoomCode}</strong>）はそのまま！今いるメンバー＋途中参加待機中のメンバー全員が自動で次のゲームへ移動します。
+              </p>
+
+              {/* 部屋メンバー表示 */}
+              {hubMembers.length > 0 && (
+                <div style={{
+                  background: 'rgba(0,0,0,0.35)', borderRadius: '12px', padding: '10px 12px',
+                  marginBottom: '14px', border: '1px solid rgba(255,255,255,0.08)'
+                }}>
+                  <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 'bold', marginBottom: '6px' }}>
+                    👥 現在の部屋メンバー（計 {hubMembers.length}人{waitingMembers.length > 0 ? ` / 🆕途中参加待機 ${waitingMembers.length}人` : ''}{spectatingMembers.length > 0 ? ` / 👀観戦 ${spectatingMembers.length}人` : ''}）
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    {hubMembers.map((m) => (
+                      <span
+                        key={m.clientId}
+                        style={{
+                          padding: '3px 9px', borderRadius: '999px', fontSize: '11px', fontWeight: 'bold',
+                          background: m.status === 'waiting'
+                            ? 'rgba(245, 158, 11, 0.25)'
+                            : m.status === 'spectating'
+                            ? 'rgba(148, 163, 184, 0.2)'
+                            : 'rgba(56, 189, 248, 0.2)',
+                          border: m.status === 'waiting'
+                            ? '1px solid #f59e0b'
+                            : m.status === 'spectating'
+                            ? '1px solid #94a3b8'
+                            : '1px solid #38bdf8',
+                          color: m.status === 'waiting' ? '#fde047' : m.status === 'spectating' ? '#cbd5e1' : '#e0f2fe'
+                        }}
+                      >
+                        {m.avatar} {m.name} {m.status === 'waiting' ? '🆕参加予約' : m.status === 'spectating' ? '👀観戦中' : ''}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* ゲーム選択グリッド */}
+              <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#fbbf24', marginBottom: '8px' }}>
+                1️⃣ 遊ぶゲームを選ぶ
+              </div>
+              <div style={{
+                display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(145px, 1fr))', gap: '8px',
+                marginBottom: '16px'
+              }}>
+                {GAMES_CATALOG.map((g) => {
+                  const isSel = switchTargetGame === g.id;
+                  return (
+                    <button
+                      key={g.id}
+                      onClick={() => {
+                        setSwitchTargetGame(g.id);
+                        const baseCount = Math.max(hubMembers.length, switchTargetPlayers);
+                        setSwitchTargetPlayers(Math.max(g.minPlayers, Math.min(g.maxPlayers, baseCount)));
+                      }}
+                      style={{
+                        padding: '10px 8px',
+                        borderRadius: '12px',
+                        border: isSel ? '2px solid #fde047' : '1px solid rgba(255,255,255,0.14)',
+                        background: isSel ? g.gradient : 'rgba(255,255,255,0.06)',
+                        color: '#fff',
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}
+                    >
+                      <span style={{ fontSize: '20px' }}>{g.icon}</span>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: '12px', fontWeight: '900', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {g.title}
+                        </div>
+                        <div style={{ fontSize: '10px', opacity: 0.85 }}>{g.players}</div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* 人数選択（途中参加用に多めに設定も可能） */}
+              <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#fbbf24', marginBottom: '8px' }}>
+                2️⃣ 参加人数を選ぶ（あとから途中参加させたい場合は多めに設定OK！）
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '18px' }}>
+                {switchPlayerOptions.map((cnt) => (
+                  <button
+                    key={cnt}
+                    onClick={() => setSwitchTargetPlayers(cnt)}
+                    style={{
+                      padding: '8px 14px',
+                      borderRadius: '10px',
+                      border: switchTargetPlayers === cnt ? '2px solid #fde047' : '1px solid rgba(255,255,255,0.18)',
+                      background: switchTargetPlayers === cnt ? '#f59e0b' : 'rgba(255,255,255,0.08)',
+                      color: switchTargetPlayers === cnt ? '#0f172a' : '#fff',
+                      fontWeight: '900',
+                      fontSize: '13px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {cnt}人
+                  </button>
+                ))}
+              </div>
+
+              <button
+                disabled={isSwitchingRoom}
+                onClick={handleExecuteHubSwitch}
+                style={{
+                  width: '100%',
+                  padding: '14px',
+                  borderRadius: '14px',
+                  border: 'none',
+                  background: selectedSwitchConf.gradient,
+                  color: '#fff',
+                  fontWeight: '900',
+                  fontSize: '16px',
+                  cursor: isSwitchingRoom ? 'wait' : 'pointer',
+                  boxShadow: '0 8px 25px rgba(0,0,0,0.4)'
+                }}
+              >
+                {isSwitchingRoom
+                  ? '🔄 部屋を切り替え中...'
+                  : `🚀 「${selectedSwitchConf.icon} ${selectedSwitchConf.title}」（${switchTargetPlayers}人部屋）でスタート！`}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* 下部固定・統合コントロールバー */}
         <div style={{
@@ -758,7 +1294,7 @@ const App = () => {
           color: '#ffffff',
           fontFamily: "'Segoe UI', -apple-system, sans-serif"
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{ fontSize: '20px' }}>{currentGameMeta.icon}</span>
               <span style={{ fontWeight: 'bold', fontSize: '14px', color: '#f8fafc' }}>{currentGameMeta.title}</span>
@@ -766,10 +1302,10 @@ const App = () => {
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255, 255, 255, 0.08)', padding: '4px 12px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.12)' }}>
               <span style={{ fontSize: '12px', color: '#94a3b8' }}>部屋コード:</span>
-              <span style={{ fontFamily: 'monospace', fontWeight: 'bold', fontSize: '13px', color: '#38bdf8' }}>{matchID}</span>
+              <span style={{ fontFamily: 'monospace', fontWeight: 'bold', fontSize: '13px', color: '#38bdf8' }}>{displayRoomCode}</span>
               <button
                 onClick={() => {
-                  navigator.clipboard.writeText(matchID);
+                  navigator.clipboard.writeText(displayRoomCode);
                   setCopiedBottomCode(true);
                   setTimeout(() => setCopiedBottomCode(false), 2000);
                 }}
@@ -795,12 +1331,49 @@ const App = () => {
             >
               {copiedBottomUrl ? '✓ 招待リンクをコピーしました！' : '🔗 招待リンクをコピー'}
             </button>
+
+            {!isSpectating && (
+              <button
+                onClick={openRoomSwitchModal}
+                style={{
+                  background: waitingMembers.length > 0
+                    ? 'linear-gradient(135deg, #f59e0b, #ea580c)'
+                    : 'linear-gradient(135deg, #8b5cf6, #6d28d9)',
+                  color: '#ffffff',
+                  border: waitingMembers.length > 0 ? '2px solid #fef08a' : 'none',
+                  borderRadius: '8px',
+                  padding: '6px 14px',
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  boxShadow: '0 2px 10px rgba(139, 92, 246, 0.35)'
+                }}
+              >
+                🎮 別のゲーム / 👥 再戦(人数変更){waitingMembers.length > 0 ? ` 🆕+${waitingMembers.length}人待機中!` : ''}
+              </button>
+            )}
+
+            {spectatingMembers.length > 0 && (
+              <span style={{
+                background: 'rgba(56, 189, 248, 0.15)',
+                border: '1px solid rgba(56, 189, 248, 0.4)',
+                color: '#7dd3fc',
+                padding: '4px 10px',
+                borderRadius: '8px',
+                fontSize: '11px',
+                fontWeight: 'bold'
+              }}>
+                👀 観戦中: {spectatingMembers.length}人
+              </span>
+            )}
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}>
               <span style={{ fontSize: '18px' }}>{playerAvatar}</span>
-              <span style={{ color: '#cbd5e1' }}>プレイヤー: <strong style={{ color: '#ffffff' }}>{playerName}</strong></span>
+              <span style={{ color: '#cbd5e1' }}>
+                {isSpectating ? '観戦者:' : 'プレイヤー:'} <strong style={{ color: '#ffffff' }}>{playerName || 'ゲスト'}</strong>
+              </span>
             </div>
             <button
               onClick={leaveMatch}
@@ -1154,8 +1727,8 @@ const App = () => {
           </div>
         </div>
 
-        {/* DIRECT INVITE CARD (URLにmatchIDがある場合) */}
-        {matchID && (
+        {/* DIRECT INVITE CARD (URLにroom/matchIDがある場合) */}
+        {(matchID || hubId) && (
           <div style={{
             maxWidth: '640px',
             margin: '0 auto 28px',
@@ -1169,25 +1742,44 @@ const App = () => {
             <div style={{ fontSize: '32px', marginBottom: '6px' }}>💌</div>
             <h2 style={{ margin: '0 0 6px', fontSize: '20px', color: '#ffffff' }}>招待された部屋が見つかりました！</h2>
             <p style={{ color: '#fef3c7', fontSize: '13px', margin: '0 0 14px' }}>
-              部屋コード: <strong style={{ fontFamily: 'monospace', fontSize: '16px', color: '#fbbf24' }}>{matchID}</strong>
+              部屋コード: <strong style={{ fontFamily: 'monospace', fontSize: '16px', color: '#fbbf24' }}>{hubId || matchID}</strong>
             </p>
-            <button
-              onClick={() => joinExistingMatch()}
-              style={{
-                padding: '12px 36px',
-                fontSize: '16px',
-                fontWeight: 'bold',
-                background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: '10px',
-                cursor: 'pointer',
-                boxShadow: '0 4px 12px rgba(217, 119, 6, 0.4)',
-                transition: 'all 0.2s'
-              }}
-            >
-              🚀 この部屋に参加する！
-            </button>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', flexWrap: 'wrap' }}>
+              <button
+                onClick={() => joinExistingMatch(gameType, matchID || hubId, hubId)}
+                style={{
+                  padding: '12px 32px',
+                  fontSize: '16px',
+                  fontWeight: 'bold',
+                  background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(217, 119, 6, 0.4)',
+                  transition: 'all 0.2s'
+                }}
+              >
+                🚀 この部屋に参加する！
+              </button>
+              <button
+                onClick={() => joinAsSpectator(gameType, matchID || hubId, hubId)}
+                style={{
+                  padding: '12px 24px',
+                  fontSize: '15px',
+                  fontWeight: 'bold',
+                  background: 'linear-gradient(135deg, #0284c7, #0369a1)',
+                  color: '#ffffff',
+                  border: '1px solid #38bdf8',
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(2, 132, 199, 0.35)',
+                  transition: 'all 0.2s'
+                }}
+              >
+                👀 観戦する
+              </button>
+            </div>
           </div>
         )}
 
@@ -1475,7 +2067,7 @@ const App = () => {
             <button
               onClick={handleJoinByCode}
               style={{
-                padding: '12px 28px',
+                padding: '12px 24px',
                 fontSize: '15px',
                 fontWeight: 'bold',
                 background: 'linear-gradient(135deg, #f59e0b, #d97706)',
@@ -1488,6 +2080,23 @@ const App = () => {
               }}
             >
               参加する
+            </button>
+            <button
+              onClick={handleSpectateByCode}
+              style={{
+                padding: '12px 20px',
+                fontSize: '15px',
+                fontWeight: 'bold',
+                background: 'linear-gradient(135deg, #0284c7, #0369a1)',
+                color: '#ffffff',
+                border: '1px solid #38bdf8',
+                borderRadius: '10px',
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(2, 132, 199, 0.35)',
+                transition: 'all 0.15s'
+              }}
+            >
+              👀 観戦する
             </button>
           </div>
           <div style={{ fontSize: '11px', color: '#a8a29e', marginTop: '8px' }}>

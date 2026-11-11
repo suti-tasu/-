@@ -86,15 +86,20 @@ export const Splendor = {
 
   turn: {
     order: {
-      first: ({ ctx, random }) => random.Die(ctx.numPlayers) - 1,
+      first: () => 0,
       next: ({ ctx }) => (ctx.playOrderPos + 1) % ctx.numPlayers,
     },
     onBegin: ({ G, ctx }) => {
-      if (ctx.turn === 1) {
+      if (G.justStarted) {
+        G.justStarted = false;
+      }
+      if (G.gameState === 'playing' && !G.startPlayer) {
         G.startPlayer = ctx.currentPlayer;
       }
     },
     onEnd: ({ G, ctx }) => {
+      if (G.gameState !== 'playing' || G.justStarted) return;
+
       // 貴族のチェック
       const player = G.players[ctx.currentPlayer];
       const bonuses = getBonuses(player);
@@ -119,7 +124,9 @@ export const Splendor = {
       }
       
       // ゲーム終了判定 (全員が同じ回数ターンを終えたタイミング)
-      if (G.isLastRound && (ctx.turn % ctx.numPlayers === 0)) {
+      const nextPos = (ctx.playOrderPos + 1) % ctx.numPlayers;
+      const nextPid = ctx.playOrder[nextPos];
+      if (G.isLastRound && nextPid === (G.startPlayer || '0')) {
         const scores = Object.keys(G.players).map(pId => ({
           id: pId,
           score: G.players[pId].score,
@@ -156,8 +163,15 @@ export const Splendor = {
   },
 
   moves: {
-    startGame: ({ G }) => {
+    startGame: ({ G, ctx, random, events }) => {
+      if (G.gameState !== 'lobby') return;
+      const firstPid = (random.Die(ctx.numPlayers) - 1).toString();
+      G.startPlayer = firstPid;
       G.gameState = 'playing';
+      if (firstPid !== ctx.currentPlayer && events?.endTurn) {
+        G.justStarted = true;
+        events.endTurn({ next: firstPid });
+      }
     },
     takeTokens: ({ G, ctx, events }, colors) => {
       const player = G.players[ctx.currentPlayer];

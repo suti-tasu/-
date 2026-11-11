@@ -544,12 +544,13 @@ export const initTournamentMatch = (match, random) => {
     match.rouletteResultIndex = null;
     match.remainingStrikes = 0;
     match.turnStep = 'spin';
-    match.currentTurnPlayer = match.p1;
+    const starter = (random ? random.Die(2) === 1 : Math.random() < 0.5) ? match.p1 : match.p2;
+    match.currentTurnPlayer = starter;
     match.lastDroppedKeys = [];
     match.lastStrikeEvent = null;
     match.logs = [
       `⚔️ 【${match.name}】が開始されました！ (Player ${match.p1} vs Player ${match.p2})`,
-      `【Player ${match.p1}】ルーレットを回してください。`
+      `🎲 ランダム抽選で【Player ${starter}】が先攻です！ルーレットを回してください。`
     ];
   } else {
     match.status = 'waiting';
@@ -613,7 +614,7 @@ export const CrashIceGame = {
 
       if (G.gameFormat === 'tournament') {
         if (!G.tournament.seeds || G.tournament.seeds.length !== ctx.numPlayers) {
-          G.tournament.seeds = ctx.playOrder.slice();
+          G.tournament.seeds = random.Shuffle(ctx.playOrder.slice());
         }
         const matches = buildTournament(G.tournament.seeds);
         matches.forEach(m => initTournamentMatch(m, random));
@@ -625,9 +626,10 @@ export const CrashIceGame = {
         G.logs.push('🏆 【並行1対1トーナメント】が開幕しました！ 各テーブルで同時に試合が開始されます！');
         const activeMatches = matches.filter(m => m.status === 'playing');
         activeMatches.forEach(m => {
-          G.logs.push(`⚔️ 【${m.name}】: Player ${m.p1} vs Player ${m.p2}`);
+          G.logs.push(`⚔️ 【${m.name}】: Player ${m.p1} vs Player ${m.p2}（先攻: Player ${m.currentTurnPlayer}）`);
         });
       } else {
+        const firstPid = (random.Die(ctx.numPlayers) - 1).toString();
         G.board = createInitialBoard(random);
         G.penguinPos = { q: 0, r: 0 };
         G.penguinFallen = false;
@@ -640,8 +642,8 @@ export const CrashIceGame = {
         G.winner = null;
         G.loser = null;
         G.winnerDetails = '';
-        G.logs.push('ゲームを開始しました！最初のプレイヤーはルーレットを回してください。');
-        if (events) events.endTurn({ next: '0' });
+        G.logs.push(`ゲームを開始しました！ランダム抽選で最初のプレイヤーは Player ${firstPid} です！`);
+        if (events) events.endTurn({ next: firstPid });
       }
     },
 

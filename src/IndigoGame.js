@@ -339,12 +339,23 @@ export const IndigoGame = {
     };
   },
 
+  turn: {
+    order: {
+      first: () => 0,
+      next: ({ ctx }) => (ctx.playOrderPos + 1) % ctx.numPlayers,
+    },
+  },
+
   moves: {
     // ロビーからゲームスタート
-    startGame: ({ G }) => {
+    startGame: ({ G, ctx, random, events }) => {
       if (G.gameState !== 'lobby') return;
+      const firstPid = (random.Die(ctx.numPlayers) - 1).toString();
       G.gameState = 'playing';
-      G.logs.unshift('🎮 インディゴがスタートしました！ 手番のプレイヤーはタイルを配置してください。');
+      G.logs.unshift(`🎮 インディゴがスタートしました！ランダム抽選で Player ${firstPid} から手番開始です！`);
+      if (events && firstPid !== ctx.currentPlayer) {
+        events.endTurn({ next: firstPid });
+      }
     },
 
     // タイル配置 (q, r, rotation)
@@ -397,7 +408,7 @@ export const IndigoGame = {
     },
 
     // ゲーム再戦
-    restartGame: ({ G, ctx, random }) => {
+    restartGame: ({ G, ctx, random, events }) => {
       const numPlayers = ctx.numPlayers;
       const deck = random.Shuffle(generateDeck());
       G.board = {};
@@ -406,6 +417,9 @@ export const IndigoGame = {
       G.rankings = [];
       G.winner = null;
       G.logs = [];
+      if (events && ctx.currentPlayer !== '0') {
+        events.endTurn({ next: '0' });
+      }
 
       for (let i = 0; i < numPlayers; i++) {
         const pid = i.toString();

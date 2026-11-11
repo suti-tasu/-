@@ -28,9 +28,10 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
     setIsSpectatorDismissed(false);
   }, [G.currentSpaceModal?.spaceId, G.currentSpaceModal?.type, G.turnStep]);
 
-  const pid = playerID || '0';
+  const isSpectator = playerID === null || playerID === undefined;
+  const pid = isSpectator ? '0' : playerID.toString();
   const myPlayer = G.players[pid] || G.players['0'];
-  const isMyTurn = ctx.currentPlayer === pid;
+  const isMyTurn = !isSpectator && ctx.currentPlayer === pid;
 
   // 出身地選択フェーズ用のプレビュー状態（初期値は決定済み都道府県、未決定なら東京）
   const [previewPrefId, setPreviewPrefId] = useState(() => myPlayer?.prefecture?.id || 'tokyo');
@@ -134,9 +135,9 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
         themeGradient={G.isHardMode ? 'linear-gradient(135deg, #7f1d1d, #b91c1c)' : 'linear-gradient(135deg, #059669 0%, #10b981 50%, #34d399 100%)'}
         numPlayers={numPlayers}
         playerIds={playerIds}
-        pid={pid}
+        pid={isSpectator ? null : pid}
         getPlayerName={getPlayerName}
-        isHost={pid === '0'}
+        isHost={!isSpectator && pid === '0'}
         hostOnlyStart={true}
         onStart={() => (moves.startGame ? moves.startGame() : moves.restartGame())}
         startText={G.isHardMode ? '💀 ハードモードで人生をスタート！' : '🚀 人生をスタートする！'}
@@ -207,6 +208,7 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
         fontFamily: "'Segoe UI', sans-serif"
       }}>
         {/* モード切替トグルスイッチ */}
+        {!isSpectator && (
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
           <button
             onClick={() => moves.toggleHardMode()}
@@ -240,11 +242,15 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
             )}
           </button>
         </div>
+        )}
 
-        {/* ========================================================
-            CASE A: ハードモード（出生地は完全強制ランダムガチャ）
-           ======================================================== */}
-        {G.isHardMode ? (
+        {isSpectator ? (
+          <div style={{ padding: '24px', textAlign: 'center', background: 'rgba(0,0,0,0.35)', borderRadius: '16px', marginBottom: '16px', border: '1px solid rgba(56,189,248,0.4)' }}>
+            <div style={{ fontSize: '36px', marginBottom: '6px' }}>👀</div>
+            <div style={{ fontSize: '18px', fontWeight: '900', color: '#fde047' }}>観戦モード中：出生地の決定を待っています…</div>
+            <div style={{ fontSize: '13px', color: '#cbd5e1', marginTop: '4px' }}>全員が出身地を選ぶと人生ゲーム本編が始まります！</div>
+          </div>
+        ) : G.isHardMode ? (
           <div>
             <div style={{ textAlign: 'center', marginBottom: '22px' }}>
               <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#fca5a5', letterSpacing: '1.5px' }}>
@@ -752,7 +758,7 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
             </span>
             {Object.values(G.players).map((p) => {
               const hasChosen = p.prefecture !== null;
-              const isMe = p.id === pid;
+              const isMe = !isSpectator && p.id === pid;
               return (
                 <span
                   key={p.id}
@@ -893,7 +899,7 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
   const viewingEra = getEraById(viewEraId || G.era || 1);
   const turnPid = G.currentTurnPlayer || ctx.currentPlayer;
   const turnPlayer = G.players[turnPid] || myPlayer;
-  const isActionPlayer = turnPid === pid;
+  const isActionPlayer = !isSpectator && turnPid === pid;
   const activeInspectSpace = hoveredSpace || viewingEra.spaces.find((s) => s.id === G.players[turnPid]?.position) || viewingEra.spaces[0];
   const isHovering = !!hoveredSpace;
   const stageTag = { name: `第${viewingEra.id}時代: ${viewingEra.name}`, color: viewingEra.color, bg: `${viewingEra.color}26`, stageNum: viewingEra.id, sub: viewingEra.sub };
