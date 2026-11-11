@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { UnifiedLobby } from './UnifiedLobby';
 import { PREFECTURES, REGIONS, getPrefectureById } from './data/prefecturesData';
 import { LIFE_ERAS, getEraById, getSpaceMoneyDetails } from './data/lifeErasData';
-import { BOARD_SPACES, HOUSES, OCCUPATIONS, JOB_ROULETTE_TABLE, buildJobRouletteInfo, getAvailableOccupationsForPlayer, getPrefectureCompanyOcc, isFamilyRouletteZoneSpace, getOccupationRankTitle, getSalaryForRank } from './JinseiGame';
+import { BOARD_SPACES, HOUSES, OCCUPATIONS, PREFECTURE_FAMOUS_COMPANIES, JOB_ROULETTE_TABLE, buildJobRouletteInfo, getAvailableOccupationsForPlayer, getPrefectureCompanyOcc, isFamilyRouletteZoneSpace, getOccupationRankTitle, getSalaryForRank, isQualifiedForJob, calculateCurrentAssets, getHousePricingForPlayer } from './JinseiGame';
 
 export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
   const [selectedRegion, setSelectedRegion] = useState('all');
@@ -28,6 +28,7 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
   const [tempFamilyRoll, setTempFamilyRoll] = useState(null);
   const [isSpectatorDismissed, setIsSpectatorDismissed] = useState(false);
   const [showCareerGuideModal, setShowCareerGuideModal] = useState(false);
+  const [careerGuideTab, setCareerGuideTab] = useState('overview');
   const [selectedHistoryPid, setSelectedHistoryPid] = useState(null);
 
   useEffect(() => {
@@ -894,9 +895,24 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
                       {p.parentIncome.roll <= 3 && idx === 0 && ' 🔥【下剋上キング賞獲得！】'}
                     </div>
                   )}
-                  <div style={{ fontSize: '12px', opacity: 0.85 }}>
-                    現金: {p.money}万 • 不動産: {p.house ? p.house.name : 'なし'} • 家族: {p.car.spouse ? '配偶者あり' : '独身'} (子供{p.car.kids}人)
-                  </div>
+                  {(() => {
+                    const bd = p.finalBreakdown || { ...calculateCurrentAssets(p), awardsBonus: 0 };
+                    return (
+                      <div style={{ fontSize: '12px', opacity: 0.9, lineHeight: 1.5 }}>
+                        <div>
+                          💵 現金: <strong>{bd.cash?.toLocaleString()}万</strong>
+                          {' • '}🏡 不動産({p.house ? p.house.name : 'なし'}): <strong>+{bd.houseValue?.toLocaleString()}万</strong>
+                          {' • '}🎁 名産品({p.souvenirs?.length || 0}品): <strong>+{bd.souvenirValue?.toLocaleString()}万</strong>
+                        </div>
+                        <div style={{ fontSize: '11px', opacity: 0.85 }}>
+                          👨‍👩‍👧‍👦 家族({p.car.spouse ? '配偶者あり' : '独身'}/子{p.car.kids}人): <strong>+{bd.familyValue?.toLocaleString()}万</strong>
+                          {bd.localCompanyBonus > 0 && <> • 🏠 ご当地企業賞: <strong>+{bd.localCompanyBonus}万</strong></>}
+                          {bd.awardsBonus > 0 && <> • 🏆 各賞ボーナス: <strong>+{bd.awardsBonus}万</strong></>}
+                          {bd.debtPenalty > 0 && <> • 💳 借金返済: <strong style={{ color: '#fca5a5' }}>-{bd.debtPenalty}万</strong></>}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 
@@ -1216,6 +1232,7 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
   const renderPlayerCard = (p) => {
     if (!p) return null;
     const isCurrent = ctx.currentPlayer === p.id;
+    const assets = calculateCurrentAssets(p);
     return (
       <div
         key={p.id}
@@ -1237,8 +1254,79 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
             {p.prefecture?.emoji} {p.prefecture?.shortName}
           </span>
         </div>
-        <div style={{ fontSize: '15px', fontWeight: '900', color: '#fde047', margin: '2px 0' }}>
-          {p.money.toLocaleString()} <span style={{ fontSize: '10px', color: '#fff' }}>万円</span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '4px', margin: '2px 0' }}>
+          <div style={{ fontSize: '15px', fontWeight: '900', color: '#fde047' }}>
+            {p.money.toLocaleString()} <span style={{ fontSize: '10px', color: '#fff' }}>万円</span>
+          </div>
+          <div style={{ fontSize: '9px', color: '#a7f3d0', fontWeight: 'bold' }} title="現金 + 不動産 + 名産品 + 家族 + ご当地企業賞 - 借金">
+            💎総資産:{assets.estimatedTotalAsset.toLocaleString()}万
+          </div>
+        </div>
+
+        {/* 保有資産内訳（マイホーム・名産品・家族・借金） */}
+        <div style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: '3px',
+          marginBottom: '4px',
+          fontSize: '8.5px'
+        }}>
+          <span style={{
+            padding: '1px 5px',
+            borderRadius: '4px',
+            background: p.house ? 'rgba(16, 185, 129, 0.22)' : 'rgba(255,255,255,0.06)',
+            border: p.house ? '1px solid rgba(52, 211, 153, 0.45)' : '1px solid rgba(255,255,255,0.1)',
+            color: p.house ? '#6ee7b7' : '#94a3b8',
+            fontWeight: 'bold'
+          }} title={p.house ? `${p.house.name}（決算評価額 +${assets.houseValue}万）` : 'マイホーム未購入'}>
+            {p.house ? `${p.house.icon}家:+${assets.houseValue}万` : '🏠家:なし'}
+          </span>
+          <span style={{
+            padding: '1px 5px',
+            borderRadius: '4px',
+            background: (p.souvenirs?.length || 0) > 0 ? 'rgba(56, 189, 248, 0.18)' : 'rgba(255,255,255,0.06)',
+            border: (p.souvenirs?.length || 0) > 0 ? '1px solid rgba(56, 189, 248, 0.4)' : '1px solid rgba(255,255,255,0.1)',
+            color: (p.souvenirs?.length || 0) > 0 ? '#7dd3fc' : '#94a3b8',
+            fontWeight: 'bold'
+          }} title={`ご当地名産品 ${p.souvenirs?.length || 0}品（合計評価額 +${assets.souvenirValue}万）`}>
+            🎁土産{p.souvenirs?.length || 0}:+{assets.souvenirValue}万
+          </span>
+          {assets.familyValue > 0 && (
+            <span style={{
+              padding: '1px 5px',
+              borderRadius: '4px',
+              background: 'rgba(244, 114, 182, 0.18)',
+              border: '1px solid rgba(244, 114, 182, 0.4)',
+              color: '#fbcfe8',
+              fontWeight: 'bold'
+            }}>
+              👪家族:+{assets.familyValue}万
+            </span>
+          )}
+          {assets.localCompanyBonus > 0 && (
+            <span style={{
+              padding: '1px 5px',
+              borderRadius: '4px',
+              background: 'rgba(245, 158, 11, 0.22)',
+              border: '1px solid rgba(251, 191, 36, 0.45)',
+              color: '#fde047',
+              fontWeight: 'bold'
+            }} title="ご当地有名企業勤務特典：毎給料+20% / 住宅10%OFF / 退職金1.25倍 / 決算+300万">
+              🏠地元賞:+300万
+            </span>
+          )}
+          {assets.debtPenalty > 0 && (
+            <span style={{
+              padding: '1px 5px',
+              borderRadius: '4px',
+              background: 'rgba(239, 68, 68, 0.25)',
+              border: '1px solid rgba(248, 113, 113, 0.5)',
+              color: '#fca5a5',
+              fontWeight: 'bold'
+            }}>
+              💳借金:-{assets.debtPenalty}万
+            </span>
+          )}
         </div>
 
         {/* 学力 ＆ 体力 パラメータバー */}
@@ -1339,6 +1427,20 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
               {getOccupationRankTitle(p.occupation, p.jobRank)}
             </span>
           )}
+          {p.occupation?.isLocalCompany && (
+            <span style={{
+              flexShrink: 0,
+              fontSize: '8.5px',
+              fontWeight: '900',
+              padding: '1px 4px',
+              borderRadius: '4px',
+              background: 'rgba(245, 158, 11, 0.28)',
+              color: '#fde047',
+              border: '1px solid rgba(251, 191, 36, 0.55)'
+            }} title="ご当地企業特典：毎給料+20% / 住宅10%OFF / 退職金1.25倍 / 決算+300万">
+              🏠特典
+            </span>
+          )}
         </div>
         {/* 時代進行ターン＆コースバッジ */}
         <div style={{
@@ -1419,7 +1521,7 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
         </div>
         {p.car.kids > 0 && (
           <div style={{ fontSize: '8px', color: '#6ee7b7', marginTop: '1px', textAlign: 'right' }}>
-            給料手当 +{p.car.kids * 15}万 / 決算 +{p.car.kids * 200}万
+            給料手当 +{p.car.kids * (p.prefecture?.passiveType === 'kibidango_family' ? 30 : 15)}万 / 決算 +{p.car.kids * (p.prefecture?.passiveType === 'family_bonus_boost' ? 500 : 300)}万
           </div>
         )}
 
@@ -2056,6 +2158,54 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
                       : `🎡 パーソナライズ就職ルーレット（${targetName}: 📚学力 ${targetAcademic} / 🏃体力 ${targetStamina}）：全${rInfo.totalRegularJobs || 18}職のうち現在の能力で就ける【${rInfo.qualifiedCount}種】だけで10枠を作成しました！${rInfo.filledCount > 0 ? `（なれない職業を外し、なれる職業で ${rInfo.filledCount}枠を穴埋め済み！）` : ''}`}
                   </div>
 
+                  {/* 出身県ご当地企業のエントリー状況バナー */}
+                  {rInfo.excludedByTokyoBranch && rInfo.rawLocalCompany ? (
+                    <div style={{
+                      padding: '8px 12px',
+                      borderRadius: '10px',
+                      background: 'rgba(59, 130, 246, 0.16)',
+                      border: '1.5px solid rgba(96, 165, 250, 0.55)',
+                      fontSize: '11px',
+                      lineHeight: 1.5,
+                      color: '#bfdbfe',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: '6px'
+                    }}>
+                      <span>
+                        🏙️ 上京（大都会コース）を選択したため、出身企業【{rInfo.rawLocalCompany.icon} {rInfo.rawLocalCompany.title}】はルーレット対象外となります
+                      </span>
+                    </div>
+                  ) : rInfo.localCompany && (
+                    <div style={{
+                      padding: '8px 12px',
+                      borderRadius: '10px',
+                      background: rInfo.localCompanyQualified ? 'rgba(245, 158, 11, 0.18)' : 'rgba(239, 68, 68, 0.14)',
+                      border: rInfo.localCompanyQualified ? '1.5px solid #fbbf24' : '1.5px solid rgba(248, 113, 113, 0.55)',
+                      fontSize: '11px',
+                      lineHeight: 1.5,
+                      color: rInfo.localCompanyQualified ? '#fde047' : '#fecaca',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: '6px'
+                    }}>
+                      <span>
+                        {rInfo.localCompanyQualified
+                          ? `🏠 ✨ 出身企業【${rInfo.localCompany.icon} ${rInfo.localCompany.title}】がルーレット1番枠にエントリー済み！`
+                          : `🏠 ⚠️ 出身企業【${rInfo.localCompany.icon} ${rInfo.localCompany.title}】は条件未達のためルーレット除外`}
+                      </span>
+                      <span style={{ fontWeight: 'bold', color: rInfo.localCompanyQualified ? '#4ade80' : '#fca5a5' }}>
+                        {G.isHardMode
+                          ? `必要: 🎓偏差値${rInfo.localCompany.minHensachi}(現在${targetHensachi})・🏃体力${rInfo.localCompany.minStamina}(現在${targetStamina})`
+                          : `必要: 📚学力${rInfo.localCompany.reqAcademic}(現在${targetAcademic})・🏃体力${rInfo.localCompany.reqStamina}(現在${targetStamina})`}
+                      </span>
+                    </div>
+                  )}
+
                   {/* ルーレット出目と職業の対応一覧 */}
                   <div style={{
                     display: 'grid',
@@ -2267,6 +2417,21 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
                           <div style={{ fontSize: '15px', color: '#34d399', fontWeight: 'bold', marginTop: '6px' }}>
                             初任給: {res.finalOcc.baseSalary}万円
                           </div>
+                          {res.localHireBonus > 0 && (
+                            <div style={{
+                              marginTop: '8px',
+                              padding: '8px 12px',
+                              borderRadius: '10px',
+                              background: 'rgba(245, 158, 11, 0.22)',
+                              border: '1px solid #fbbf24',
+                              fontSize: '12px',
+                              color: '#fde047',
+                              fontWeight: 'bold'
+                            }}>
+                              🏠 ✨ ご当地企業内定特典発動！地元凱旋祝い金 +{res.localHireBonus}万円 獲得！<br />
+                              <span style={{ fontSize: '11px', color: '#fef3c7' }}>（今後も 毎給料+20% / 住宅10%OFF / 退職金1.25倍 / 決算+300万！）</span>
+                            </div>
+                          )}
                           {res.isHardMode && (devReq > 0 || stamReq > 0) && (
                             <div style={{ fontSize: '12px', color: '#a7f3d0', marginTop: '6px', lineHeight: 1.5 }}>
                               {devReq > 0 && <div>🎓 {targetName}の偏差値【{resHensachi}】 ≧ 採用基準【{devReq}】（書類選考突破！）</div>}
@@ -2381,6 +2546,20 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
                         <div style={{ fontSize: '16px', color: '#34d399', fontWeight: '900', marginTop: '4px' }}>
                           給料: {res.oldSalary}万円 ➔ {res.newSalary}万円
                         </div>
+                        {res.localHireBonus > 0 && (
+                          <div style={{
+                            marginTop: '8px',
+                            padding: '8px 10px',
+                            borderRadius: '10px',
+                            background: 'rgba(245, 158, 11, 0.22)',
+                            border: '1px solid #fbbf24',
+                            fontSize: '12px',
+                            color: '#fde047',
+                            fontWeight: 'bold'
+                          }}>
+                            🏠 ✨ ご当地企業転職特典！凱旋祝い金 +{res.localHireBonus}万円 ＆ 毎給料+20% / 住宅10%OFF / 退職金1.25倍 / 決算+300万！
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <div style={{ fontSize: '13px', color: '#fee2e2', lineHeight: 1.7 }}>
@@ -3063,7 +3242,7 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
                       >
                         {isTokyo
                           ? '🗼 都心エリート・都内自立コース（マスのお金増減1.2倍 / 学力+4・偏差値+2 / 自立費 -20万円）'
-                          : '🏙️ 大都会コースに進む（マスのお金増減1.2倍 / 学力+4・偏差値+2 / 上京費 -20万円）'}
+                          : '🏙️ 大都会コース【上京】（マスのお金増減1.2倍 / 学力+4・偏差値+2 / 上京費 -20万円 / 出身企業は対象外）'}
                       </button>
                       <button
                         onClick={() => moves.chooseRoute(pid, 'local')}
@@ -3081,7 +3260,7 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
                       >
                         {isTokyo
                           ? '🌾 地方移住・UIターンコース（地方移住定着金 +30万円）'
-                          : '🌾 地元就職・地域貢献コース（地元定着支援金 +30万円）'}
+                          : '🌾 地元就職・地域貢献コース（地元定着支援金 +30万円 / 出身企業がルーレット対象！）'}
                       </button>
                     </>
                   ) : (
@@ -3164,28 +3343,76 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
             {/* マイホーム購入選択 */}
             {G.currentSpaceModal.type === 'buy_house' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{
+                  padding: '8px 12px',
+                  borderRadius: '10px',
+                  background: 'rgba(16, 185, 129, 0.14)',
+                  border: '1px solid rgba(52, 211, 153, 0.4)',
+                  fontSize: '11px',
+                  color: '#a7f3d0',
+                  lineHeight: 1.5
+                }}>
+                  💡 <strong>マイホーム購入のメリット：</strong> 全物件が購入価格より高い<strong>「最終資産価値」</strong>を持ち、ゲーム終了時の総資産が大きく増えます！（出身スキルやご当地企業社員割引でさらに大幅お得！）
+                </div>
                 {isActionPlayer ? (
                   <>
-                    {HOUSES.map((h) => (
-                      <button
-                        key={h.id}
-                        onClick={() => moves.chooseHouse(pid, h.id)}
-                        style={{
-                          padding: '12px 16px',
-                          borderRadius: '12px',
-                          background: 'rgba(255,255,255,0.1)',
-                          border: '1px solid rgba(255,255,255,0.2)',
-                          color: '#fff',
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        <span>{h.icon} {h.name}</span>
-                        <strong style={{ color: '#fde047' }}>{h.price}万円</strong>
-                      </button>
-                    ))}
+                    {HOUSES.map((h) => {
+                      const pr = getHousePricingForPlayer(h, turnPlayer);
+                      const hasDiscount = pr.effectivePrice < pr.basePrice;
+                      return (
+                        <button
+                          key={h.id}
+                          onClick={() => moves.chooseHouse(pid, h.id)}
+                          style={{
+                            padding: '12px 16px',
+                            borderRadius: '12px',
+                            background: 'rgba(255,255,255,0.1)',
+                            border: '1px solid rgba(255,255,255,0.2)',
+                            color: '#fff',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            gap: '10px',
+                            cursor: 'pointer',
+                            textAlign: 'left'
+                          }}
+                        >
+                          <div>
+                            <div style={{ fontSize: '14px', fontWeight: '900' }}>
+                              {h.icon} {h.name}
+                            </div>
+                            <div style={{ fontSize: '11px', color: '#cbd5e1', marginTop: '3px', display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+                              <span>
+                                決算評価額: <strong style={{ color: '#4ade80' }}>{pr.effectiveSell.toLocaleString()}万円</strong>
+                              </span>
+                              <span style={{ color: '#38bdf8', fontWeight: 'bold' }}>
+                                （値上がり利益 +{pr.netGain.toLocaleString()}万）
+                              </span>
+                              {pr.discountLabels.map((lbl, i) => (
+                                <span key={i} style={{ background: 'rgba(251, 191, 36, 0.22)', color: '#fde047', padding: '1px 5px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold' }}>
+                                  🏷️ {lbl}
+                                </span>
+                              ))}
+                              {pr.sellBoostLabel && (
+                                <span style={{ background: 'rgba(16, 185, 129, 0.22)', color: '#6ee7b7', padding: '1px 5px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold' }}>
+                                  ✨ {pr.sellBoostLabel}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                            {hasDiscount && (
+                              <div style={{ fontSize: '10px', color: '#94a3b8', textDecoration: 'line-through' }}>
+                                {pr.basePrice.toLocaleString()}万円
+                              </div>
+                            )}
+                            <strong style={{ fontSize: '16px', color: '#fde047' }}>
+                              {pr.effectivePrice.toLocaleString()}万円
+                            </strong>
+                          </div>
+                        </button>
+                      );
+                    })}
                     <button
                       onClick={() => moves.chooseHouse(pid, null)}
                       style={{
@@ -3688,7 +3915,19 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: '12px' }}>
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                {G.isHardMode && (
+                  <div style={{
+                    padding: '6px 14px',
+                    borderRadius: '10px',
+                    background: 'rgba(244, 63, 94, 0.2)',
+                    border: '1px solid #f43f5e',
+                    textAlign: 'center'
+                  }}>
+                    <div style={{ fontSize: '10px', color: '#fda4af', fontWeight: 'bold' }}>🎓 あなたの偏差値</div>
+                    <div style={{ fontSize: '18px', fontWeight: '900', color: '#fb7185' }}>{myPlayer?.hensachi || 50}</div>
+                  </div>
+                )}
                 <div style={{
                   padding: '6px 14px',
                   borderRadius: '10px',
@@ -3731,126 +3970,382 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
               <span>🏃 <strong>運動マス</strong>: 体力+6〜14</span>
               <span>🏠 <strong>出身県企業</strong>: 出身都道府県ごとの名門企業にも就職可能！</span>
               <span>🛤️ <strong>コース分岐</strong>: Aコース(学力大幅UP) / Bコース(体力・資金UP)</span>
-              <span>💼 <strong>転職チャンスマス</strong>: 壮年期・熟年期で止まると資格を満たした職業へ転職可能！</span>
+              <span>💼 <strong>転職チャンスマス</strong>: 壮年期（第3時代）で止まると資格を満たした職業へ転職挑戦可能！</span>
             </div>
 
-            {/* 職業一覧グリッド */}
+            {/* ご当地有名企業5大特典バナー */}
             <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-              gap: '10px',
-              maxHeight: '440px',
-              overflowY: 'auto',
-              paddingRight: '6px'
+              background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.16), rgba(217, 119, 6, 0.12))',
+              border: '1px solid rgba(251, 191, 36, 0.45)',
+              borderRadius: '12px',
+              padding: '9px 12px',
+              marginBottom: '12px',
+              fontSize: '11px',
+              color: '#fef3c7',
+              lineHeight: 1.5
             }}>
-              {getAvailableOccupationsForPlayer(myPlayer).map((occ) => {
-                const myAcad = myPlayer?.academic || 50;
-                const myStam = myPlayer?.stamina || 50;
-                const reqAcad = occ.reqAcademic || 0;
-                const reqStam = occ.reqStamina || 0;
-                const acadPass = myAcad >= reqAcad;
-                const stamPass = myStam >= reqStam;
-                const isQualified = acadPass && stamPass;
-                const isCurrent = myPlayer?.occupation?.id === occ.id;
+              <strong style={{ color: '#fde047' }}>🏠 【ご当地有名企業・在籍5大特典】</strong>
+              出身県の固有企業に就職・転職すると
+              <span style={{ color: '#4ade80', fontWeight: 'bold' }}> ①凱旋祝い金+80万 ②毎給料+20%(最低+30万) ③マイホーム10%OFF ④退職金1.25倍 ⑤決算特別賞+300万</span>
+              が発動！（※地方出身者が上京コースを選ぶと初期就職ルーレットには含まれません）
+            </div>
 
-                return (
-                  <div
-                    key={occ.id}
-                    style={{
-                      padding: '12px 14px',
-                      borderRadius: '14px',
-                      background: isCurrent
-                        ? 'rgba(59, 130, 246, 0.2)'
-                        : isQualified
-                        ? 'rgba(16, 185, 129, 0.12)'
-                        : 'rgba(30, 41, 59, 0.5)',
-                      border: isCurrent
-                        ? '2px solid #3b82f6'
-                        : isQualified
-                        ? '1.5px solid #10b981'
-                        : '1px solid rgba(255, 255, 255, 0.1)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '8px'
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '24px' }}>{occ.icon}</span>
-                        <div>
-                          <div style={{ fontSize: '14px', fontWeight: '900', color: '#ffffff' }}>
-                            {occ.title}
-                          </div>
-                          {isCurrent && (
-                            <span style={{ fontSize: '10px', background: '#3b82f6', color: '#fff', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
-                              現在のあなたの職業
+            {/* 表示切替タブ */}
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '14px' }}>
+              <button
+                onClick={() => setCareerGuideTab('overview')}
+                style={{
+                  flex: 1,
+                  padding: '9px 12px',
+                  borderRadius: '10px',
+                  border: careerGuideTab === 'overview' ? '1.5px solid #38bdf8' : '1px solid rgba(255,255,255,0.15)',
+                  background: careerGuideTab === 'overview' ? 'rgba(56, 189, 248, 0.2)' : 'rgba(15, 23, 42, 0.5)',
+                  color: careerGuideTab === 'overview' ? '#7dd3fc' : '#94a3b8',
+                  fontWeight: '900',
+                  fontSize: '12px',
+                  cursor: 'pointer'
+                }}
+              >
+                👥 参加者の固有就職先 ＆ 共通職業一覧
+              </button>
+              <button
+                onClick={() => setCareerGuideTab('all47')}
+                style={{
+                  flex: 1,
+                  padding: '9px 12px',
+                  borderRadius: '10px',
+                  border: careerGuideTab === 'all47' ? '1.5px solid #fbbf24' : '1px solid rgba(255,255,255,0.15)',
+                  background: careerGuideTab === 'all47' ? 'rgba(251, 191, 36, 0.2)' : 'rgba(15, 23, 42, 0.5)',
+                  color: careerGuideTab === 'all47' ? '#fde047' : '#94a3b8',
+                  fontWeight: '900',
+                  fontSize: '12px',
+                  cursor: 'pointer'
+                }}
+              >
+                🗾 全47都道府県 ご当地企業一覧
+              </button>
+            </div>
+
+            {careerGuideTab === 'overview' ? (
+              <div style={{ maxHeight: '450px', overflowY: 'auto', paddingRight: '6px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                {/* 参加プレイヤー全員の固有就職先（出身県ご当地企業） */}
+                <div style={{
+                  background: 'rgba(251, 191, 36, 0.08)',
+                  border: '1.5px solid rgba(251, 191, 36, 0.35)',
+                  borderRadius: '14px',
+                  padding: '12px'
+                }}>
+                  <div style={{ fontSize: '13px', fontWeight: '900', color: '#fde047', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>🏠</span>
+                    <span>参加プレイヤー全員の固有就職先（出身県限定ご当地企業）</span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(290px, 1fr))', gap: '8px' }}>
+                    {allPlayers.map((pl) => {
+                      const localComp = getPrefectureCompanyOcc(pl.prefecture);
+                      const plName = getPlayerName(pl.id);
+                      const plAcad = pl.academic || 50;
+                      const plStam = pl.stamina || 50;
+                      const plHen = pl.hensachi || 50;
+                      const isMe = pl.id === pid;
+                      const isPlCurrent = pl.occupation?.id === localComp?.id;
+                      const isInitialOk = localComp ? isQualifiedForJob(pl, localComp, G.isHardMode) : false;
+                      const devReq = localComp?.minHensachi || 0;
+                      const stamReq = G.isHardMode ? (localComp?.minStamina || 0) : (localComp?.reqStamina || 0);
+                      return (
+                        <div
+                          key={pl.id}
+                          style={{
+                            padding: '10px 12px',
+                            borderRadius: '12px',
+                            background: isMe ? 'rgba(56, 189, 248, 0.14)' : 'rgba(15, 23, 42, 0.72)',
+                            border: isMe ? '1.5px solid #38bdf8' : `1px solid ${pl.color || 'rgba(255,255,255,0.18)'}`,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '5px'
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: '900' }}>
+                              <span style={{ display: 'inline-block', width: '9px', height: '9px', borderRadius: '50%', background: pl.color }} />
+                              <span style={{ color: '#ffffff' }}>{plName}{isMe ? '（あなた）' : ''}</span>
+                            </div>
+                            <span style={{ fontSize: '11px', color: '#cbd5e1', background: 'rgba(255,255,255,0.1)', padding: '1px 7px', borderRadius: '6px' }}>
+                              {pl.prefecture ? `${pl.prefecture.emoji} ${pl.prefecture.name}` : '未選択'}
                             </span>
+                          </div>
+
+                          {localComp ? (
+                            <>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                                <div style={{ fontSize: '13px', fontWeight: '900', color: '#fde047' }}>
+                                  {localComp.icon} {localComp.title}
+                                  {isPlCurrent && (
+                                    <span style={{ marginLeft: '6px', fontSize: '10px', background: '#10b981', color: '#fff', padding: '1px 5px', borderRadius: '4px' }}>
+                                      就職中
+                                    </span>
+                                  )}
+                                </div>
+                                <span style={{ fontSize: '11px', fontWeight: '900', color: '#facc15', whiteSpace: 'nowrap' }}>
+                                  {localComp.baseSalary}〜{localComp.maxSalary}万
+                                </span>
+                              </div>
+                              <div style={{ fontSize: '10px', color: '#94a3b8', lineHeight: 1.35 }}>
+                                {localComp.tierDesc}
+                              </div>
+                              <div style={{ display: 'flex', gap: '5px', fontSize: '10px', marginTop: '2px', flexWrap: 'wrap', alignItems: 'center' }}>
+                                {G.isHardMode && (
+                                  <span style={{
+                                    padding: '2px 6px',
+                                    borderRadius: '5px',
+                                    background: plHen >= devReq ? 'rgba(52,211,153,0.2)' : 'rgba(239,68,68,0.22)',
+                                    color: plHen >= devReq ? '#6ee7b7' : '#fca5a5',
+                                    fontWeight: 'bold'
+                                  }}>
+                                    🎓要偏差値:{devReq}(現在:{plHen})
+                                  </span>
+                                )}
+                                <span style={{
+                                  padding: '2px 6px',
+                                  borderRadius: '5px',
+                                  background: plAcad >= localComp.reqAcademic ? 'rgba(56,189,248,0.18)' : 'rgba(239,68,68,0.18)',
+                                  color: plAcad >= localComp.reqAcademic ? '#7dd3fc' : '#fca5a5',
+                                  fontWeight: 'bold'
+                                }}>
+                                  📚要学力:{localComp.reqAcademic}(現在:{plAcad})
+                                </span>
+                                <span style={{
+                                  padding: '2px 6px',
+                                  borderRadius: '5px',
+                                  background: plStam >= stamReq ? 'rgba(52,211,153,0.18)' : 'rgba(239,68,68,0.18)',
+                                  color: plStam >= stamReq ? '#6ee7b7' : '#fca5a5',
+                                  fontWeight: 'bold'
+                                }}>
+                                  🏃要体力:{stamReq}(現在:{plStam})
+                                </span>
+                                <span style={{
+                                  padding: '2px 6px',
+                                  borderRadius: '5px',
+                                  background: isInitialOk ? 'rgba(16,185,129,0.22)' : 'rgba(239,68,68,0.18)',
+                                  color: isInitialOk ? '#4ade80' : '#fca5a5',
+                                  fontWeight: '900'
+                                }}>
+                                  {isInitialOk ? '✅ ルーレット対象OK' : '🚫 初期就職条件未達'}
+                                </span>
+                              </div>
+                            </>
+                          ) : (
+                            <div style={{ fontSize: '11px', color: '#94a3b8' }}>出身地未決定</div>
                           )}
                         </div>
-                      </div>
-                      <span style={{
-                        fontSize: '13px',
-                        fontWeight: '900',
-                        color: '#facc15',
-                        background: 'rgba(250, 204, 21, 0.15)',
-                        padding: '3px 8px',
-                        borderRadius: '8px'
-                      }}>
-                        給料: {occ.baseSalary}万
-                      </span>
-                    </div>
-
-                    <div style={{ fontSize: '11px', color: '#94a3b8', lineHeight: 1.3 }}>
-                      {occ.tierDesc}
-                    </div>
-
-                    {/* Requirement comparisons */}
-                    <div style={{ display: 'flex', gap: '8px', fontSize: '11px' }}>
-                      <div style={{
-                        flex: 1,
-                        padding: '4px 8px',
-                        borderRadius: '8px',
-                        background: acadPass ? 'rgba(56, 189, 248, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                        border: acadPass ? '1px solid rgba(56, 189, 248, 0.4)' : '1px solid rgba(239, 68, 68, 0.4)',
-                        color: acadPass ? '#38bdf8' : '#fca5a5'
-                      }}>
-                        <div style={{ fontSize: '9px', color: '#94a3b8' }}>📚 必要学力</div>
-                        <div style={{ fontWeight: 'bold' }}>
-                          {reqAcad} {acadPass ? `✓ (現在${myAcad})` : `(あと+${reqAcad - myAcad})`}
-                        </div>
-                      </div>
-
-                      <div style={{
-                        flex: 1,
-                        padding: '4px 8px',
-                        borderRadius: '8px',
-                        background: stamPass ? 'rgba(52, 211, 153, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                        border: stamPass ? '1px solid rgba(52, 211, 153, 0.4)' : '1px solid rgba(239, 68, 68, 0.4)',
-                        color: stamPass ? '#34d399' : '#fca5a5'
-                      }}>
-                        <div style={{ fontSize: '9px', color: '#94a3b8' }}>🏃 必要体力</div>
-                        <div style={{ fontWeight: 'bold' }}>
-                          {reqStam} {stamPass ? `✓ (現在${myStam})` : `(あと+${reqStam - myStam})`}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Status pill */}
-                    <div style={{
-                      padding: '4px 8px',
-                      borderRadius: '8px',
-                      textAlign: 'center',
-                      fontSize: '11px',
-                      fontWeight: 'bold',
-                      background: isQualified ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.15)',
-                      color: isQualified ? '#34d399' : '#f87171'
-                    }}>
-                      {isQualified ? '✅ 転職ライン達成！（転職マスで就任可能）' : '🔒 資格未達（学力・体力を上げよう）'}
-                    </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
-            </div>
+                </div>
+
+                {/* 共通職業（＋あなたの固有企業）一覧グリッド */}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                  gap: '10px'
+                }}>
+                  {getAvailableOccupationsForPlayer(myPlayer).map((occ) => {
+                    const myAcad = myPlayer?.academic || 50;
+                    const myStam = myPlayer?.stamina || 50;
+                    const myHen = myPlayer?.hensachi || 50;
+                    const reqAcad = occ.reqAcademic || 0;
+                    const reqStam = G.isHardMode ? (occ.minStamina || 0) : (occ.reqStamina || 0);
+                    const reqHen = occ.minHensachi || 0;
+                    const acadPass = myAcad >= reqAcad;
+                    const henPass = myHen >= reqHen;
+                    const primaryPass = G.isHardMode ? henPass : acadPass;
+                    const stamPass = myStam >= reqStam;
+                    const isQualified = isQualifiedForJob(myPlayer, occ, G.isHardMode);
+                    const isTransferQualified = acadPass && myStam >= (occ.reqStamina || 0);
+                    const isCurrent = myPlayer?.occupation?.id === occ.id;
+
+                    return (
+                      <div
+                        key={occ.id}
+                        style={{
+                          padding: '12px 14px',
+                          borderRadius: '14px',
+                          background: isCurrent
+                            ? 'rgba(59, 130, 246, 0.2)'
+                            : isQualified
+                            ? 'rgba(16, 185, 129, 0.12)'
+                            : 'rgba(30, 41, 59, 0.5)',
+                          border: isCurrent
+                            ? '2px solid #3b82f6'
+                            : isQualified
+                            ? '1.5px solid #10b981'
+                            : '1px solid rgba(255, 255, 255, 0.1)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '8px'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '24px' }}>{occ.icon}</span>
+                            <div>
+                              <div style={{ fontSize: '14px', fontWeight: '900', color: '#ffffff' }}>
+                                {occ.title}
+                              </div>
+                              {isCurrent && (
+                                <span style={{ fontSize: '10px', background: '#3b82f6', color: '#fff', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
+                                  現在のあなたの職業
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <span style={{
+                            fontSize: '12px',
+                            fontWeight: '900',
+                            color: '#facc15',
+                            background: 'rgba(250, 204, 21, 0.15)',
+                            padding: '3px 8px',
+                            borderRadius: '8px',
+                            whiteSpace: 'nowrap'
+                          }}>
+                            {occ.maxSalary ? `${occ.baseSalary}〜${occ.maxSalary}万` : `給料: ${occ.baseSalary}万`}
+                          </span>
+                        </div>
+
+                        <div style={{ fontSize: '11px', color: '#94a3b8', lineHeight: 1.3 }}>
+                          {occ.tierDesc}
+                        </div>
+
+                        {/* Requirement comparisons */}
+                        <div style={{ display: 'flex', gap: '8px', fontSize: '11px' }}>
+                          {G.isHardMode ? (
+                            <div style={{
+                              flex: 1,
+                              padding: '4px 8px',
+                              borderRadius: '8px',
+                              background: henPass ? 'rgba(56, 189, 248, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                              border: henPass ? '1px solid rgba(56, 189, 248, 0.4)' : '1px solid rgba(239, 68, 68, 0.4)',
+                              color: henPass ? '#38bdf8' : '#fca5a5'
+                            }}>
+                              <div style={{ fontSize: '9px', color: '#94a3b8' }}>🎓 必要偏差値（初期就職）</div>
+                              <div style={{ fontWeight: 'bold' }}>
+                                {reqHen} {henPass ? `✓ (現在${myHen})` : `(あと+${reqHen - myHen})`}
+                              </div>
+                              <div style={{ fontSize: '9px', color: '#94a3b8' }}>転職目安 学力:{reqAcad}</div>
+                            </div>
+                          ) : (
+                            <div style={{
+                              flex: 1,
+                              padding: '4px 8px',
+                              borderRadius: '8px',
+                              background: acadPass ? 'rgba(56, 189, 248, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                              border: acadPass ? '1px solid rgba(56, 189, 248, 0.4)' : '1px solid rgba(239, 68, 68, 0.4)',
+                              color: acadPass ? '#38bdf8' : '#fca5a5'
+                            }}>
+                              <div style={{ fontSize: '9px', color: '#94a3b8' }}>📚 必要学力</div>
+                              <div style={{ fontWeight: 'bold' }}>
+                                {reqAcad} {acadPass ? `✓ (現在${myAcad})` : `(あと+${reqAcad - myAcad})`}
+                              </div>
+                            </div>
+                          )}
+
+                          <div style={{
+                            flex: 1,
+                            padding: '4px 8px',
+                            borderRadius: '8px',
+                            background: stamPass ? 'rgba(52, 211, 153, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                            border: stamPass ? '1px solid rgba(52, 211, 153, 0.4)' : '1px solid rgba(239, 68, 68, 0.4)',
+                            color: stamPass ? '#34d399' : '#fca5a5'
+                          }}>
+                            <div style={{ fontSize: '9px', color: '#94a3b8' }}>🏃 必要体力</div>
+                            <div style={{ fontWeight: 'bold' }}>
+                              {reqStam} {stamPass ? `✓ (現在${myStam})` : `(あと+${reqStam - myStam})`}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Status pill */}
+                        <div style={{
+                          padding: '4px 8px',
+                          borderRadius: '8px',
+                          textAlign: 'center',
+                          fontSize: '11px',
+                          fontWeight: 'bold',
+                          background: isQualified ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.15)',
+                          color: isQualified ? '#34d399' : '#f87171'
+                        }}>
+                          {isQualified
+                            ? '✅ ルーレット＆就職対象！（条件達成）'
+                            : G.isHardMode && isTransferQualified
+                            ? '⚠️ 初期就職は偏差値不足（転職なら学力OK）'
+                            : G.isHardMode
+                            ? '🔒 資格未達（偏差値・体力を上げよう）'
+                            : '🔒 資格未達（学力・体力を上げよう）'}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              /* 全47都道府県 ご当地企業一覧 */
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(290px, 1fr))',
+                gap: '10px',
+                maxHeight: '450px',
+                overflowY: 'auto',
+                paddingRight: '6px'
+              }}>
+                {PREFECTURES.map((pref) => {
+                  const comp = PREFECTURE_FAMOUS_COMPANIES[pref.id];
+                  if (!comp) return null;
+                  const holders = allPlayers.filter((pl) => pl.prefecture?.id === pref.id);
+                  return (
+                    <div
+                      key={pref.id}
+                      style={{
+                        padding: '12px',
+                        borderRadius: '12px',
+                        background: holders.length > 0 ? 'rgba(251, 191, 36, 0.14)' : 'rgba(15, 23, 42, 0.65)',
+                        border: holders.length > 0 ? '1.5px solid #fbbf24' : '1px solid rgba(255,255,255,0.1)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '6px'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#7dd3fc' }}>
+                          {pref.emoji} {pref.name}（{pref.regionName}）
+                        </span>
+                        <span style={{ fontSize: '11px', fontWeight: '900', color: '#facc15' }}>
+                          {comp.baseSalary}〜{comp.maxSalary}万
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '13px', fontWeight: '900', color: '#ffffff' }}>
+                        {comp.icon} {comp.title}
+                      </div>
+                      <div style={{ fontSize: '10px', color: '#94a3b8', lineHeight: 1.35 }}>
+                        {comp.tierDesc}
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '4px', fontSize: '10px' }}>
+                        <span style={{ color: '#cbd5e1' }}>
+                          📚学力:{comp.reqAcademic} / 🏃体力:{comp.reqStamina} / 🎓偏差値:{comp.minHensachi}
+                        </span>
+                        {holders.length > 0 && (
+                          <span style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                            {holders.map((h) => (
+                              <span key={h.id} style={{ background: h.color, color: '#fff', padding: '1px 6px', borderRadius: '5px', fontWeight: 'bold' }}>
+                                👤 {getPlayerName(h.id)}
+                              </span>
+                            ))}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
             <button
               onClick={() => setShowCareerGuideModal(false)}
