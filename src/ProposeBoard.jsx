@@ -36,7 +36,9 @@ export default function ProposeBoard({ G, ctx, moves, playerID, matchData }) {
   };
 
   const handleRematchJoin = async () => {
-    window.location.href = `/?game=propose&match=${G.nextMatchId}`;
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomCode = urlParams.get('room') || urlParams.get('match');
+    window.location.href = `/?${roomCode ? `room=${encodeURIComponent(roomCode)}&` : ''}game=propose&match=${G.nextMatchId}`;
   };
 
   const addWord = (word, isBasic, originalCardIndex) => {

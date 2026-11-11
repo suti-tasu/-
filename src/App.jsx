@@ -516,8 +516,10 @@ const App = () => {
   const [switchTargetPlayers, setSwitchTargetPlayers] = useState(4);
   const [isSwitchingRoom, setIsSwitchingRoom] = useState(false);
   const isJoiningHubSwitchRef = useRef(false);
+  const currentMatchIdRef = useRef(null);
 
   const [matchID, setMatchID] = useState(null);
+  currentMatchIdRef.current = matchID;
   const [gameType, setGameType] = useState('splendor');
   const [playerID, setPlayerID] = useState(null);
   const [credentials, setCredentials] = useState(null);
@@ -668,7 +670,7 @@ const App = () => {
         setHubState(data);
 
         // 部屋が新しいマッチ（別ゲームまたは人数変更再戦）に切り替わった場合
-        if (data.matchID && data.matchID !== matchID && !isJoiningHubSwitchRef.current) {
+        if (data.matchID && data.matchID !== currentMatchIdRef.current && !isJoiningHubSwitchRef.current) {
           isJoiningHubSwitchRef.current = true;
           try {
             // 観戦専用モードのままの人は席を取らずそのまま新ゲームを観戦継続！
@@ -952,6 +954,7 @@ const App = () => {
   const handleExecuteHubSwitch = async () => {
     if (isSwitchingRoom) return;
     setIsSwitchingRoom(true);
+    isJoiningHubSwitchRef.current = true;
     try {
       const conf = GAMES_CATALOG.find(g => g.id === switchTargetGame) || { minPlayers: 2, maxPlayers: 4 };
       const finalCount = Math.max(conf.minPlayers, Math.min(switchTargetPlayers, conf.maxPlayers));
@@ -965,7 +968,7 @@ const App = () => {
       });
 
       const activeHubId = hubId || matchID;
-      await fetch(`${server}/api/hub/${encodeURIComponent(activeHubId)}/switch`, {
+      const switchRes = await fetch(`${server}/api/hub/${encodeURIComponent(activeHubId)}/switch`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -975,10 +978,17 @@ const App = () => {
           clientId,
         }),
       });
+      if (!switchRes.ok) {
+        throw new Error(`Hub switch failed (${switchRes.status})`);
+      }
+      const switchedHub = await switchRes.json();
+      setHubState(switchedHub);
 
+      currentMatchIdRef.current = newMatchID;
       setHubId(activeHubId);
       setGameType(switchTargetGame);
       setMatchID(newMatchID);
+      setNumPlayers(finalCount);
       setPlayerID(newPid);
       setCredentials(playerCredentials);
       setIsSpectating(false);
@@ -989,6 +999,7 @@ const App = () => {
     } catch (e) {
       alert('ゲームの切り替え・再戦作成に失敗しました: ' + e.message);
     } finally {
+      isJoiningHubSwitchRef.current = false;
       setIsSwitchingRoom(false);
     }
   };
@@ -1031,6 +1042,102 @@ const App = () => {
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: '#0f172a', boxSizing: 'border-box' }}>
+        {/* 常設トップ・ルームバー（部屋コード引き継ぎ＆ゲーム変更にすぐアクセス可能） */}
+        <div style={{
+          background: 'rgba(15, 23, 42, 0.96)',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.12)',
+          padding: '8px 16px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '8px',
+          color: '#f8fafc',
+          fontFamily: "'Segoe UI', -apple-system, sans-serif",
+          zIndex: 1200
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '16px' }}>{currentGameMeta.icon}</span>
+              <span style={{ fontWeight: 'bold', fontSize: '13px', color: '#f8fafc' }}>{currentGameMeta.title}</span>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255, 255, 255, 0.08)', padding: '3px 10px', borderRadius: '8px', border: '1px solid rgba(56, 189, 248, 0.35)' }}>
+              <span style={{ fontSize: '11px', color: '#94a3b8' }}>🏠 部屋:</span>
+              <span style={{ fontFamily: 'monospace', fontWeight: 'bold', fontSize: '12px', color: '#38bdf8' }}>{displayRoomCode}</span>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(displayRoomCode);
+                  setCopiedBottomCode(true);
+                  setTimeout(() => setCopiedBottomCode(false), 2000);
+                }}
+                style={{
+                  background: copiedBottomCode ? '#22c55e' : 'rgba(255,255,255,0.15)',
+                  color: '#fff', border: 'none', borderRadius: '4px', padding: '2px 7px', fontSize: '10px', cursor: 'pointer', fontWeight: 'bold'
+                }}
+              >
+                {copiedBottomCode ? '✓' : 'コピー'}
+              </button>
+            </div>
+
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(window.location.href);
+                setCopiedBottomUrl(true);
+                setTimeout(() => setCopiedBottomUrl(false), 2000);
+              }}
+              style={{
+                background: copiedBottomUrl ? '#22c55e' : 'linear-gradient(135deg, #0284c7, #0369a1)',
+                color: '#ffffff', border: 'none', borderRadius: '7px', padding: '5px 11px', fontSize: '11px', cursor: 'pointer', fontWeight: 'bold'
+              }}
+            >
+              {copiedBottomUrl ? '✓ 招待URLコピー済' : '🔗 招待リンク'}
+            </button>
+
+            {!isSpectating && (
+              <button
+                onClick={openRoomSwitchModal}
+                style={{
+                  background: waitingMembers.length > 0
+                    ? 'linear-gradient(135deg, #f59e0b, #ea580c)'
+                    : 'linear-gradient(135deg, #8b5cf6, #6d28d9)',
+                  color: '#ffffff',
+                  border: waitingMembers.length > 0 ? '2px solid #fef08a' : 'none',
+                  borderRadius: '7px',
+                  padding: '5px 12px',
+                  fontSize: '11px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  boxShadow: '0 2px 8px rgba(139, 92, 246, 0.35)'
+                }}
+              >
+                🎮 別のゲームに変更 / 再戦{waitingMembers.length > 0 ? ` 🆕+${waitingMembers.length}人` : ''}
+              </button>
+            )}
+
+            {hubMembers.length > 0 && (
+              <span style={{ fontSize: '11px', color: '#cbd5e1', background: 'rgba(255,255,255,0.06)', padding: '3px 8px', borderRadius: '6px' }}>
+                👥 {hubMembers.length}人{spectatingMembers.length > 0 ? `（👀観戦 ${spectatingMembers.length}）` : ''}
+              </span>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '12px', color: '#cbd5e1' }}>
+              {playerAvatar} <strong style={{ color: '#fff' }}>{playerName || 'ゲスト'}</strong>
+            </span>
+            <button
+              onClick={leaveMatch}
+              style={{
+                background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                color: 'white', border: 'none', padding: '5px 11px', borderRadius: '7px', cursor: 'pointer', fontWeight: 'bold', fontSize: '11px'
+              }}
+            >
+              🚪 退出
+            </button>
+          </div>
+        </div>
+
         {/* 観戦モード専用トップコントロールバー */}
         {isSpectating && (
           <div style={{
@@ -1203,7 +1310,8 @@ const App = () => {
                       key={g.id}
                       onClick={() => {
                         setSwitchTargetGame(g.id);
-                        const baseCount = Math.max(hubMembers.length, switchTargetPlayers);
+                        const wantPlayCount = hubMembers.filter(m => m.status !== 'spectating').length || hubMembers.length;
+                        const baseCount = Math.max(wantPlayCount, switchTargetPlayers);
                         setSwitchTargetPlayers(Math.max(g.minPlayers, Math.min(g.maxPlayers, baseCount)));
                       }}
                       style={{

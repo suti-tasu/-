@@ -230,10 +230,12 @@ export function SplendorBoard({ G, ctx, moves, events, playerID, matchData }) {
         const { playerID: newPlayerID, playerCredentials } = await lobbyClient.joinMatch('splendor', G.nextMatchId, {
           playerName: myName
         });
-        const oldMatchID = new URLSearchParams(window.location.search).get('match');
+        const urlParams = new URLSearchParams(window.location.search);
+        const oldMatchID = urlParams.get('match');
+        const roomCode = urlParams.get('room') || oldMatchID;
         if (oldMatchID) window.localStorage.removeItem('splendor_match_' + oldMatchID);
         window.localStorage.setItem('splendor_match_' + G.nextMatchId, JSON.stringify({ pID: newPlayerID, creds: playerCredentials, pName: myName }));
-        window.location.href = '/?match=' + G.nextMatchId;
+        window.location.href = `/?${roomCode ? `room=${encodeURIComponent(roomCode)}&` : ''}game=splendor&match=${G.nextMatchId}`;
       } catch(e) {
         alert('参加に失敗しました: ' + e.message);
       }

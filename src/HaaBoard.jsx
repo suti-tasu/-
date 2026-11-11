@@ -23,7 +23,9 @@ export default function HaaBoard({ G, ctx, moves, playerID, matchData }) {
   };
 
   const handleRematchJoin = async () => {
-    window.location.href = `/?game=haa&match=${G.nextMatchId}`;
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomCode = urlParams.get('room') || urlParams.get('match');
+    window.location.href = `/?${roomCode ? `room=${encodeURIComponent(roomCode)}&` : ''}game=haa&match=${G.nextMatchId}`;
   };
 
   const [showRules, setShowRules] = React.useState(false);

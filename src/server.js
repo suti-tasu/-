@@ -42,6 +42,7 @@ const findHub = (idOrMatch) => {
   if (hubs.has(idOrMatch)) return hubs.get(idOrMatch);
   for (const h of hubs.values()) {
     if (h.matchID === idOrMatch) return h;
+    if (Array.isArray(h.pastMatchIDs) && h.pastMatchIDs.includes(idOrMatch)) return h;
   }
   return null;
 };
@@ -103,6 +104,7 @@ server.app.use(async (ctx, next) => {
       hubId,
       gameType: body.gameType,
       matchID: body.matchID,
+      pastMatchIDs: [body.matchID],
       numPlayers: Number(body.numPlayers) || 4,
       version: 1,
       members,
@@ -134,12 +136,13 @@ server.app.use(async (ctx, next) => {
     const body = await readJsonBody(ctx.req);
     let hub = findHub(targetId);
 
-    // If a client heartbeats a match created before hub existed, auto-bootstrap hub seamlessly
-    if (!hub && action === 'heartbeat' && body.gameType && body.matchID) {
+    // If a client heartbeats or switches a match created before hub existed, auto-bootstrap hub seamlessly
+    if (!hub && (action === 'heartbeat' || action === 'switch') && body.gameType && body.matchID) {
       hub = {
         hubId: targetId,
         gameType: body.gameType,
         matchID: body.matchID,
+        pastMatchIDs: [body.matchID],
         numPlayers: Number(body.numPlayers) || 4,
         version: 1,
         members: {},
@@ -177,6 +180,18 @@ server.app.use(async (ctx, next) => {
         ctx.status = 400;
         ctx.body = { error: 'Missing gameType/matchID' };
         return;
+      }
+      if (!Array.isArray(hub.pastMatchIDs)) {
+        hub.pastMatchIDs = hub.matchID ? [hub.matchID] : [];
+      }
+      if (hub.matchID && !hub.pastMatchIDs.includes(hub.matchID)) {
+        hub.pastMatchIDs.push(hub.matchID);
+      }
+      if (!hub.pastMatchIDs.includes(body.matchID)) {
+        hub.pastMatchIDs.push(body.matchID);
+      }
+      if (hub.pastMatchIDs.length > 30) {
+        hub.pastMatchIDs = hub.pastMatchIDs.slice(-30);
       }
       hub.gameType = body.gameType;
       hub.matchID = body.matchID;

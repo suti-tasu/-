@@ -727,7 +727,7 @@ export const DeepSeaBoard = ({ G, ctx, moves, playerID, matchData }) => {
           <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#7dd3fc', marginBottom: '4px' }}>📜 探険ログ</div>
           {G.logs.slice(0, 15).map((log, i) => (
             <div key={i} style={{ fontSize: '12px', color: i === 0 ? '#ffffff' : '#94a3b8', padding: '2px 0' }}>
-              {log}
+              {log.replace(/Player (\d+)/g, (_, id) => getPlayerName(id))}
             </div>
           ))}
         </div>

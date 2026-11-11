@@ -2,38 +2,216 @@
 // ニンテンドースイッチ風 5大時代（ライフステージ）＆ターン固定進行モデル
 // 通常モード ＋ 隠しリアルハードモード（親ガチャ・偏差値・学歴フィルター）
 import { PREFECTURES, getPrefectureById } from './data/prefecturesData.js';
-import { LIFE_ERAS, getEraById, getAllSpacesFlat, getSpaceMoneyDetails, calculateNextPosition } from './data/lifeErasData.js';
+import { LIFE_ERAS, getEraById, getAllSpacesFlat, getSpaceMoneyDetails, calculateNextPosition, calculateMovePath } from './data/lifeErasData.js';
 
-export { LIFE_ERAS, getEraById, getSpaceMoneyDetails, calculateNextPosition };
+export { LIFE_ERAS, getEraById, getSpaceMoneyDetails, calculateNextPosition, calculateMovePath };
 export const BOARD_SPACES = getAllSpacesFlat();
 
 export const OCCUPATIONS = [
   { id: 'doctor', title: '名医・ドクター', baseSalary: 220, maxSalary: 550, icon: '🩺', type: 'expert', minHensachi: 68, minStamina: 40, reqAcademic: 75, reqStamina: 40, tierDesc: '最難関医学部卒・極限の医学知性と夜勤に耐える体力' },
-  { id: 'consultant', title: '外資系コンサル・高級官僚', baseSalary: 180, maxSalary: 480, icon: '⚖️', type: 'tokyo', minHensachi: 64, minStamina: 45, reqAcademic: 70, reqStamina: 45, tierDesc: '難関大卒・高度論理思考と激務に耐えるタフネス' },
-  { id: 'athlete', title: 'プロアスリート・五輪選手', baseSalary: 160, maxSalary: 500, icon: '⚽', type: 'expert', minHensachi: 38, minStamina: 70, reqAcademic: 35, reqStamina: 75, tierDesc: '強靭な肉体と日々の鍛錬！極限の運動体力特化' },
-  { id: 'it_engineer', title: 'ITベンチャー 起業家', baseSalary: 150, maxSalary: 450, icon: '💻', type: 'tokyo', minHensachi: 52, minStamina: 45, reqAcademic: 60, reqStamina: 55, tierDesc: '理系大卒・最先端IT技術と開発をやり抜く集中体力' },
-  { id: 'salaryman', title: '大手企業 総合職', baseSalary: 130, maxSalary: 300, icon: '💼', type: 'general', minHensachi: 54, minStamina: 48, reqAcademic: 58, reqStamina: 50, tierDesc: '有名大卒・知性と通勤営業をこなす安定の体力' },
-  { id: 'civil_servant', title: '安定の地方公務員', baseSalary: 110, maxSalary: 240, icon: '🏛️', type: 'local', minHensachi: 48, minStamina: 45, reqAcademic: 52, reqStamina: 48, tierDesc: '地元大短大卒・公務員試験突破と日々の奉仕体力' },
-  { id: 'driver', title: '現場プロ・大型ドライバー', baseSalary: 110, maxSalary: 280, icon: '🚚', type: 'local', minHensachi: 0, minStamina: 58, reqAcademic: 40, reqStamina: 60, tierDesc: '学歴不問！全国輸送を支える頑強なタフネス体力' },
-  { id: 'farmer', title: 'アグリビジネス・農業王', baseSalary: 100, maxSalary: 350, icon: '🚜', type: 'local', minHensachi: 0, minStamina: 52, reqAcademic: 45, reqStamina: 55, tierDesc: '学歴不問！自然を愛する知識と朝起きのバイタリティ' },
-  { id: 'artisan', title: '伝統工芸・名匠職人', baseSalary: 90, maxSalary: 380, icon: '🏺', type: 'local', minHensachi: 0, minStamina: 48, reqAcademic: 50, reqStamina: 50, tierDesc: '学歴不問！繊細な美意識と一日中集中する持続体力' },
-  { id: 'idol', title: 'ご当地スター・アイドル', baseSalary: 80, maxSalary: 550, icon: '🎤', type: 'entertainment', minHensachi: 0, minStamina: 50, reqAcademic: 45, reqStamina: 50, tierDesc: '学歴不問！激しいダンスレッスンとステージをこなす体力' },
+  { id: 'lawyer', title: '弁護士・検察官', baseSalary: 210, maxSalary: 520, icon: '📜', type: 'tokyo', minHensachi: 67, minStamina: 38, reqAcademic: 76, reqStamina: 38, tierDesc: '法曹界のエリート！膨大な法律知識と論理力の頂点' },
+  { id: 'pilot', title: 'パイロット・航空機長', baseSalary: 200, maxSalary: 490, icon: '✈️', type: 'expert', minHensachi: 64, minStamina: 60, reqAcademic: 70, reqStamina: 62, tierDesc: '空の精鋭！高度な理系頭脳と強靭な身体能力の両立が必須' },
+  { id: 'consultant', title: '外資系コンサル・高級官僚', baseSalary: 185, maxSalary: 480, icon: '⚖️', type: 'tokyo', minHensachi: 64, minStamina: 45, reqAcademic: 70, reqStamina: 45, tierDesc: '難関大卒・高度論理思考と激務に耐えるタフネス' },
+  { id: 'athlete', title: 'プロアスリート・五輪選手', baseSalary: 170, maxSalary: 500, icon: '⚽', type: 'expert', minHensachi: 35, minStamina: 70, reqAcademic: 32, reqStamina: 74, tierDesc: '強靭な肉体と日々の鍛錬！極限の運動体力特化' },
+  { id: 'researcher', title: '研究者・大学教授', baseSalary: 165, maxSalary: 420, icon: '🔬', type: 'expert', minHensachi: 63, minStamina: 30, reqAcademic: 72, reqStamina: 30, tierDesc: '知の探究者！体力控えめでも卓越した学力で目指せる専門職' },
+  { id: 'architect', title: '建築家・一級設計士', baseSalary: 160, maxSalary: 430, icon: '📐', type: 'tokyo', minHensachi: 58, minStamina: 45, reqAcademic: 62, reqStamina: 48, tierDesc: '造形美と構造計算の融合！街のランドマークを創るクリエイター' },
+  { id: 'it_engineer', title: 'ITベンチャー 起業家', baseSalary: 155, maxSalary: 450, icon: '💻', type: 'tokyo', minHensachi: 52, minStamina: 45, reqAcademic: 60, reqStamina: 48, tierDesc: '理系大卒・最先端IT技術と開発をやり抜く集中体力' },
+  { id: 'pharmacist', title: '薬剤師・医療スペシャリスト', baseSalary: 150, maxSalary: 340, icon: '💊', type: 'general', minHensachi: 57, minStamina: 35, reqAcademic: 64, reqStamina: 35, tierDesc: '確かな薬学知識で地域の健康を支える安定専門職' },
+  { id: 'firefighter', title: '消防士・レスキュー隊員', baseSalary: 140, maxSalary: 320, icon: '🚒', type: 'local', minHensachi: 40, minStamina: 65, reqAcademic: 38, reqStamina: 68, tierDesc: '街のヒーロー！燃え盛る現場へ飛び込む圧倒的フィジカル' },
+  { id: 'salaryman', title: '大手企業 総合職', baseSalary: 130, maxSalary: 300, icon: '💼', type: 'general', minHensachi: 54, minStamina: 46, reqAcademic: 56, reqStamina: 46, tierDesc: '有名大卒・知性と通勤営業をこなす安定の体力' },
+  { id: 'chef', title: 'トップシェフ・料理長', baseSalary: 125, maxSalary: 390, icon: '👨‍🍳', type: 'local', minHensachi: 0, minStamina: 54, reqAcademic: 40, reqStamina: 56, tierDesc: '学歴不問！立ち仕事と熱い厨房を仕切る美食の求道者' },
+  { id: 'civil_servant', title: '安定の地方公務員', baseSalary: 115, maxSalary: 250, icon: '🏛️', type: 'local', minHensachi: 48, minStamina: 44, reqAcademic: 50, reqStamina: 44, tierDesc: '地元大短大卒・公務員試験突破と日々の奉仕体力' },
+  { id: 'driver', title: '現場プロ・大型ドライバー', baseSalary: 115, maxSalary: 280, icon: '🚚', type: 'local', minHensachi: 0, minStamina: 56, reqAcademic: 34, reqStamina: 58, tierDesc: '学歴不問！全国輸送を支える頑強なタフネス体力' },
+  { id: 'farmer', title: 'アグリビジネス・農業王', baseSalary: 105, maxSalary: 350, icon: '🚜', type: 'local', minHensachi: 0, minStamina: 50, reqAcademic: 36, reqStamina: 52, tierDesc: '学歴不問！自然を愛する知識と朝起きのバイタリティ' },
+  { id: 'artisan', title: '伝統工芸・名匠職人', baseSalary: 100, maxSalary: 380, icon: '🏺', type: 'local', minHensachi: 0, minStamina: 44, reqAcademic: 46, reqStamina: 45, tierDesc: '学歴不問！繊細な美意識と一日中集中する持続体力' },
+  { id: 'streamer', title: '人気動画クリエイター・配信者', baseSalary: 95, maxSalary: 520, icon: '📹', type: 'entertainment', minHensachi: 0, minStamina: 38, reqAcademic: 35, reqStamina: 40, tierDesc: '学歴不問！企画力と連日配信を続けるバイタリティでバズを狙う' },
+  { id: 'idol', title: 'ご当地スター・アイドル', baseSalary: 85, maxSalary: 550, icon: '🎤', type: 'entertainment', minHensachi: 0, minStamina: 48, reqAcademic: 35, reqStamina: 48, tierDesc: '学歴不問！激しいダンスレッスンとステージをこなす体力' },
   { id: 'freeter', title: '自由人・フリーター', baseSalary: 60, maxSalary: 160, icon: '🎸', type: 'general', minHensachi: 0, minStamina: 0, reqAcademic: 0, reqStamina: 0, tierDesc: '学歴・体力不問！自由気ままなマイルート' },
   { id: 'unemployed', title: '無職・求職中', baseSalary: 0, maxSalary: 0, icon: '🏚️', type: 'general', minHensachi: 0, minStamina: 0, reqAcademic: 0, reqStamina: 0, tierDesc: '学歴・体力不問。充電期間で知性と体力を鍛え直そう' },
 ];
 
-// 就職ルーレット（1〜10の出目と職業の対応テーブル）
+// 47都道府県別・ご当地有名企業マスター（出身県に応じて就職・転職候補に追加）
+const RAW_PREFECTURE_COMPANIES = {
+  hokkaido: { title: 'ニトリ（北海道発・家具インテリア最大手）', icon: '🛋️', baseSalary: 175, maxSalary: 420, reqAcademic: 58, reqStamina: 46, minHensachi: 54, minStamina: 46, desc: '「お、ねだん以上。」で全国を席巻する北海道発の世界的インテリア企業！' },
+  aomori: { title: 'プロクレアHD・青森みちのく銀行（青森）', icon: '🏦', baseSalary: 145, maxSalary: 320, reqAcademic: 54, reqStamina: 40, minHensachi: 52, minStamina: 40, desc: '青森県の地域経済と暮らしを最前線で支える名門金融グループ！' },
+  iwate: { title: '小岩井乳業・小岩井農場（岩手発）', icon: '🥛', baseSalary: 155, maxSalary: 350, reqAcademic: 52, reqStamina: 50, minHensachi: 50, minStamina: 48, desc: '岩手山麓の歴史ある広大な農場から全国へ乳製品を届ける老舗ブランド！' },
+  miyagi: { title: 'アイリスオーヤマ（宮城・仙台本社）', icon: '💡', baseSalary: 175, maxSalary: 410, reqAcademic: 56, reqStamina: 52, minHensachi: 53, minStamina: 50, desc: 'なるほど家電や生活用品を次々生み出す仙台発の革新的メーカー！' },
+  akita: { title: 'TDK（秋田・由利本荘創業の世界的電子部品）', icon: '💿', baseSalary: 185, maxSalary: 440, reqAcademic: 62, reqStamina: 46, minHensachi: 58, minStamina: 46, desc: '秋田県で産声を上げ世界の先端エレクトロニクスを支える巨大テクノロジー企業！' },
+  yamagata: { title: 'でん六（山形発・豆菓子メーカー大手）', icon: '🥜', baseSalary: 145, maxSalary: 320, reqAcademic: 46, reqStamina: 45, minHensachi: 45, minStamina: 44, desc: '「でん六豆」で全国に愛される山形県民の誇り・老舗食品メーカー！' },
+  fukushima: { title: 'ゼビオHD（福島・郡山本社スポーツ大手）', icon: '👟', baseSalary: 160, maxSalary: 360, reqAcademic: 52, reqStamina: 55, minHensachi: 50, minStamina: 54, desc: '東北のスポーツ文化を牽引し全国展開する郡山本社の大型小売企業！' },
+  ibaraki: { title: 'ケーズホールディングス（茨城・水戸本社）', icon: '📺', baseSalary: 170, maxSalary: 390, reqAcademic: 54, reqStamina: 48, minHensachi: 52, minStamina: 46, desc: '「新製品が安い」ケーズデンキを全国に広めた水戸発の家電量販大手！' },
+  tochigi: { title: 'カワチ薬品（栃木・小山本社ドラッグ大手）', icon: '💊', baseSalary: 155, maxSalary: 340, reqAcademic: 50, reqStamina: 46, minHensachi: 48, minStamina: 44, desc: 'メガドラッグストア戦略で東日本の生活を支える栃木拠点の流通大手！' },
+  gunma: { title: 'ヤマダホールディングス（群馬・高崎本社）', icon: '⚡', baseSalary: 180, maxSalary: 420, reqAcademic: 54, reqStamina: 50, minHensachi: 52, minStamina: 48, desc: '高崎駅前から全国47都道府県を制覇した日本最大の家電量販グループ！' },
+  saitama: { title: 'しまむら（埼玉・さいたま市本社）', icon: '👕', baseSalary: 170, maxSalary: 380, reqAcademic: 52, reqStamina: 48, minHensachi: 50, minStamina: 46, desc: '驚異の物流網と高コスパで日本中のクローゼットを支えるアパレル大手！' },
+  chiba: { title: 'オリエンタルランド（千葉・浦安本社）', icon: '🏰', baseSalary: 195, maxSalary: 450, reqAcademic: 62, reqStamina: 52, minHensachi: 60, minStamina: 50, desc: '日本屈指の巨大テーマパークを運営し夢と魔法を届ける人気No.1級企業！' },
+  tokyo: { title: 'ソニーグループ（東京・港区本社）', icon: '🎮', baseSalary: 230, maxSalary: 560, reqAcademic: 72, reqStamina: 46, minHensachi: 66, minStamina: 45, desc: 'ゲーム・音楽・映画・半導体で世界を熱狂させる日本最高峰のメガ企業！' },
+  kanagawa: { title: '日産自動車（神奈川・横浜本社）', icon: '🚗', baseSalary: 195, maxSalary: 460, reqAcademic: 62, reqStamina: 52, minHensachi: 58, minStamina: 50, desc: '横浜みなとみらいから世界のモビリティ改革に挑むグローバル自動車メーカー！' },
+  niigata: { title: '亀田製菓（新潟・新潟市本社）', icon: '🍘', baseSalary: 160, maxSalary: 360, reqAcademic: 50, reqStamina: 48, minHensachi: 48, minStamina: 46, desc: '柿の種・ハッピーターンでおなじみ！米どころ新潟が誇る米菓トップ企業！' },
+  toyama: { title: 'YKK（富山・黒部発 世界シェアNo.1）', icon: '🤐', baseSalary: 185, maxSalary: 430, reqAcademic: 60, reqStamina: 50, minHensachi: 56, minStamina: 48, desc: '黒部から世界中のファスナーと建材を供給する「善の巡環」グローバル企業！' },
+  ishikawa: { title: 'コマツ（石川・小松発祥 建機世界大手）', icon: '🚜', baseSalary: 205, maxSalary: 480, reqAcademic: 62, reqStamina: 54, minHensachi: 58, minStamina: 52, desc: '石川県小松市で創業し世界中の鉱山・建設現場で活躍する建機メジャー！' },
+  fukui: { title: 'セーレン（福井本社・先端素材メーカー）', icon: '🧵', baseSalary: 165, maxSalary: 380, reqAcademic: 56, reqStamina: 46, minHensachi: 53, minStamina: 44, desc: '老舗繊維業から自動車内装・宇宙・IT分野へ進化を遂げた福井の優良企業！' },
+  yamanashi: { title: 'ファナック（山梨・忍野村 産業ロボ世界一）', icon: '🤖', baseSalary: 225, maxSalary: 540, reqAcademic: 70, reqStamina: 46, minHensachi: 64, minStamina: 45, desc: '富士山の麓の森から世界の工場ロボットを動かす超高収益テクノロジー企業！' },
+  nagano: { title: 'セイコーエプソン（長野・諏訪本社）', icon: '🖨️', baseSalary: 185, maxSalary: 430, reqAcademic: 62, reqStamina: 46, minHensachi: 58, minStamina: 45, desc: '信州の精密時計技術からプリンタ・プロジェクタ世界大手へ羽ばたいた名門！' },
+  gifu: { title: '西濃運輸（岐阜・大垣本社物流大手）', icon: '📦', baseSalary: 165, maxSalary: 370, reqAcademic: 48, reqStamina: 58, minHensachi: 46, minStamina: 56, desc: 'カンガルー便のシンボルで全国の商業物流の大動脈を担う大垣の巨星！' },
+  shizuoka: { title: 'ヤマハ（静岡・浜松本社 楽器世界最大手）', icon: '🎹', baseSalary: 190, maxSalary: 440, reqAcademic: 60, reqStamina: 46, minHensachi: 56, minStamina: 45, desc: '音楽の街・浜松から世界中のステージと音文化を支える総合楽器メーカー！' },
+  aichi: { title: 'トヨタ自動車（愛知・豊田本社）', icon: '🚘', baseSalary: 235, maxSalary: 580, reqAcademic: 68, reqStamina: 54, minHensachi: 64, minStamina: 52, desc: '日本経済の大黒柱！世界販売台数トップクラスを誇る愛知の超名門企業！' },
+  mie: { title: '井村屋グループ（三重・津本社）', icon: '🍧', baseSalary: 155, maxSalary: 350, reqAcademic: 48, reqStamina: 48, minHensachi: 46, minStamina: 46, desc: '「あずきバー」と肉まん・あんまんで世代を超えて愛される三重の食品名門！' },
+  shiga: { title: '平和堂（滋賀・彦根本社 小売王者）', icon: '🕊️', baseSalary: 155, maxSalary: 340, reqAcademic: 48, reqStamina: 50, minHensachi: 46, minStamina: 48, desc: '「かけっことびっこ」のテーマでおなじみ！滋賀県の生活インフラを担う名門！' },
+  kyoto: { title: '任天堂（京都・京都市本社）', icon: '🕹️', baseSalary: 240, maxSalary: 600, reqAcademic: 72, reqStamina: 46, minHensachi: 66, minStamina: 45, desc: '京都花札の老舗から世界のエンタメの頂点へ！独創力で世界を笑顔にする超人気企業！' },
+  osaka: { title: 'パナソニックHD（大阪・門真本社）', icon: '🔋', baseSalary: 205, maxSalary: 490, reqAcademic: 64, reqStamina: 48, minHensachi: 60, minStamina: 46, desc: '家電・車載電池・住宅設備で日本の暮らしを牽引し続ける大阪の巨大メーカー！' },
+  hyogo: { title: 'アシックス（兵庫・神戸本社）', icon: '👟', baseSalary: 185, maxSalary: 430, reqAcademic: 58, reqStamina: 58, minHensachi: 55, minStamina: 56, desc: '「健全な身体に健全な精神」を掲げ世界のアスリートを支える神戸のスポーツ企業！' },
+  nara: { title: '南都銀行（奈良・奈良市本店）', icon: '🏦', baseSalary: 155, maxSalary: 350, reqAcademic: 55, reqStamina: 40, minHensachi: 52, minStamina: 40, desc: '古都奈良の企業と文化財・地域社会を支える歴史あるトップ地方銀行！' },
+  wakayama: { title: '島精機製作所（和歌山・横編機世界一）', icon: '🧶', baseSalary: 170, maxSalary: 400, reqAcademic: 56, reqStamina: 46, minHensachi: 53, minStamina: 45, desc: '無縫製ニット機械で世界圧倒的シェアを誇る和歌山のオンリーワン技術企業！' },
+  tottori: { title: '大山乳業農協・白バラ牛乳（鳥取）', icon: '🥛', baseSalary: 150, maxSalary: 330, reqAcademic: 46, reqStamina: 48, minHensachi: 45, minStamina: 46, desc: '濃厚で美味しい「白バラ牛乳」で全国に熱狂的ファンを持つ鳥取の酪農ブランド！' },
+  shimane: { title: '山陰合同銀行（島根・松江本店）', icon: '🏦', baseSalary: 160, maxSalary: 360, reqAcademic: 56, reqStamina: 42, minHensachi: 52, minStamina: 40, desc: '松江市に本店を構え山陰エリアの広域ビジネスをリードするリーディングバンク！' },
+  okayama: { title: 'ベネッセコーポレーション（岡山本社）', icon: '✏️', baseSalary: 195, maxSalary: 450, reqAcademic: 66, reqStamina: 42, minHensachi: 60, minStamina: 42, desc: '進研ゼミ・こどもちゃれんじで全国の教育と学びを支える岡山発の教育最大手！' },
+  hiroshima: { title: 'マツダ（広島・府中町本社）', icon: '🚙', baseSalary: 195, maxSalary: 460, reqAcademic: 60, reqStamina: 54, minHensachi: 56, minStamina: 52, desc: '魂動デザインと独自のエンジン技術で世界にファンを持つ広島の誇り！' },
+  yamaguchi: { title: 'ファーストリテイリング・ユニクロ（山口本社）', icon: '🧥', baseSalary: 225, maxSalary: 560, reqAcademic: 68, reqStamina: 54, minHensachi: 63, minStamina: 52, desc: '山口県の一軒の洋品店から世界トップクラスのアパレル帝国を築いたグローバル企業！' },
+  tokushima: { title: '大塚製薬（徳島・鳴門創業）', icon: '🥤', baseSalary: 200, maxSalary: 470, reqAcademic: 64, reqStamina: 52, minHensachi: 60, minStamina: 50, desc: 'ポカリスエットやカロリーメイトを生み出し世界の健康を支える徳島発の製薬大手！' },
+  kagawa: { title: 'タダノ（香川・高松本社 クレーン大手）', icon: '🏗️', baseSalary: 175, maxSalary: 410, reqAcademic: 56, reqStamina: 52, minHensachi: 53, minStamina: 50, desc: '高松から世界のインフラ建設を支える建設用クレーン世界トップクラスメーカー！' },
+  ehime: { title: '今治造船（愛媛・今治本社 日本一の造船）', icon: '🚢', baseSalary: 190, maxSalary: 450, reqAcademic: 56, reqStamina: 58, minHensachi: 53, minStamina: 56, desc: '日本最大の建造量を誇り世界の海上輸送を支える瀬戸内の造船王者！' },
+  kochi: { title: '技研製作所（高知本社・世界一圧入機）', icon: '🔩', baseSalary: 175, maxSalary: 410, reqAcademic: 58, reqStamina: 50, minHensachi: 54, minStamina: 48, desc: '無振動杭圧入機「サイレントパイラー」で世界を席巻する高知の独自技術企業！' },
+  fukuoka: { title: 'TOTO（福岡・北九州本社）', icon: '🚽', baseSalary: 190, maxSalary: 450, reqAcademic: 60, reqStamina: 48, minHensachi: 56, minStamina: 46, desc: 'ウォシュレットと衛生陶器技術で世界を驚かせる北九州発の住宅設備最大手！' },
+  saga: { title: '久光製薬（佐賀・鳥栖本社）', icon: '🩹', baseSalary: 180, maxSalary: 420, reqAcademic: 60, reqStamina: 46, minHensachi: 56, minStamina: 45, desc: '「サロンパス」で世界の肩こりを癒やす佐賀県鳥栖発のグローバル製薬会社！' },
+  nagasaki: { title: 'ジャパネットたかた（長崎・佐世保本社）', icon: '📣', baseSalary: 185, maxSalary: 440, reqAcademic: 54, reqStamina: 56, minHensachi: 52, minStamina: 54, desc: '通販・スポーツクラブ・地域創生で長崎を熱く盛り上げるエンタメ通信販売大手！' },
+  kumamoto: { title: '再春館製薬所（熊本・益城町本社）', icon: '🧴', baseSalary: 175, maxSalary: 400, reqAcademic: 56, reqStamina: 46, minHensachi: 53, minStamina: 45, desc: 'ドモホルンリンクルでおなじみ！手厚い社員満足度と熊本の自然を大切にする名門！' },
+  oita: { title: 'ジョイフル（大分・大分市本社）', icon: '🍽️', baseSalary: 155, maxSalary: 350, reqAcademic: 48, reqStamina: 50, minHensachi: 46, minStamina: 48, desc: '大分発で九州・全国に展開しみんなの憩いの場を提供するファミリーレストラン大手！' },
+  miyazaki: { title: '霧島酒造（宮崎・都城本社 黒霧島）', icon: '🥃', baseSalary: 175, maxSalary: 410, reqAcademic: 52, reqStamina: 50, minHensachi: 50, minStamina: 48, desc: '本格芋焼酎「黒霧島」で売上日本一に君臨する宮崎県都城の国民的酒造メーカー！' },
+  kagoshima: { title: 'セイカ食品（鹿児島・白くま＆ボンタンアメ）', icon: '🐻‍❄️', baseSalary: 145, maxSalary: 330, reqAcademic: 45, reqStamina: 46, minHensachi: 44, minStamina: 45, desc: '南国白くまとボンタンアメで全国に愛される鹿児島発の老舗食品メーカー！' },
+  okinawa: { title: 'オリオンビール（沖縄・豊見城本社）', icon: '🍺', baseSalary: 170, maxSalary: 390, reqAcademic: 50, reqStamina: 52, minHensachi: 48, minStamina: 50, desc: '「あり、乾杯！」沖縄の太陽と乾杯シーンには欠かせない県民的シンボル企業！' },
+};
+
+export const PREFECTURE_FAMOUS_COMPANIES = Object.fromEntries(
+  Object.entries(RAW_PREFECTURE_COMPANIES).map(([prefId, data]) => [
+    prefId,
+    {
+      id: `pref_${prefId}`,
+      title: data.title,
+      baseSalary: data.baseSalary,
+      maxSalary: data.maxSalary,
+      icon: data.icon,
+      type: 'local_company',
+      prefId,
+      isLocalCompany: true,
+      minHensachi: data.minHensachi,
+      minStamina: data.minStamina,
+      reqAcademic: data.reqAcademic,
+      reqStamina: data.reqStamina,
+      tierDesc: `【出身県限定・ご当地有名企業】${data.desc}`,
+    },
+  ])
+);
+
+export const getPrefectureCompanyOcc = (prefOrId) => {
+  const prefId = typeof prefOrId === 'string' ? prefOrId : prefOrId?.id;
+  return prefId ? PREFECTURE_FAMOUS_COMPANIES[prefId] || null : null;
+};
+
+export const getAvailableOccupationsForPlayer = (player) => {
+  const localComp = getPrefectureCompanyOcc(player?.prefecture);
+  return localComp ? [localComp, ...OCCUPATIONS] : OCCUPATIONS;
+};
+
+export const findOccupationById = (jobId) => {
+  if (!jobId) return null;
+  if (jobId.startsWith('pref_')) {
+    const prefId = jobId.slice(5);
+    if (PREFECTURE_FAMOUS_COMPANIES[prefId]) return PREFECTURE_FAMOUS_COMPANIES[prefId];
+  }
+  return OCCUPATIONS.find((o) => o.id === jobId) || null;
+};
+
+// 就職ルーレット（基準10枠テーブル：フォールバック＆互換用）
 export const JOB_ROULETTE_TABLE = {
-  1: 'salaryman',     // 💼 大手企業 総合職 (給与 130万, minHensachi: 56)
-  2: 'civil_servant', // 🏛️ 安定の地方公務員 (給与 110万, minHensachi: 48)
-  3: 'driver',        // 🚚 現場プロ・大型ドライバー (給与 110万, minHensachi: 0)
-  4: 'farmer',        // 🚜 アグリビジネス・農業王 (給与 100万, minHensachi: 0)
-  5: 'artisan',       // 🏺 伝統工芸・名匠職人 (給与 90万, minHensachi: 0)
-  6: 'idol',          // 🎤 ご当地スター・アイドル (給与 80万, minHensachi: 0)
-  7: 'it_engineer',   // 💻 ITベンチャー 起業家 (給与 150万, minHensachi: 52)
-  8: 'consultant',    // ⚖️ 外資系コンサル・高級官僚 (給与 180万, minHensachi: 64)
-  9: 'doctor',        // 🩺 名医・ドクター (給与 220万, minHensachi: 68)
-  10: 'athlete',      // ⚽ プロアスリート・五輪選手 (給与 160万, minHensachi: 40)
+  1: 'salaryman',
+  2: 'civil_servant',
+  3: 'driver',
+  4: 'chef',
+  5: 'artisan',
+  6: 'streamer',
+  7: 'it_engineer',
+  8: 'consultant',
+  9: 'doctor',
+  10: 'athlete',
+};
+
+// プレイヤーが特定の職業に就く条件を満たしているか判定
+export const isQualifiedForJob = (player, occ, isHardMode = false) => {
+  if (!occ || occ.id === 'unemployed') return false;
+  if (!player) return true;
+  if (isHardMode) {
+    const devOk = !occ.minHensachi || (player.hensachi ?? 50) >= occ.minHensachi;
+    const stamOk = !occ.minStamina || (player.stamina ?? 50) >= occ.minStamina;
+    return devOk && stamOk;
+  }
+  const acadOk = !occ.reqAcademic || (player.academic ?? 50) >= occ.reqAcademic;
+  const stamOk = !occ.reqStamina || (player.stamina ?? 50) >= occ.reqStamina;
+  return acadOk && stamOk;
+};
+
+// プレイヤーの能力＋出身県に応じて10枠のパーソナライズされた就職ルーレットを構築
+// 出身県の有名企業も候補に加え、なれない職業を除外し、なれる職業だけで10枠を埋める（10種未満の場合はなれる職業で穴埋め）
+export const buildJobRouletteInfo = (player, isHardMode = false) => {
+  const localCompany = getPrefectureCompanyOcc(player?.prefecture);
+  const baseRegularJobs = OCCUPATIONS.filter((o) => o.id !== 'unemployed' && o.id !== 'freeter');
+  const regularJobs = localCompany ? [localCompany, ...baseRegularJobs] : baseRegularJobs;
+  const freeterOcc = OCCUPATIONS.find((o) => o.id === 'freeter') || OCCUPATIONS[OCCUPATIONS.length - 2];
+
+  const qualified = regularJobs.filter((o) => isQualifiedForJob(player, o, isHardMode));
+  const unqualified = regularJobs.filter((o) => !isQualifiedForJob(player, o, isHardMode));
+
+  // 出身県有名企業（資格ありなら最優先で1枠目に配置！）＋ 進路('tokyo' / 'local')・給料帯のバランスで並べ替え
+  const routePref = player?.branchRoute;
+  const scoreOcc = (occ) => {
+    if (occ.isLocalCompany) return 9999; // 出身県の有名企業を最優先表示
+    let score = occ.baseSalary;
+    if (routePref === 'tokyo' && (occ.type === 'tokyo' || occ.type === 'expert')) score += 25;
+    if (routePref === 'local' && (occ.type === 'local' || occ.type === 'entertainment')) score += 25;
+    return score;
+  };
+  const prioritized = [...qualified].sort((a, b) => scoreOcc(b) - scoreOcc(a));
+
+  const slots = [];
+  if (prioritized.length === 0) {
+    // 通常職に1つもなれない場合はフリーターで10枠を埋める
+    for (let i = 0; i < 10; i++) {
+      slots.push({ slot: i + 1, occ: freeterOcc, isFill: i > 0 });
+    }
+  } else {
+    // 10種類以上なれる場合は上位6職（出身企業含む）＋多様な残り4職で10種を選出、10種未満なら循環させて穴埋め
+    let chosenPool;
+    if (prioritized.length >= 10) {
+      const topPart = prioritized.slice(0, 6);
+      const restPart = prioritized.slice(6);
+      const spreadIdx = restPart.length >= 4
+        ? [0, Math.floor(restPart.length / 3), Math.floor((restPart.length * 2) / 3), restPart.length - 1]
+        : restPart.map((_, idx) => idx);
+      const pickedRest = [...new Set(spreadIdx)].map((idx) => restPart[idx]).filter(Boolean);
+      chosenPool = [...topPart, ...pickedRest];
+      for (const occ of prioritized) {
+        if (chosenPool.length >= 10) break;
+        if (!chosenPool.some((x) => x.id === occ.id)) chosenPool.push(occ);
+      }
+    } else {
+      chosenPool = [...prioritized];
+    }
+
+    for (let i = 0; i < 10; i++) {
+      const isFill = i >= chosenPool.length;
+      const occ = chosenPool[i % chosenPool.length];
+      slots.push({ slot: i + 1, occ, isFill });
+    }
+  }
+
+  return {
+    slots,
+    localCompany,
+    localCompanyQualified: !!(localCompany && isQualifiedForJob(player, localCompany, isHardMode)),
+    qualifiedCount: qualified.length,
+    unqualifiedJobs: unqualified,
+    totalRegularJobs: regularJobs.length,
+    filledCount: slots.filter((s) => s.isFill).length,
+  };
 };
 
 export const HOUSES = [
@@ -41,6 +219,103 @@ export const HOUSES = [
   { id: 'suburb_house', name: '郊外の庭付き一軒家', price: 1500, sellValue: 1800, icon: '🏡' },
   { id: 'kominka', name: '地元のリノベ古民家屋敷', price: 900, sellValue: 1300, icon: '🏯' },
 ];
+
+const OCCUPATION_RANK_TITLES = {
+  doctor: ['研修医', '担当医', '医長', '診療部長', '名誉院長'],
+  lawyer: ['アソシエイト', '担当弁護士', 'シニア弁護士', 'パートナー', '法律事務所代表'],
+  pilot: ['訓練生', '副操縦士', '機長', '路線統括機長', '航空団総指揮官'],
+  consultant: ['アナリスト', 'コンサルタント', 'マネージャー', 'プリンシパル', 'パートナー'],
+  athlete: ['ルーキー', 'レギュラー選手', 'チームエース', '代表キャプテン', 'レジェンド選手'],
+  researcher: ['研究員', '助教', '准教授', '主任教授', '名誉教授'],
+  architect: ['設計アシスタント', '二級建築士', '一級建築士', 'チーフ建築家', '巨匠建築家'],
+  it_engineer: ['ジュニア開発者', '開発リーダー', 'テックリード', 'CTO', 'IT帝国創業者'],
+  pharmacist: ['調剤担当', '主任薬剤師', '薬局長', '統括薬剤師', '最高医療顧問'],
+  firefighter: ['消防士', '消防副士長', '救助隊長', '消防署長', '消防総監'],
+  salaryman: ['一般社員', '主任', '課長', '部長', '取締役・役員'],
+  chef: ['見習いコック', '部門シェフ', '副料理長', '総料理長', '三つ星グランシェフ'],
+  civil_servant: ['事務官・一般職', '主査・係長', '課長補佐', '部長', '副知事・幹部'],
+  driver: ['新人ドライバー', 'ベテラン運転手', '運行管理者', '営業所長', '全国物流本部長'],
+  farmer: ['新規就農者', '熟練農家', '農業法人代表', '地域アグリ王', '日本農業の巨匠'],
+  artisan: ['弟子・見習い', '一人前職人', '親方', '現代の名工', '人間国宝級'],
+  streamer: ['新人配信者', '登録者10万人', '人気クリエイター', 'ミリオン配信者', 'トップスター'],
+  idol: ['研究生', '選抜メンバー', 'センター', '全国ツアー主役', '国民的アイドル'],
+  freeter: ['バイト見習い', '熟練フリーター', 'バイトリーダー', 'カリスマ店員', '伝説の自由人'],
+};
+
+const DEFAULT_RANK_TITLES = ['新人', '中堅', 'リーダー', 'エキスパート', 'レジェンド'];
+
+export const getOccupationRankTitle = (occ, rank = 0) => {
+  if (!occ || occ.id === 'unemployed') return '';
+  const clampedRank = Math.max(0, Math.min(4, Math.floor(rank || 0)));
+  if (occ.isLocalCompany) {
+    return OCCUPATION_RANK_TITLES.salaryman[clampedRank];
+  }
+  const titles = OCCUPATION_RANK_TITLES[occ.id] || DEFAULT_RANK_TITLES;
+  return titles[clampedRank] || DEFAULT_RANK_TITLES[clampedRank];
+};
+
+export const getSalaryForRank = (occ, rank = 0, salaryBonus = 0) => {
+  if (!occ || occ.id === 'unemployed' || (occ.baseSalary || 0) <= 0) return 0;
+  const clampedRank = Math.max(0, Math.min(4, Math.floor(rank || 0)));
+  const base = occ.baseSalary || 0;
+  const max = Math.max(base, occ.maxSalary || base);
+  const rankedSalary = Math.round(base + ((max - base) * clampedRank) / 4);
+  return Math.max(40, rankedSalary + (salaryBonus || 0));
+};
+
+const promotePlayer = (G, p, playerID, levels = 1) => {
+  if (!p || !p.occupation || p.occupation.id === 'unemployed') return null;
+  const oldRank = Math.max(0, Math.min(4, Math.floor(p.jobRank || 0)));
+  const occ = p.occupation;
+  const oldRankTitle = getOccupationRankTitle(occ, oldRank);
+  const oldSalary = p.salary || getSalaryForRank(occ, oldRank, p.salaryBonus || 0);
+
+  if (oldRank >= 4) {
+    const bonus = 50;
+    p.money += bonus;
+    G.logs.unshift(`👑 【最高位功労賞！】Player ${playerID} はすでに最高役職「${oldRankTitle}」のため特別功労賞与 +${bonus}万円 を獲得！`);
+    return {
+      alreadyMax: true,
+      occTitle: occ.title,
+      icon: occ.icon,
+      oldRank,
+      newRank: oldRank,
+      oldRankTitle,
+      newRankTitle: oldRankTitle,
+      oldSalary,
+      newSalary: oldSalary,
+      salaryDelta: 0,
+      maxBonus: bonus,
+    };
+  }
+
+  const newRank = Math.min(4, oldRank + Math.max(1, levels));
+  if ((p.salaryBonus || 0) < 0) {
+    p.salaryBonus = 0;
+  }
+  const newRankTitle = getOccupationRankTitle(occ, newRank);
+  const newSalary = getSalaryForRank(occ, newRank, p.salaryBonus || 0);
+  p.jobRank = newRank;
+  p.salary = newSalary;
+
+  G.logs.unshift(
+    `🎊 【昇進！】Player ${playerID}（${occ.icon} ${occ.title}）が「${oldRankTitle}」➔「${newRankTitle}」（ランク${newRank + 1}/5）へ昇進！（給料: ${oldSalary}万 ➔ ${newSalary}万円）`
+  );
+
+  return {
+    alreadyMax: false,
+    occTitle: occ.title,
+    icon: occ.icon,
+    oldRank,
+    newRank,
+    oldRankTitle,
+    newRankTitle,
+    oldSalary,
+    newSalary,
+    salaryDelta: newSalary - oldSalary,
+    maxBonus: 0,
+  };
+};
 
 // 親の年収・家庭環境テーブル（ハードモード親ガチャ）
 export const PARENT_INCOME_TIERS = [
@@ -62,6 +337,10 @@ export const advanceToNextTurn = (G, ctx, events) => {
   G.rouletteValue = null;
   G.isSpinning = false;
   G.turnStep = 'spin';
+
+  if (G.gameState === 'playing') {
+    recordMoneySnapshots(G);
+  }
 
   // 1. 現在の時代で全プレイヤーが規定ターン数を終えているかチェック
   const allCurrentEraDone = Object.values(G.players).every(
@@ -127,6 +406,7 @@ export const advanceToNextTurn = (G, ctx, events) => {
 
       if (retiringPlayer) {
         retiringPlayer.hasRetiredAtEra4 = true;
+        retiringPlayer.hasCheckedEra4Career = true;
         const isIdol = retiringPlayer.occupation?.id === 'idol';
         const bonus = 100;
         retiringPlayer.money += bonus;
@@ -158,6 +438,29 @@ export const advanceToNextTurn = (G, ctx, events) => {
         return;
       }
 
+      // 全員に熟年期突入前の定期「キャリア見直し・転職チャンス」を保証！
+      const careerReviewPlayer = Object.values(G.players).find((p) => !p.hasCheckedEra4Career);
+      if (careerReviewPlayer) {
+        G.currentSpaceModal = {
+          spaceId: careerReviewPlayer.position,
+          type: 'job_change',
+          isForced: false,
+          isEra4CareerReview: true,
+          beforeMoney: careerReviewPlayer.money,
+          afterMoney: careerReviewPlayer.money,
+          deltaMoney: 0,
+          title: '💼【40代のキャリア見直し・転職チャンス！】',
+          desc: `壮年期を終え、熟年期へ進む節目の転職チャンスです！これまで育てた学力(${careerReviewPlayer.academic || 50})・体力(${careerReviewPlayer.stamina || 50})を活かして、憧れの職や地元有名企業へ転職するか、現職を継続するか選べます！`,
+          details: '資格を満たしている職業へ転職可能！（そのまま現在の職業を続けることもできます）',
+        };
+        G.currentTurnPlayer = careerReviewPlayer.id;
+        if (events && events.endTurn) {
+          events.endTurn({ next: careerReviewPlayer.id });
+        }
+        G.logs.unshift(`💼 【節目の転職チャンス！】Player ${careerReviewPlayer.id} に40代のキャリア見直し（転職 or 継続）チャンスが訪れました！`);
+        return;
+      }
+
       // 全員の引退処理完了後 ➔ 第4時代（大人時代・後半）へ進出！
       G.era = 4;
       G.eraMaxTurns = 6;
@@ -186,6 +489,11 @@ export const advanceToNextTurn = (G, ctx, events) => {
             retMoney = Math.round((p.salary || 100) * 8);
           }
           p.money += retMoney;
+          addLifeEvent(p, 4, {
+            icon: '🎖️',
+            title: '定年退職',
+            detail: `【${p.occupation?.title || '無職'}】を勤め上げ退職金 +${retMoney}万円 受領`,
+          });
           G.logs.unshift(`🎖️ 【定年退職式典】Player ${p.id} が定年退職！職業【${p.occupation?.title || '無職'}】の功績に応じた退職金 +${retMoney}万円 支給！`);
         }
       });
@@ -232,6 +540,360 @@ export const advanceToNextTurn = (G, ctx, events) => {
   }
 };
 
+const clampStat = (val, min = 15, max = 100) => Math.max(min, Math.min(max, Math.round(val)));
+const clampHensachi = (val, min = 30, max = 85) => Math.max(min, Math.min(max, Math.round(val)));
+
+const applyStatDeltas = (p, { academic = 0, stamina = 0, hensachi = 0 } = {}) => {
+  const prevAcad = p.academic ?? 50;
+  const prevStam = p.stamina ?? 50;
+  const prevHen = p.hensachi ?? 50;
+
+  if (academic !== 0) p.academic = clampStat(prevAcad + academic);
+  if (stamina !== 0) p.stamina = clampStat(prevStam + stamina);
+  if (hensachi !== 0) p.hensachi = clampHensachi(prevHen + hensachi);
+
+  return {
+    acadDelta: (p.academic ?? 50) - prevAcad,
+    stamDelta: (p.stamina ?? 50) - prevStam,
+    henDelta: (p.hensachi ?? 50) - prevHen,
+  };
+};
+
+// 結婚・出産ルーレットが発生する一定区間（第3時代・壮年期の #1〜#60）
+export const FAMILY_EVENT_ZONE = { era: 3, minSpaceId: 1, maxSpaceId: 60 };
+
+export const isFamilyRouletteZoneSpace = (era, space) => {
+  if (era !== FAMILY_EVENT_ZONE.era || !space) return false;
+  if (space.id < FAMILY_EVENT_ZONE.minSpaceId || space.id > FAMILY_EVENT_ZONE.maxSpaceId) return false;
+  return !['branch_route', 'house', 'buy_house', 'job_change', 'era_goal', 'goal_standby', 'marriage', 'baby', 'child'].includes(space.type);
+};
+
+// 他プレイヤー全員から祝い金を徴収する共通ヘルパー
+const collectGiftFromOthers = (G, receiverId, perPlayerAmount) => {
+  let total = 0;
+  const contributors = [];
+  Object.keys(G.players).forEach((otherPid) => {
+    if (otherPid !== receiverId) {
+      G.players[otherPid].money -= perPlayerAmount;
+      total += perPlayerAmount;
+      contributors.push(`P${otherPid}:-${perPlayerAmount}万`);
+    }
+  });
+  G.players[receiverId].money += total;
+  return { total, contributors };
+};
+
+// 結婚・出産イベント解決（できちゃった婚20% / 双子1% / プレイヤー徴収）
+const resolveFamilyEventOutcome = (G, p, playerID, kind, random, spaceAmount = 120) => {
+  const roll100 = () => (random ? random.Die(100) : (Math.floor(Math.random() * 100) + 1));
+
+  let weddingPerPlayer = 50;
+  let weddingPerk = null;
+  if (p.prefecture?.passiveType === 'wedding_bonus') {
+    weddingPerPlayer = 75;
+    weddingPerk = { prefName: p.prefecture.name, emoji: p.prefecture.emoji, traitName: p.prefecture.traitName, effect: '参列者全員からのご祝儀が1.5倍（1人あたり75万円）！' };
+  } else if (p.prefecture?.passiveType === 'izumo_marriage_bless') {
+    weddingPerPlayer = 100;
+    weddingPerk = { prefName: p.prefecture.name, emoji: p.prefecture.emoji, traitName: p.prefecture.traitName, effect: '出雲大社の縁結びにより他プレイヤーからの結婚祝い金が2倍（1人あたり100万円）！' };
+  }
+
+  let babyPerPlayer = spaceAmount >= 150 ? 50 : 40;
+  let babyPerk = null;
+  if (p.prefecture?.passiveType === 'child_bonus') {
+    babyPerPlayer = Math.round(babyPerPlayer * 1.5);
+    babyPerk = { prefName: p.prefecture.name, emoji: p.prefecture.emoji, traitName: p.prefecture.traitName, effect: `郷土の祝福により他プレイヤーからの出産祝い金が1.5倍（1人あたり${babyPerPlayer}万円）に増額！` };
+  }
+
+  const runMarriageAndMaybeShotgun = () => {
+    p.car.spouse = true;
+    const wCollect = collectGiftFromOthers(G, playerID, weddingPerPlayer);
+    const isShotgun = roll100() <= 20; // 2割（20%）でできちゃった婚！
+
+    if (isShotgun) {
+      const isTwins = roll100() === 1; // 1%で双子！
+      const kidsAdded = isTwins ? 2 : 1;
+      p.car.kids = (p.car.kids || 0) + kidsAdded;
+      const bCollect = collectGiftFromOthers(G, playerID, babyPerPlayer * kidsAdded);
+      const total = wCollect.total + bCollect.total;
+      const title = isTwins ? '💘👶👶【奇跡！できちゃった婚＆双子誕生！！】' : '💘👶【おめでた！できちゃった婚（結婚＆出産同時発生）！】';
+      const twinText = isTwins ? 'さらに確率1%の【双子】が誕生（子ども+2人）！！' : '元気な赤ちゃんも同時に誕生（子ども+1人）！';
+      const detailsText = `${twinText}他プレイヤー全員から結婚祝(${weddingPerPlayer}万×他人数=${wCollect.total}万)＋出産祝(${babyPerPlayer * kidsAdded}万×他人数=${bCollect.total}万)で合計 +${total}万円 徴収！（計 ${p.car.kids}人）`;
+      const logText = `${isTwins ? '👶👶💍' : '💘👶'} ${title} Player ${playerID} に配偶者＋子ども+${kidsAdded}人追加！全員から祝い金計 +${total}万円 徴収！`;
+      return {
+        eventType: isTwins ? 'shotgun_twins' : 'shotgun_wedding',
+        title,
+        isShotgun: true,
+        isTwins,
+        kidsAdded,
+        totalCollected: total,
+        detailsText,
+        logText,
+        perk: babyPerk || weddingPerk,
+      };
+    }
+
+    const detailsText = wCollect.contributors.length > 0
+      ? `他プレイヤー全員から結婚祝い金（1人${weddingPerPlayer}万円）を徴収！合計 +${wCollect.total}万円（${wCollect.contributors.join(', ')}）`
+      : '結婚しました！（配偶者ピン追加）';
+    const logText = `💍 祝・結婚！Player ${playerID} に配偶者ピン追加！他プレイヤー全員からご祝儀（1人${weddingPerPlayer}万）計 +${wCollect.total}万円 徴収！`;
+    return {
+      eventType: 'marriage',
+      title: '💍【祝・ご結婚！】',
+      isShotgun: false,
+      isTwins: false,
+      kidsAdded: 0,
+      totalCollected: wCollect.total,
+      detailsText,
+      logText,
+      perk: weddingPerk,
+    };
+  };
+
+  const runChildbirth = () => {
+    const isTwins = roll100() === 1; // 1%で双子！
+    const kidsAdded = isTwins ? 2 : 1;
+    p.car.kids = (p.car.kids || 0) + kidsAdded;
+    const bCollect = collectGiftFromOthers(G, playerID, babyPerPlayer * kidsAdded);
+    const kidLabel = isTwins
+      ? `双子（計${p.car.kids}人）`
+      : (p.car.kids === 1 ? '第1子' : (p.car.kids === 2 ? '第2子' : `第${p.car.kids}子`));
+    const title = isTwins ? '👶👶✨【確率1%の奇跡！双子ちゃん誕生！！】' : `👶【祝・${kidLabel}誕生！】`;
+    const detailsText = `${isTwins ? '奇跡の双子が誕生し子どもピン+2人！' : '元気な赤ちゃんが誕生し子どもピン+1人！'}他プレイヤー全員から出産祝い金（1人${babyPerPlayer * kidsAdded}万円）を徴収！合計 +${bCollect.total}万円（給料手当毎月+${p.car.kids * 15}万＆決算資産+${p.car.kids * 300}万）`;
+    const logText = `${isTwins ? '👶👶✨' : '👶'} ${title} Player ${playerID}（計${p.car.kids}人）！全員から出産祝い金（1人${babyPerPlayer * kidsAdded}万）計 +${bCollect.total}万円 徴収！`;
+    return {
+      eventType: isTwins ? 'twins' : 'baby',
+      title,
+      isShotgun: false,
+      isTwins,
+      kidsAdded,
+      totalCollected: bCollect.total,
+      detailsText,
+      logText,
+      perk: babyPerk,
+    };
+  };
+
+  if (kind === 'marriage') {
+    if (p.car.spouse) {
+      return {
+        eventType: 'already_married',
+        title: '💐【仲良し夫婦の日常】',
+        isShotgun: false,
+        isTwins: false,
+        kidsAdded: 0,
+        totalCollected: 0,
+        detailsText: 'すでに既婚のため結婚祝い金の徴収はスキップされました',
+        logText: `💐 Player ${playerID} はすでに既婚のため結婚イベントを通過しました。`,
+        perk: null,
+      };
+    }
+    return runMarriageAndMaybeShotgun();
+  }
+
+  // kind === 'baby'
+  if (p.car.spouse) {
+    return runChildbirth();
+  }
+  // 未婚で出産に止まった場合も2割（20%）でできちゃった婚！
+  if (roll100() <= 20) {
+    p.car.spouse = true;
+    const wCollect = collectGiftFromOthers(G, playerID, weddingPerPlayer);
+    const isTwins = roll100() === 1;
+    const kidsAdded = isTwins ? 2 : 1;
+    p.car.kids = (p.car.kids || 0) + kidsAdded;
+    const bCollect = collectGiftFromOthers(G, playerID, babyPerPlayer * kidsAdded);
+    const total = wCollect.total + bCollect.total;
+    const title = isTwins ? '💘👶👶【奇跡！できちゃった婚＆双子誕生！！】' : '💘👶【おめでた！できちゃった婚（結婚＆出産同時発生）！】';
+    const detailsText = `${isTwins ? '未婚からの電撃できちゃった婚＋奇跡の双子(1%)！' : '未婚からの電撃できちゃった婚！'}結婚祝(${wCollect.total}万)＋出産祝(${bCollect.total}万)で合計 +${total}万円 徴収！（計 ${p.car.kids}人）`;
+    const logText = `${isTwins ? '👶👶💘' : '💘👶'} ${title} Player ${playerID} に配偶者＋子ども+${kidsAdded}人追加！全員から祝い金計 +${total}万円 徴収！`;
+    return {
+      eventType: isTwins ? 'shotgun_twins' : 'shotgun_wedding',
+      title,
+      isShotgun: true,
+      isTwins,
+      kidsAdded,
+      totalCollected: total,
+      detailsText,
+      logText,
+      perk: babyPerk || weddingPerk,
+    };
+  }
+
+  return {
+    eventType: 'unmarried_skip',
+    title: '💭【出産マス通過（未婚）】',
+    isShotgun: false,
+    isTwins: false,
+    kidsAdded: 0,
+    totalCollected: 0,
+    detailsText: 'まだ未婚のため出産イベントは見送りとなりました（子どもピン・祝い金徴収なし）',
+    logText: `💭 Player ${playerID} は未婚のため出産イベントを見送りました。`,
+    perk: null,
+  };
+};
+
+// 所持金履歴スナップショットを全プレイヤーに記録（終了後のグラフ描画用）
+const recordMoneySnapshots = (G, customLabel = null) => {
+  const eraObj = getEraById(G.era || 1);
+  Object.values(G.players).forEach((pl) => {
+    if (!Array.isArray(pl.moneyHistory)) pl.moneyHistory = [];
+    const step = pl.moneyHistory.length;
+    pl.moneyHistory.push({
+      step,
+      era: G.era || 1,
+      label: customLabel || eraObj?.name || `第${G.era || 1}時代`,
+      money: pl.money,
+    });
+  });
+};
+
+// 給料日・年金の支給額算出ヘルパー（通過時・停止時で共通利用）
+const calculatePaydayDetails = (p) => {
+  if (!p?.occupation || p.occupation.id === 'unemployed' || !(p.salary > 0)) {
+    return {
+      pay: 20,
+      detailsText: '無職のため定例給与なし（日雇いバイト代 +20万円 のみ受給）',
+      perk: null,
+      isUnemployed: true,
+    };
+  }
+
+  let pay = p.salary;
+  const bonusItems = [];
+  let perk = null;
+  const pAcad = p.academic || 50;
+  const pStam = p.stamina || 50;
+
+  if (pAcad >= 90) {
+    pay += 50;
+    bonusItems.push(`知性エリート手当(学力${pAcad})+50万`);
+  } else if (pAcad >= 75) {
+    pay += 30;
+    bonusItems.push(`専門スキル手当(学力${pAcad})+30万`);
+  }
+  if (pStam >= 90) {
+    pay += 45;
+    bonusItems.push(`鉄人皆勤手当(体力${pStam})+45万`);
+  } else if (pStam >= 75) {
+    pay += 25;
+    bonusItems.push(`タフネス手当(体力${pStam})+25万`);
+  }
+
+  if (p.prefecture?.passiveType === 'salary_boost_heavy') {
+    pay += 50;
+    bonusItems.push('東京メガロポリス+50万');
+    perk = { prefName: p.prefecture.name, emoji: p.prefecture.emoji, traitName: p.prefecture.traitName, effect: '首都特別手当 +50万円' };
+  }
+  if (p.prefecture?.passiveType === 'toyota_saving') {
+    pay += 50;
+    bonusItems.push('愛知堅実貯蓄+50万');
+    perk = { prefName: p.prefecture.name, emoji: p.prefecture.emoji, traitName: p.prefecture.traitName, effect: 'ものづくり王国・堅実貯蓄ボーナス +50万円' };
+  }
+  if (p.prefecture?.passiveType === 'salary_boost') {
+    pay += 20;
+    bonusItems.push('岩手南部鉄器+20万');
+    perk = { prefName: p.prefecture.name, emoji: p.prefecture.emoji, traitName: p.prefecture.traitName, effect: '粘り強さボーナス +20万円' };
+  }
+  if (p.car?.spouse) {
+    pay += 20;
+    bonusItems.push('配偶者手当+20万');
+  }
+  if (p.car?.kids) {
+    const kidRate = p.prefecture?.passiveType === 'kibidango_family' ? 30 : 15;
+    const kAllowance = p.car.kids * kidRate;
+    pay += kAllowance;
+    bonusItems.push(`子供手当(${p.car.kids}人)+${kAllowance}万`);
+    if (p.prefecture?.passiveType === 'kibidango_family') {
+      perk = { prefName: p.prefecture.name, emoji: p.prefecture.emoji, traitName: p.prefecture.traitName, effect: '桃太郎の吉備団子により子供手当が2倍！' };
+    }
+  }
+
+  return {
+    pay,
+    detailsText: `基本給: ${p.salary}万 ${bonusItems.length > 0 ? `(${bonusItems.join(', ')})` : ''} ➔ 給料受取 +${pay}万円`,
+    perk,
+    isUnemployed: false,
+  };
+};
+
+// 2ターン（2周）に1回の定期給料・年金自動支給ヘルパー
+const applyPeriodicPaydayIfDue = (G, p, playerID) => {
+  if ((G.era === 3 || G.era === 4) && (p.eraTurns || 0) > 0 && p.eraTurns % 2 === 0) {
+    const pd = calculatePaydayDetails(p);
+    p.money += pd.pay;
+    addLifeEvent(p, G.era, {
+      icon: '💵',
+      title: `定期給料日（2ターン毎・${p.eraTurns / 2}回目）`,
+      detail: pd.detailsText,
+    });
+    G.logs.unshift(`💵 【隔ターン給料日（2週に1回）】Player ${playerID} に給料 +${pd.pay}万円 が振り込まれました！`);
+    return { amount: pd.pay, note: `💵 定期給料日（2週に1回）: +${pd.pay}万円` };
+  }
+  if (G.era === 5 && (p.eraTurns || 0) > 0 && p.eraTurns % 2 === 0) {
+    const pensionAmt = p.prefecture?.passiveType === 'pension_boost' ? 150 : 100;
+    p.money += pensionAmt;
+    addLifeEvent(p, G.era, {
+      icon: '👵',
+      title: `定期年金支給日（2ターン毎）`,
+      detail: `公的年金 +${pensionAmt}万円 受給`,
+    });
+    G.logs.unshift(`👵 【隔ターン年金日】Player ${playerID} に年金 +${pensionAmt}万円 が支給されました！`);
+    return { amount: pensionAmt, note: `👵 定期年金支給（2週に1回）: +${pensionAmt}万円` };
+  }
+  return { amount: 0, note: '' };
+};
+
+// プレイヤーの人生史イベントを記録
+const addLifeEvent = (p, era, { icon = '📌', title = '', detail = '' } = {}) => {
+  if (!p) return;
+  if (!Array.isArray(p.lifeHistory)) p.lifeHistory = [];
+  const eraObj = getEraById(era || 1);
+  p.lifeHistory.push({
+    era: era || 1,
+    eraName: eraObj?.name || `第${era || 1}時代`,
+    eraColor: eraObj?.color || '#38bdf8',
+    icon,
+    title,
+    detail,
+    moneyAfter: p.money,
+    academic: p.academic ?? 50,
+    stamina: p.stamina ?? 50,
+    hensachi: p.hensachi ?? 50,
+  });
+};
+
+// 出身都道府県ごとの初期パラメータ補正（通常モード・ハードモード共通の地域個性）
+const getPrefectureStatModifiers = (pref) => {
+  if (!pref) return { academic: 0, stamina: 0, hensachi: 0 };
+  switch (pref.passiveType) {
+    case 'salary_boost_heavy': // 東京など都市・学術圏
+    case 'artisan_bonus':      // 岐阜・匠系
+    case 'toyota_saving':      // 愛知など産業技術
+      return { academic: 7, stamina: -2, hensachi: 3 };
+    case 'insurance_free':     // 雪国・自然タフネス系
+    case 'onsen_heal_bonus':   // 大分など温泉・健康
+    case 'nankurunaisa_shield':// 沖縄など南国・おおらか
+    case 'udon_cost_saver':
+      return { academic: -2, stamina: 7, hensachi: -1 };
+    case 'kobe_estate_boost':
+    case 'souvenir_value_boost':
+    case 'buddha_peace':
+      return { academic: 5, stamina: 0, hensachi: 2 };
+    case 'real_estate_discount': // 北海道など広大・体育会
+    case 'rice_double':          // 新潟など農業・体力
+    case 'salary_boost':
+      return { academic: 0, stamina: 6, hensachi: 0 };
+    default:
+      if (pref.region === 'kanto' || pref.region === 'kinki') {
+        return { academic: 5, stamina: -1, hensachi: 2 };
+      }
+      if (pref.region === 'hokkaido' || pref.region === 'tohoku' || pref.region === 'shikoku' || pref.region === 'kyushu_okinawa') {
+        return { academic: -1, stamina: 5, hensachi: 0 };
+      }
+      return { academic: 3, stamina: 3, hensachi: 1 };
+  }
+};
+
 // 都道府県確定処理の共通ヘルパー
 export const applyPrefectureChoice = (G, random, playerID, prefId, ctx = null, events = null) => {
   if (G.gameState !== 'select_prefecture') return;
@@ -272,18 +934,20 @@ export const applyPrefectureChoice = (G, random, playerID, prefId, ctx = null, e
     G.logs.unshift(`🛡️ 【${pref.traitName}】により、保険（生命・火災）が無料付帯されました！`);
   }
 
-  // ハードモード時：親ガチャルーレット＆偏差値・体力決定！
+  const prefMod = getPrefectureStatModifiers(pref);
+
+  // ハードモード時：親ガチャルーレット＆偏差値・体力決定（＋出身地微調整）
   if (G.isHardMode) {
     const pRoll = random ? random.Die(10) : (Math.floor(Math.random() * 10) + 1);
     const parentTier = PARENT_INCOME_TIERS[pRoll - 1];
     const luckDelta = random ? (random.Die(9) - 4) : (Math.floor(Math.random() * 9) - 4);
-    const finalHensachi = Math.max(35, Math.min(78, parentTier.baseHensachi + luckDelta));
+    const finalHensachi = clampHensachi(parentTier.baseHensachi + luckDelta + Math.round(prefMod.hensachi / 2));
 
-    // 体力も生まれ持った運動素質・バイタリティとして決定！（35〜80）
+    // 体力も生まれ持った運動素質・バイタリティとして決定！（32〜85）
     const stamRoll = random ? (random.Die(11) - 6) : (Math.floor(Math.random() * 11) - 6);
-    const finalStamina = Math.max(35, Math.min(80, 50 + stamRoll * 3));
+    const finalStamina = clampStat(50 + stamRoll * 3 + Math.round(prefMod.stamina / 2));
     p.stamina = finalStamina;
-    p.academic = Math.max(25, Math.min(95, Math.round(finalHensachi * 1.05 - 8)));
+    p.academic = clampStat(Math.round(finalHensachi * 1.05 - 8) + Math.round(prefMod.academic / 2));
 
     p.parentIncome = parentTier;
     p.hensachi = finalHensachi;
@@ -293,11 +957,30 @@ export const applyPrefectureChoice = (G, random, playerID, prefId, ctx = null, e
     }
 
     G.logs.unshift(`💀【出生地＆親ガチャ結果】Player ${playerID} は運命により【${pref.name}】に誕生！実家年収: ${parentTier.income}万円（${parentTier.title}）➔ 初期資金【${p.money}万円】${p.debt > 0 ? `（借金${p.debt * 100}万）` : ''} ＆ 🎓偏差値【${finalHensachi}】 ＆ 🏃体力【${finalStamina}】！`);
+  } else {
+    // 通常モードでも出身県ごとの気質で初期学力・体力・偏差値に個性をつける
+    p.academic = clampStat(50 + prefMod.academic);
+    p.stamina = clampStat(50 + prefMod.stamina);
+    p.hensachi = clampHensachi(50 + prefMod.hensachi);
+    G.logs.unshift(`📊 【県民性パラメータ】Player ${playerID}（${pref.name}）➔ 学力:${p.academic} / 体力:${p.stamina} / 偏差値:${p.hensachi}`);
   }
 
   // 全員が出身地を選び終えたらゲーム開始（スタートプレイヤーをランダム決定）
   const allSelected = Object.values(G.players).every((pl) => pl.prefecture !== null);
   if (allSelected) {
+    Object.values(G.players).forEach((pl) => {
+      pl.moneyHistory = [];
+      pl.lifeHistory = [];
+      addLifeEvent(pl, 1, {
+        icon: pl.prefecture?.emoji || '👶',
+        title: `【${pl.prefecture?.name}】に誕生！`,
+        detail: G.isHardMode && pl.parentIncome
+          ? `実家: ${pl.parentIncome.title}(年収${pl.parentIncome.income}万) / 学力:${pl.academic} / 体力:${pl.stamina} / 偏差値:${pl.hensachi}`
+          : `県民性「${pl.prefecture?.traitName}」/ 学力:${pl.academic} / 体力:${pl.stamina} / 初期資金:${pl.money}万`,
+      });
+    });
+    recordMoneySnapshots(G, '誕生');
+
     const numPlayers = (ctx && ctx.numPlayers) ? ctx.numPlayers : Object.keys(G.players).length;
     const firstPid = (random ? random.Die(numPlayers) - 1 : Math.floor(Math.random() * numPlayers)).toString();
     G.gameState = 'playing';
@@ -337,6 +1020,8 @@ export const JinseiGame = {
         branchRoute: null,
         midlifeRoute: null,
         occupation: null,
+        jobRank: 0,
+        salaryBonus: 0,
         salary: 0,
         house: null,
         car: {
@@ -353,6 +1038,8 @@ export const JinseiGame = {
         isRetired: false,
         isGoal: false,
         goalRank: null,
+        moneyHistory: [],
+        lifeHistory: [],
         logs: [`👶 人生のスタートラインに立ちました！`],
       };
     }
@@ -468,10 +1155,12 @@ export const JinseiGame = {
 
       // すでに時代のゴール（最終マス）に到達している場合は待機ボーナス（ループ完全防止）
       if (p.position >= lastSpaceId) {
+        const turnStartMoney = p.money;
         p.eraTurns = (p.eraTurns || 0) + 1;
         p.totalTurns = (p.totalTurns || 0) + 1;
         const standbyBonus = 30;
         p.money += standbyBonus;
+        const periodicPay = applyPeriodicPaydayIfDue(G, p, playerID);
         G.turnStep = 'resolve_space';
         const remainingTurns = Math.max(0, G.eraMaxTurns - p.eraTurns);
         G.logs.unshift(`🌟 Player ${playerID} は既に【${currentEra.name}・ゴール】に到達しています！優雅なバカンス待機ボーナス +${standbyBonus}万円 獲得！（残り${remainingTurns}ターン）`);
@@ -480,10 +1169,12 @@ export const JinseiGame = {
           title: `🌟 【${currentEra.name}・ゴール待機中】`,
           desc: `すでに時代のゴールに到達しています！他のプレイヤーの進行を待つ間、優雅に過ごして特別待機ボーナス +${standbyBonus}万円 を獲得しました！`,
           type: 'goal_standby',
-          beforeMoney: p.money - standbyBonus,
+          beforeMoney: turnStartMoney,
           afterMoney: p.money,
-          deltaMoney: standbyBonus,
-          details: `ゴール待機ボーナス: +${standbyBonus}万円 を受領しました！`,
+          deltaMoney: p.money - turnStartMoney,
+          details: periodicPay.amount > 0
+            ? `${periodicPay.note} ｜ ゴール待機ボーナス: +${standbyBonus}万円`
+            : `ゴール待機ボーナス: +${standbyBonus}万円 を受領しました！`,
           hometownPerk: null,
           travelData: null,
         };
@@ -491,16 +1182,19 @@ export const JinseiGame = {
       }
 
       // 分岐点ストップ判定：まだコース未選択の状態で分岐点に到達・通過する場合は必ず分岐点でストップ
+      const prevPos = p.position;
       let targetPos;
-      if (branchInfo && p.position < branchInfo.branchSpaceId && p.position + totalSteps >= branchInfo.branchSpaceId && !p.eraRoute) {
+      if (branchInfo && prevPos < branchInfo.branchSpaceId && prevPos + totalSteps >= branchInfo.branchSpaceId && !p.eraRoute) {
         targetPos = branchInfo.branchSpaceId;
       } else {
-        targetPos = calculateNextPosition(p.position, totalSteps, p.eraRoute, branchInfo, eraSpaces.length);
+        targetPos = calculateNextPosition(prevPos, totalSteps, p.eraRoute, branchInfo, eraSpaces.length);
       }
 
+      const turnStartMoney = p.money;
       p.position = targetPos;
       p.eraTurns = (p.eraTurns || 0) + 1;
       p.totalTurns = (p.totalTurns || 0) + 1;
+      const periodicPay = applyPeriodicPaydayIfDue(G, p, playerID);
       G.turnStep = 'resolve_space';
 
       const space = eraSpaces[targetPos] || eraSpaces[0];
@@ -515,6 +1209,16 @@ export const JinseiGame = {
 
       // マスイベント適用
       JinseiGame.resolveSpaceEffects(G, ctx, playerID, space, random);
+
+      // 2ターンに1回の定期給料・年金があればモーダルの収支・詳細にも合算表示
+      if (periodicPay.amount > 0 && G.currentSpaceModal) {
+        G.currentSpaceModal.beforeMoney = turnStartMoney;
+        G.currentSpaceModal.afterMoney = p.money;
+        G.currentSpaceModal.deltaMoney = p.money - turnStartMoney;
+        G.currentSpaceModal.details = G.currentSpaceModal.details
+          ? `${periodicPay.note} ｜ 到着マス: ${G.currentSpaceModal.details}`
+          : periodicPay.note;
+      }
     },
 
     // 2-B. 時代コース分岐選択 (Aコース vs Bコース)
@@ -531,13 +1235,52 @@ export const JinseiGame = {
       const chosenRoute = branchInfo.routes[routeKey] || branchInfo.routes.A;
       p.eraRoute = routeKey;
 
-      if (routeKey === 'A') {
-        p.academic = Math.min(100, (p.academic || 50) + 5);
+      let statBonus = { academic: 0, stamina: 0, hensachi: 0 };
+      let moneyBonus = 0;
+
+      if (G.era === 1) {
+        if (routeKey === 'A') {
+          statBonus = { academic: 10, stamina: 2, hensachi: 4 };
+        } else {
+          statBonus = { academic: -4, stamina: 10, hensachi: -1 };
+          moneyBonus = 30;
+        }
+      } else if (G.era === 2) {
+        if (routeKey === 'A') {
+          statBonus = { academic: 12, stamina: -3, hensachi: 5 };
+        } else {
+          statBonus = { academic: -4, stamina: 10, hensachi: -2 };
+          moneyBonus = 40;
+        }
+      } else if (G.era === 3) {
+        statBonus = routeKey === 'A'
+          ? { academic: 2, stamina: 6, hensachi: 0 }
+          : { academic: 6, stamina: -3, hensachi: 3 };
+      } else if (G.era === 4) {
+        statBonus = routeKey === 'A'
+          ? { academic: 6, stamina: -3, hensachi: 2 }
+          : { academic: 5, stamina: 4, hensachi: 2 };
       } else {
-        p.stamina = Math.min(100, (p.stamina || 50) + 5);
+        statBonus = routeKey === 'A'
+          ? { academic: 2, stamina: 6, hensachi: 0 }
+          : { academic: 6, stamina: 4, hensachi: 2 };
       }
 
-      G.logs.unshift(`🛤️ Player ${playerID} は【${chosenRoute.name}】を選択しました！（${chosenRoute.desc}）`);
+      const d = applyStatDeltas(p, statBonus);
+      if (moneyBonus !== 0) p.money += moneyBonus;
+
+      const changeParts = [];
+      if (d.acadDelta) changeParts.push(`学力${d.acadDelta >= 0 ? '+' : ''}${d.acadDelta}`);
+      if (d.stamDelta) changeParts.push(`体力${d.stamDelta >= 0 ? '+' : ''}${d.stamDelta}`);
+      if (d.henDelta) changeParts.push(`偏差値${d.henDelta >= 0 ? '+' : ''}${d.henDelta}`);
+      if (moneyBonus) changeParts.push(`資金+${moneyBonus}万`);
+
+      G.logs.unshift(`🛤️ Player ${playerID} は【${chosenRoute.name}】を選択！${changeParts.length > 0 ? `（${changeParts.join(' / ')}）` : ''}`);
+      addLifeEvent(p, G.era, {
+        icon: chosenRoute.icon || '🛤️',
+        title: `コース選択: ${chosenRoute.name}`,
+        detail: changeParts.length > 0 ? changeParts.join(' / ') : chosenRoute.desc,
+      });
       advanceToNextTurn(G, ctx, events);
     },
 
@@ -551,26 +1294,32 @@ export const JinseiGame = {
       if (jobId === 'unemployed') {
         const unempOcc = OCCUPATIONS.find((o) => o.id === 'unemployed') || { id: 'unemployed', title: '無職・求職中', baseSalary: 0, maxSalary: 0, icon: '🏚️' };
         p.occupation = unempOcc;
+        p.jobRank = 0;
+        p.salaryBonus = 0;
         p.salary = 0;
         G.logs.unshift(`🏚️ Player ${playerID} は就職を断念し、【無職・求職中】として人生を続行します！（給料: 0万円）`);
         advanceToNextTurn(G, ctx, events);
         return;
       }
 
-      const occ = OCCUPATIONS.find((o) => o.id === jobId) || OCCUPATIONS[OCCUPATIONS.length - 1];
+      const occ = findOccupationById(jobId) || OCCUPATIONS[OCCUPATIONS.length - 1];
 
       if (G.isHardMode) {
         if (tryGamble) {
           const roll = random ? random.Die(10) : (Math.floor(Math.random() * 10) + 1);
           if (roll >= 8) {
             p.occupation = occ;
-            p.salary = occ.baseSalary;
-            G.logs.unshift(`🔥【大逆転採用！】出目【${roll}】で面接官に熱意が刺さり奇跡の合格！【${occ.title}】に就任！（給料: ${occ.baseSalary}万円）`);
+            p.jobRank = 0;
+            p.salaryBonus = 0;
+            p.salary = getSalaryForRank(occ, 0, 0);
+            G.logs.unshift(`🔥【大逆転採用！】出目【${roll}】で面接官に熱意が刺さり奇跡の合格！【${occ.title}（${getOccupationRankTitle(occ, 0)}）】に就任！（給料: ${p.salary}万円）`);
             advanceToNextTurn(G, ctx, events);
           } else {
             p.money -= 30;
             const unempOcc = OCCUPATIONS.find((o) => o.id === 'unemployed') || { id: 'unemployed', title: '無職・求職中', baseSalary: 0, maxSalary: 0, icon: '🏚️' };
             p.occupation = unempOcc;
+            p.jobRank = 0;
+            p.salaryBonus = 0;
             p.salary = 0;
             G.logs.unshift(`❌【お祈りメール…全滅！】出目【${roll}】で不合格！就活費用 -30万円。就職できず【無職】として人生を続行します…！`);
             advanceToNextTurn(G, ctx, events);
@@ -582,13 +1331,17 @@ export const JinseiGame = {
           const stamPass = stamReq === 0 || (p.stamina || 50) >= stamReq;
           if (devPass && stamPass) {
             p.occupation = occ;
-            p.salary = occ.baseSalary;
-            G.logs.unshift(`🎓【正規採用！】偏差値【${p.hensachi || 50}】＆ 体力【${p.stamina || 50}】の実力で見事【${occ.title}】に合格！（初任給: ${occ.baseSalary}万円）`);
+            p.jobRank = 0;
+            p.salaryBonus = 0;
+            p.salary = getSalaryForRank(occ, 0, 0);
+            G.logs.unshift(`🎓【正規採用！】偏差値【${p.hensachi || 50}】＆ 体力【${p.stamina || 50}】の実力で見事【${occ.title}（${getOccupationRankTitle(occ, 0)}）】に合格！（初任給: ${p.salary}万円）`);
             advanceToNextTurn(G, ctx, events);
           } else {
             p.money -= 30;
             const unempOcc = OCCUPATIONS.find((o) => o.id === 'unemployed') || { id: 'unemployed', title: '無職・求職中', baseSalary: 0, maxSalary: 0, icon: '🏚️' };
             p.occupation = unempOcc;
+            p.jobRank = 0;
+            p.salaryBonus = 0;
             p.salary = 0;
             const reasons = [];
             if (!devPass) reasons.push(`要偏差値【${devReq}】に対し偏差値【${p.hensachi || 50}】`);
@@ -598,23 +1351,46 @@ export const JinseiGame = {
           }
         }
       } else {
+        // 通常モード：就職は可能だが、学力・体力の水準で優遇採用・通常採用・見習いスタートに分かれる
+        const reqAcad = occ.reqAcademic || 0;
+        const reqStam = occ.reqStamina || 0;
+        const pAcad = p.academic || 50;
+        const pStam = p.stamina || 50;
+        const margin = (pAcad - reqAcad) + (pStam - reqStam);
+
         p.occupation = occ;
-        p.salary = occ.baseSalary;
-        G.logs.unshift(`🎓 Player ${playerID} が【${occ.title}】に就任！（給料: ${p.salary}万円）`);
+        p.jobRank = 0;
+        if (pAcad >= reqAcad && pStam >= reqStam && margin >= 20) {
+          p.salaryBonus = 30;
+          p.salary = getSalaryForRank(occ, 0, 30);
+          p.money += 50;
+          G.logs.unshift(`🌟【特待優遇採用！】Player ${playerID} は圧倒的な学力(${pAcad})・体力(${pStam})が評価され【${occ.title}（${getOccupationRankTitle(occ, 0)}）】に優遇就任！（給料:${p.salary}万円＋支度金+50万円）`);
+        } else if (pAcad >= reqAcad && pStam >= reqStam) {
+          p.salaryBonus = 0;
+          p.salary = getSalaryForRank(occ, 0, 0);
+          p.money += 20;
+          G.logs.unshift(`🎓 Player ${playerID} が【${occ.title}（${getOccupationRankTitle(occ, 0)}）】に正社員採用！（給料:${p.salary}万円＋支度金+20万円）`);
+        } else {
+          const apprenticeSal = Math.max(40, Math.round(occ.baseSalary * 0.85));
+          p.salaryBonus = apprenticeSal - occ.baseSalary;
+          p.salary = apprenticeSal;
+          G.logs.unshift(`📝 Player ${playerID} が【${occ.title}（${getOccupationRankTitle(occ, 0)}）】に見習い採用！（必要能力未達のため初任給:${p.salary}万円）`);
+        }
         advanceToNextTurn(G, ctx, events);
       }
     },
 
-    // 3-B. 就職ルーレット（1〜10のルーレットで職業決定）
+    // 3-B. 就職ルーレット（1〜10のパーソナライズされた職業枠で決定）
     spinJobRoulette: ({ G, ctx, random }, playerID) => {
       if (G.gameState !== 'playing') return;
       if (ctx.currentPlayer !== playerID) return;
       const p = G.players[playerID];
       if (!p) return;
 
+      const rouletteInfo = G.currentSpaceModal?.rouletteInfo || buildJobRouletteInfo(p, G.isHardMode);
       const roll = random ? random.Die(10) : (Math.floor(Math.random() * 10) + 1);
-      const jobId = JOB_ROULETTE_TABLE[roll] || 'salaryman';
-      const candidateOcc = OCCUPATIONS.find((o) => o.id === jobId) || OCCUPATIONS[0];
+      const rolledSlot = rouletteInfo.slots[roll - 1] || rouletteInfo.slots[0];
+      const candidateOcc = rolledSlot?.occ || OCCUPATIONS.find((o) => o.id === 'freeter') || OCCUPATIONS[0];
       const pDev = p.hensachi || 50;
       const pStam = p.stamina || 50;
 
@@ -629,6 +1405,7 @@ export const JinseiGame = {
         playerStamina: pStam,
         penalty: 0,
         failReason: '',
+        isFillSlot: !!rolledSlot?.isFill,
       };
 
       if (G.isHardMode) {
@@ -639,15 +1416,19 @@ export const JinseiGame = {
 
         if (devPass && stamPass) {
           p.occupation = candidateOcc;
-          p.salary = candidateOcc.baseSalary;
+          p.jobRank = 0;
+          p.salaryBonus = 0;
+          p.salary = getSalaryForRank(candidateOcc, 0, 0);
           resultData.passed = true;
           resultData.finalOcc = candidateOcc;
-          G.logs.unshift(`🎓【就職ルーレット】出目【${roll}】！偏差値【${pDev}】(要:${devReq}) ＆ 体力【${pStam}】(要:${stamReq})で見事【${candidateOcc.title}】に正規採用！（初任給: ${candidateOcc.baseSalary}万円）`);
+          G.logs.unshift(`🎓【就職ルーレット】出目【${roll}】！偏差値【${pDev}】(要:${devReq}) ＆ 体力【${pStam}】(要:${stamReq})で見事【${candidateOcc.title}（${getOccupationRankTitle(candidateOcc, 0)}）】に正規採用！（初任給: ${p.salary}万円）`);
         } else {
-          // 学歴・体力選考フィルター不合格 -> 就活費 -30万、無職で続行
+          // 万一フォールバック時でも整合を保つ安全弁
           p.money -= 30;
           const unempOcc = OCCUPATIONS.find((o) => o.id === 'unemployed') || { id: 'unemployed', title: '無職・求職中', baseSalary: 0, maxSalary: 0, icon: '🏚️' };
           p.occupation = unempOcc;
+          p.jobRank = 0;
+          p.salaryBonus = 0;
           p.salary = 0;
           resultData.passed = false;
           resultData.finalOcc = unempOcc;
@@ -662,13 +1443,37 @@ export const JinseiGame = {
           G.logs.unshift(`💀【就職ルーレット】出目【${roll}】…志望先【${candidateOcc.title}】の選考に対し、${reasonStr}のため不採用！就活費用 -30万円、【無職・求職中】として人生を続行します…！`);
         }
       } else {
-        // 通常モード：出目の職業に即就任
+        // 通常モード：なれる職業で埋めたルーレットから決定し、余裕度に応じて優遇採用！
+        const reqAcad = candidateOcc.reqAcademic || 0;
+        const reqStam = candidateOcc.reqStamina || 0;
+        const pAcad = p.academic || 50;
+        const pStam = p.stamina || 50;
+        const margin = (pAcad - reqAcad) + (pStam - reqStam);
+
         p.occupation = candidateOcc;
-        p.salary = candidateOcc.baseSalary;
+        p.jobRank = 0;
+        let evalLabel = '正規採用（支度金+20万）';
+        if (margin >= 20) {
+          p.salaryBonus = 30;
+          p.salary = getSalaryForRank(candidateOcc, 0, 30);
+          p.money += 50;
+          evalLabel = '🌟特待優遇採用（給料+30万＆支度金+50万）';
+        } else {
+          p.salaryBonus = 0;
+          p.salary = getSalaryForRank(candidateOcc, 0, 0);
+          p.money += 20;
+        }
         resultData.passed = true;
-        resultData.finalOcc = candidateOcc;
-        G.logs.unshift(`🎉【就職ルーレット】出目【${roll}】！Player ${playerID} は【${candidateOcc.title}】に就職決定！（初任給: ${candidateOcc.baseSalary}万円）`);
+        resultData.finalOcc = { ...candidateOcc, baseSalary: p.salary };
+        resultData.evalLabel = evalLabel;
+        G.logs.unshift(`🎉【就職ルーレット】出目【${roll}】！Player ${playerID} は【${candidateOcc.title}】に決定！【${evalLabel}】`);
       }
+
+      addLifeEvent(p, 2, {
+        icon: resultData.finalOcc?.icon || '💼',
+        title: resultData.passed ? `就職決定: ${resultData.finalOcc.title}` : `就活結果: ${resultData.finalOcc.title}`,
+        detail: `初任給 ${p.salary}万円 ${resultData.evalLabel ? `(${resultData.evalLabel})` : ''}`,
+      });
 
       G.currentSpaceModal = {
         spaceId: p.position,
@@ -682,15 +1487,15 @@ export const JinseiGame = {
       G.turnStep = 'end_turn';
     },
 
-    // 3-C. 転職チャンス（学力・体力ラインを参照して転職または現状維持）
-    changeJob: ({ G, ctx, events }, playerID, jobId) => {
+    // 3-C. 転職チャンス（職業を選択して 2分の1（50%）で成功・失敗のルーレット抽選！）
+    changeJob: ({ G, ctx, events, random }, playerID, jobId) => {
       if (G.gameState !== 'playing') return;
       if (ctx.currentPlayer !== playerID) return;
       const p = G.players[playerID];
       if (!p) return;
 
       const modal = G.currentSpaceModal;
-      const isForced = modal?.isForced;
+      const isForced = !!modal?.isForced;
       const currentOcc = p.occupation;
 
       // 現状維持（転職しない・現在の職業を継続）
@@ -699,13 +1504,15 @@ export const JinseiGame = {
           G.logs.unshift(`⚠️ 年齢・引退規定により現在の職業【${currentOcc?.title}】を維持することはできません！別のセカンドキャリアを選択してください。`);
           return;
         }
+        if (modal?.isEra4CareerReview) p.hasCheckedEra4Career = true;
         G.logs.unshift(`💼 Player ${playerID} は転職を見送り、現在の職業【${currentOcc?.icon || ''} ${currentOcc?.title || '無職'}】（給料:${p.salary}万円）を誇りを持って継続します！`);
         advanceToNextTurn(G, ctx, events);
         return;
       }
 
-      const targetOcc = OCCUPATIONS.find((o) => o.id === jobId);
+      const targetOcc = findOccupationById(jobId);
       if (!targetOcc) {
+        if (modal?.isEra4CareerReview) p.hasCheckedEra4Career = true;
         advanceToNextTurn(G, ctx, events);
         return;
       }
@@ -721,20 +1528,107 @@ export const JinseiGame = {
       const pAcad = p.academic || 50;
       const pStam = p.stamina || 50;
 
-      if (pAcad >= reqAcad && pStam >= reqStam) {
-        const oldTitle = currentOcc ? `${currentOcc.icon} ${currentOcc.title}` : '無職';
-        p.occupation = targetOcc;
-        p.salary = targetOcc.baseSalary;
-        G.logs.unshift(`🎉 ✨【キャリアアップ大成功！】Player ${playerID} は【${oldTitle}】から【${targetOcc.icon} ${targetOcc.title}】へ転職！（給料: ${targetOcc.baseSalary}万円 / 学力:${pAcad}≧${reqAcad}, 体力:${pStam}≧${reqStam}）`);
-      } else {
-        G.logs.unshift(`⚠️ 学力または体力の要件を満たしていないため、転職は行われませんでした。（必要学力:${reqAcad}/現在:${pAcad}, 必要体力:${reqStam}/現在:${pStam}）`);
-        if (isForced) {
-          // 強制転職の場合は要件を満たす職を選ばせるためリターン
-          return;
-        }
+      if (pAcad < reqAcad || pStam < reqStam) {
+        G.logs.unshift(`⚠️ 学力または体力の要件を満たしていないため、挑戦できません。（必要学力:${reqAcad}/現在:${pAcad}, 必要体力:${reqStam}/現在:${pStam}）`);
+        return;
       }
 
-      advanceToNextTurn(G, ctx, events);
+      // 2分の1（50%）の転職ルーレット（1〜10のうち 6〜10 で合格！）
+      const roll = random ? random.Die(10) : (Math.floor(Math.random() * 10) + 1);
+      const isSuccess = roll >= 6;
+      const oldOcc = currentOcc;
+      const oldTitle = oldOcc ? `${oldOcc.icon} ${oldOcc.title}` : '無職';
+      const oldRankTitle = getOccupationRankTitle(oldOcc, p.jobRank || 0);
+      const oldSalary = p.salary || 0;
+
+      if (modal?.isEra4CareerReview) p.hasCheckedEra4Career = true;
+
+      if (isSuccess) {
+        const carriedRank = (oldOcc && oldOcc.id !== 'unemployed' && targetOcc.id !== 'unemployed')
+          ? Math.floor((p.jobRank || 0) / 2)
+          : 0;
+        p.occupation = targetOcc;
+        p.jobRank = carriedRank;
+        p.salaryBonus = 0;
+        p.salary = getSalaryForRank(targetOcc, carriedRank, 0);
+        const newRankTitle = getOccupationRankTitle(targetOcc, carriedRank);
+        const rankSuffix = newRankTitle ? `（役職:${newRankTitle}）` : '';
+
+        addLifeEvent(p, G.era, {
+          icon: targetOcc.icon || '💼',
+          title: `転職成功(1/2): ${targetOcc.title}${rankSuffix}`,
+          detail: `転職ルーレット【${roll}】で内定！${oldTitle} ➔ ${targetOcc.title}（新給料: ${p.salary}万円）`,
+        });
+        G.logs.unshift(`🎉 ✨【転職ルーレット大成功！（出目:${roll}）】Player ${playerID} は【${oldTitle}】から【${targetOcc.icon} ${targetOcc.title}${rankSuffix}】へ見事転職！（給料: ${p.salary}万円）`);
+
+        G.currentSpaceModal = {
+          spaceId: modal?.spaceId ?? p.position,
+          type: 'job_change_result',
+          title: '🎉 【内定獲得！】転職ルーレット大成功！',
+          desc: `運命の転職ルーレット（成功率50%）で出目【${roll}】を引き当て、【${targetOcc.icon} ${targetOcc.title}】への転職に成功しました！`,
+          changeResultData: {
+            roll,
+            passed: true,
+            targetOcc,
+            oldOcc,
+            oldRankTitle,
+            newRankTitle,
+            carriedRank,
+            oldSalary,
+            newSalary: p.salary,
+            isForced,
+            fallbackOcc: null,
+          },
+        };
+      } else {
+        let fallbackOcc = null;
+        let newRankTitle = oldRankTitle;
+        if (isForced) {
+          fallbackOcc = OCCUPATIONS.find((o) => o.id === 'freeter') || OCCUPATIONS[OCCUPATIONS.length - 1];
+          p.occupation = fallbackOcc;
+          p.jobRank = 0;
+          p.salaryBonus = 0;
+          p.salary = getSalaryForRank(fallbackOcc, 0, 0);
+          newRankTitle = getOccupationRankTitle(fallbackOcc, 0);
+          addLifeEvent(p, G.era, {
+            icon: fallbackOcc.icon || '🎸',
+            title: `転職選考不採用(1/2): ${targetOcc.title}`,
+            detail: `転職ルーレット【${roll}】で不採用…引退に伴い【${fallbackOcc.title}】へ転身（給料: ${p.salary}万円）`,
+          });
+          G.logs.unshift(`💧 【転職ルーレット不採用…（出目:${roll}）】Player ${playerID} は【${targetOcc.icon} ${targetOcc.title}】への転職に失敗…現役引退のため【${fallbackOcc.icon} ${fallbackOcc.title}】（給料:${p.salary}万円）へ転身しました。`);
+        } else {
+          addLifeEvent(p, G.era, {
+            icon: '💧',
+            title: `転職見送り(選考不採用): ${targetOcc.title}`,
+            detail: `転職ルーレット【${roll}】で不採用…現職(${oldTitle} / 給料:${p.salary}万円)を継続`,
+          });
+          G.logs.unshift(`💧 【転職ルーレット不採用…（出目:${roll}）】Player ${playerID} の【${targetOcc.icon} ${targetOcc.title}】挑戦は惜しくも不採用！現在の【${oldTitle}】（給料:${p.salary}万円）を継続します。`);
+        }
+
+        G.currentSpaceModal = {
+          spaceId: modal?.spaceId ?? p.position,
+          type: 'job_change_result',
+          title: '💧 【惜しくも不採用…】転職ルーレット結果',
+          desc: isForced
+            ? `運命の転職ルーレット（成功率50%）で出目【${roll}】となり、【${targetOcc.icon} ${targetOcc.title}】への転職は不採用…規定により【${fallbackOcc?.title}】として再出発します！`
+            : `運命の転職ルーレット（成功率50%）で出目【${roll}】となり、【${targetOcc.icon} ${targetOcc.title}】への転職は不採用…現在の職業を継続します！`,
+          changeResultData: {
+            roll,
+            passed: false,
+            targetOcc,
+            oldOcc,
+            oldRankTitle,
+            newRankTitle,
+            carriedRank: p.jobRank || 0,
+            oldSalary,
+            newSalary: p.salary,
+            isForced,
+            fallbackOcc,
+          },
+        };
+      }
+
+      G.turnStep = 'end_turn';
     },
 
     // 4. 分岐ルート選択 (進路分岐 または 中年キャリア分岐)
@@ -749,14 +1643,25 @@ export const JinseiGame = {
         const isTokyo = p.prefecture?.id === 'tokyo';
         if (route === 'tokyo') {
           p.money -= 20;
-          if (G.isHardMode) p.hensachi = (p.hensachi || 50) + 2;
+          const d = applyStatDeltas(p, { academic: 4, hensachi: 2 });
+          const statMsg = `学力+${d.acadDelta}・偏差値+${d.henDelta}・以降マスのお金増減が1.2倍！`;
+          addLifeEvent(p, 2, {
+            icon: isTokyo ? '🗼' : '🏙️',
+            title: isTokyo ? '都心エリート・都内自立コースへ' : '上京・大都会コースへ',
+            detail: statMsg,
+          });
           if (isTokyo) {
-            G.logs.unshift(`🗼 Player ${playerID} は生粋の東京人！【都心エリート・都内自立コース】を選択！（偏差値+2、自立生活費 -20万円）`);
+            G.logs.unshift(`🗼 Player ${playerID} は生粋の東京人！【都心エリート・都内自立コース】を選択！（${statMsg}、自立生活費 -20万円）`);
           } else {
-            G.logs.unshift(`🏙️ Player ${playerID} は【大都会コース】を選択！夢と希望を胸に上京！（偏差値+2、引越し費 -20万円）`);
+            G.logs.unshift(`🏙️ Player ${playerID} は【大都会コース】を選択！夢と希望を胸に上京！（${statMsg}、引越し費 -20万円）`);
           }
         } else {
           p.money += 30;
+          addLifeEvent(p, 2, {
+            icon: '🌾',
+            title: isTokyo ? '地方移住・UIターンコースへ' : '地元就職コースへ',
+            detail: '定着祝い金 +30万円 獲得',
+          });
           if (isTokyo) {
             G.logs.unshift(`🌾 Player ${playerID} は東京を飛び出し【地方移住・UIターンコース】を選択！（地方移住定着金 +30万円）`);
           } else {
@@ -764,14 +1669,16 @@ export const JinseiGame = {
           }
         }
 
-        // 直ちに運命の就職ルーレットモーダルを開く
+        // 直ちに運命の就職ルーレットモーダルを開く（なれる職業だけで10枠を構成・穴埋め）
+        const rouletteInfo = buildJobRouletteInfo(p, G.isHardMode);
         G.currentSpaceModal = {
           spaceId: p.position,
-          title: G.isHardMode ? '💀【運命の就職ルーレット・学歴＆体力選考フィルター】' : '🎡【運命の就職ルーレット】就職先を決定！',
+          title: G.isHardMode ? '💀【運命の就職ルーレット・偏差値＆体力適性枠】' : '🎡【運命の就職ルーレット】就職先を決定！',
           desc: G.isHardMode
-            ? `進路決定！ルーレット（1〜10）を回して就職先を決定します。現在の偏差値【${p.hensachi || 50}】＆ 体力【${p.stamina || 50}】で採用基準を突破できるか！？不合格時は就活費 -30万円、【無職】で人生続行！`
-            : '進路決定！運命の就職ルーレット（1〜10）を回してあなたの職業を決定しよう！',
+            ? `進路決定！現在の偏差値【${p.hensachi || 50}】＆ 体力【${p.stamina || 50}】で採用資格のある職業（${rouletteInfo.qualifiedCount}種）をもとに10枠のルーレットを作成しました！`
+            : `進路決定！現在の学力【${p.academic || 50}】＆ 体力【${p.stamina || 50}】で就ける職業（${rouletteInfo.qualifiedCount}種）だけで10枠のルーレットを作成しました！`,
           type: 'choose_job',
+          rouletteInfo,
         };
         return;
       }
@@ -812,6 +1719,11 @@ export const JinseiGame = {
 
         p.money -= price;
         p.house = { ...house, purchasePrice: price };
+        addLifeEvent(p, G.era, {
+          icon: house.icon || '🏡',
+          title: `マイホーム購入: ${house.name}`,
+          detail: `購入額 -${price}万円（最終資産価値 ${house.sellValue}万円）`,
+        });
         G.logs.unshift(`🏡 Player ${playerID} が【${house.name}】を ${price}万円 で購入しました！`);
       }
 
@@ -978,10 +1890,93 @@ export const JinseiGame = {
       G.turnStep = 'end_turn';
     },
 
+    // 5-C. 適齢期区間（第3時代 #1〜#60）結婚・出産ルーレット（10分の1で結婚か出産）
+    spinFamilyRoulette: ({ G, ctx, random }, playerID) => {
+      if (G.gameState !== 'playing') return;
+      if (ctx.currentPlayer !== playerID) return;
+      if (G.turnStep !== 'family_roulette') return;
+      const p = G.players[playerID];
+      if (!p) return;
+
+      const roll10 = random ? random.Die(10) : (Math.floor(Math.random() * 10) + 1);
+      const hit = roll10 === 10; // 10分の1（10%）で結婚または出産！
+
+      if (!hit) {
+        G.logs.unshift(`🎡 【結婚・出産ルーレット】Player ${playerID} の出目は【${roll10}】（1〜9: ハズレ）…今回は平穏な日々でした。`);
+        G.currentSpaceModal = {
+          spaceId: p.position,
+          type: 'family_roulette_result',
+          familyRouletteDone: true,
+          roll10,
+          hit: false,
+          title: '🌿【結婚・出産ルーレット結果】',
+          desc: `ルーレット出目は【${roll10}】（ハズレ：1〜9）でした。今回はご縁がなく穏やかな日常が続きます！`,
+          details: '当選枠は出目【10】（確率1/10）！また次のチャンスに期待しましょう！',
+          deltaMoney: 0,
+        };
+        G.turnStep = 'end_turn';
+        return;
+      }
+
+      // 1/10 当選時：未婚なら結婚イベント（50%結婚 / 50%出産としても可だが、両方とも2割できちゃった婚・結婚優先でハズレ無し）
+      const kindRoll = random ? random.Die(2) : (Math.floor(Math.random() * 2) + 1);
+      const chosenKind = p.car.spouse ? 'baby' : (kindRoll === 1 ? 'marriage' : 'baby');
+      const beforeMoney = p.money;
+      const outcome = resolveFamilyEventOutcome(G, p, playerID, chosenKind, random, 120);
+
+      if (p.branchRoute === 'tokyo' && outcome.totalCollected > 0) {
+        const rawDelta = p.money - beforeMoney;
+        const scaledDelta = Math.round(rawDelta * 1.2);
+        if (scaledDelta !== rawDelta) {
+          p.money = beforeMoney + scaledDelta;
+          outcome.detailsText += ` ｜ 🏙️【大都会経済効果×1.2倍】+${rawDelta}万 ➔ +${scaledDelta}万`;
+        }
+      }
+
+      G.logs.unshift(`🎡🎯 【結婚・出産ルーレット出目10大当たり！】${outcome.logText}`);
+      addLifeEvent(p, G.era, {
+        icon: outcome.isTwins ? '👶👶' : (outcome.isShotgun ? '💘' : (chosenKind === 'marriage' ? '💍' : '👶')),
+        title: outcome.title.replace(/【|】/g, ''),
+        detail: outcome.detailsText,
+      });
+      G.currentSpaceModal = {
+        spaceId: p.position,
+        type: 'family_roulette_result',
+        familyRouletteDone: true,
+        roll10,
+        hit: true,
+        chosenKind,
+        outcome,
+        title: outcome.title,
+        desc: `ルーレット出目【10】（10分の1）を引き当て、【${chosenKind === 'marriage' ? '💍 結婚' : '👶 出産'}】イベントに突入！`,
+        details: outcome.detailsText,
+        beforeMoney,
+        afterMoney: p.money,
+        deltaMoney: p.money - beforeMoney,
+        hometownPerk: outcome.perk,
+      };
+      G.turnStep = 'end_turn';
+    },
+
     // 6. 手番終了
     endTurn: ({ G, ctx, events }, playerID) => {
       if (G.gameState !== 'playing') return;
       if (playerID && ctx.currentPlayer !== playerID) return;
+
+      // 一定区間内の場合、通常マス確認後に結婚・出産ルーレットフェーズへ遷移
+      if (G.currentSpaceModal?.eligibleForFamilyRoulette && !G.currentSpaceModal?.familyRouletteDone) {
+        const p = G.players[ctx.currentPlayer];
+        G.currentSpaceModal = {
+          spaceId: p?.position || 0,
+          type: 'family_roulette',
+          title: '🎡【適齢期ゾーン・結婚＆出産ルーレット】',
+          desc: p?.car?.spouse
+            ? 'ライフイベント区間（#1〜#60）に停止しました！10分の1（出目10）で【👶 出産】イベントが発生！（双子確率 1%）'
+            : 'ライフイベント区間（#1〜#60）に停止しました！10分の1（出目10）で【💍 結婚・👶 出産】イベントが発生！（できちゃった婚 2割 / 双子 1%）',
+        };
+        G.turnStep = 'family_roulette';
+        return;
+      }
 
       advanceToNextTurn(G, ctx, events);
     },
@@ -1004,6 +1999,7 @@ export const JinseiGame = {
     let travelData = null;
 
     switch (space.type) {
+      case 'stat_down':
       case 'money': {
         const amt = space.amount || 0;
         if (amt < 0) {
@@ -1067,7 +2063,11 @@ export const JinseiGame = {
 
       case 'study': {
         let studyAmt = space.amount || 20;
-        p.academic = Math.min(100, (p.academic || 50) + 6);
+        const acadGain = space.academicDelta ?? 8;
+        const henGain = space.hensachiDelta ?? 3;
+        const stamDelta = space.staminaDelta ?? 0;
+        const d = applyStatDeltas(p, { academic: acadGain, stamina: stamDelta, hensachi: henGain });
+
         if (p.prefecture?.passiveType === 'artisan_bonus') {
           // 岐阜: 美濃飛騨の名工魂
           studyAmt += 30;
@@ -1078,141 +2078,71 @@ export const JinseiGame = {
             effect: '美濃飛騨の名工魂により、学術・研究奨励金 +30万円 追加！'
           };
         }
+
+        const statParts = [];
+        if (d.acadDelta) statParts.push(`学力 ${d.acadDelta >= 0 ? '+' : ''}${d.acadDelta}（現在:${p.academic}）`);
+        if (d.henDelta) statParts.push(`偏差値 ${d.henDelta >= 0 ? '+' : ''}${d.henDelta}（現在:${p.hensachi}）`);
+        if (d.stamDelta) statParts.push(`体力 ${d.stamDelta >= 0 ? '+' : ''}${d.stamDelta}（現在:${p.stamina}）`);
+        const statText = statParts.join(' / ');
+
         if (G.isHardMode) {
-          p.hensachi = Math.min(80, (p.hensachi || 50) + 3);
           p.money += (studyAmt - (space.amount || 20));
-          detailsText = `知性と教養がUP！学力 +6（現在:${p.academic}）＆ 偏差値 +3 上昇！${studyAmt > (space.amount || 20) ? `（名工奨励金 +${studyAmt - (space.amount || 20)}万）` : ''}`;
-          G.logs.unshift(`📖 【猛勉強の成果！】学力 +6（現在:${p.academic}）＆ 偏差値 +3 上昇！（現在: 偏差値【${p.hensachi}】）`);
+          detailsText = `知性と教養がUP！${statText}${studyAmt > (space.amount || 20) ? `（名工奨励金 +${studyAmt - (space.amount || 20)}万）` : ''}`;
+          G.logs.unshift(`📖 【猛勉強の成果！】${statText}！`);
         } else {
           p.money += studyAmt;
-          detailsText = `知性と教養がUP！学力 +6（現在:${p.academic}）＆ 特別奨励金 +${studyAmt}万円 獲得！`;
-          G.logs.unshift(`📖 【学問と教養】学力 +6（現在:${p.academic}）＆ 猛勉強の成果で特別奨励金 +${studyAmt}万円 獲得！`);
+          detailsText = `知性と教養がUP！${statText} ＆ 特別奨励金 +${studyAmt}万円 獲得！`;
+          G.logs.unshift(`📖 【学問と教養】${statText} ＆ 猛勉強の成果で特別奨励金 +${studyAmt}万円 獲得！`);
         }
         break;
       }
 
-      case 'sports':
-        p.stamina = Math.min(100, (p.stamina || 50) + 6);
+      case 'sports': {
+        const stamGain = space.staminaDelta ?? 8;
+        const acadDelta = space.academicDelta ?? 0;
+        const henGain = space.hensachiDelta ?? (G.isHardMode ? 1 : 1);
+        const d = applyStatDeltas(p, { academic: acadDelta, stamina: stamGain, hensachi: henGain });
         p.money += (space.amount || 20);
-        if (G.isHardMode) {
-          p.hensachi = Math.min(80, (p.hensachi || 50) + 1);
-          detailsText = `体力 +6（現在:${p.stamina}）＆ 大会賞金 +${space.amount || 20}万円 ＆ 偏差値 +1 UP！`;
-          G.logs.unshift(`🏃 【文武両道！】体力 +6（現在:${p.stamina}）＆ 大会で大活躍、偏差値 +1 UP！（現在: 偏差値【${p.hensachi}】）`);
-        } else {
-          detailsText = `体力 +6（現在:${p.stamina}）＆ 大会賞金 +${space.amount || 20}万円 獲得！`;
-          G.logs.unshift(`🏃 【スポーツ躍動！】体力 +6（現在:${p.stamina}）＆ 大会賞金 +${space.amount || 20}万円 獲得！`);
-        }
-        break;
 
-      case 'payday': {
-        if (p.occupation && p.occupation.id !== 'unemployed' && p.salary > 0) {
-          let pay = p.salary;
-          const bonusItems = [];
-          if (p.prefecture?.passiveType === 'salary_boost_heavy') {
-            pay += 50;
-            bonusItems.push('東京メガロポリス+50万');
-            hometownPerkTriggered = { prefName: p.prefecture.name, emoji: p.prefecture.emoji, traitName: p.prefecture.traitName, effect: '首都特別手当 +50万円' };
-          }
-          if (p.prefecture?.passiveType === 'toyota_saving') {
-            pay += 50;
-            bonusItems.push('愛知堅実貯蓄+50万');
-            hometownPerkTriggered = { prefName: p.prefecture.name, emoji: p.prefecture.emoji, traitName: p.prefecture.traitName, effect: 'ものづくり王国・堅実貯蓄ボーナス +50万円' };
-          }
-          if (p.prefecture?.passiveType === 'salary_boost') {
-            pay += 20;
-            bonusItems.push('岩手南部鉄器+20万');
-            hometownPerkTriggered = { prefName: p.prefecture.name, emoji: p.prefecture.emoji, traitName: p.prefecture.traitName, effect: '粘り強さボーナス +20万円' };
-          }
-          if (p.car.spouse) { pay += 20; bonusItems.push('配偶者手当+20万'); }
-          if (p.car.kids) {
-            const kidRate = p.prefecture?.passiveType === 'kibidango_family' ? 30 : 15;
-            const kAllowance = p.car.kids * kidRate;
-            pay += kAllowance;
-            bonusItems.push(`子供手当(${p.car.kids}人)+${kAllowance}万`);
-            if (p.prefecture?.passiveType === 'kibidango_family') {
-              hometownPerkTriggered = { prefName: p.prefecture.name, emoji: p.prefecture.emoji, traitName: p.prefecture.traitName, effect: '桃太郎の吉備団子により子供手当が2倍！' };
-            }
-          }
+        const statParts = [];
+        if (d.stamDelta) statParts.push(`体力 ${d.stamDelta >= 0 ? '+' : ''}${d.stamDelta}（現在:${p.stamina}）`);
+        if (d.acadDelta) statParts.push(`学力 ${d.acadDelta >= 0 ? '+' : ''}${d.acadDelta}（現在:${p.academic}）`);
+        if (d.henDelta) statParts.push(`偏差値 ${d.henDelta >= 0 ? '+' : ''}${d.henDelta}`);
+        const statText = statParts.join(' / ');
 
-          p.money += pay;
-          detailsText = `基本給: ${p.salary}万 ${bonusItems.length > 0 ? `(${bonusItems.join(', ')})` : ''} ➔ 給料受取 +${pay}万円`;
-          G.logs.unshift(`💵 【定期給料日】Player ${playerID} が給料 ${pay}万円 を受給しました！`);
-        } else {
-          p.money += 20;
-          detailsText = '無職のため定例給与なし（日雇いバイト代 +20万円 のみ受給）';
-          G.logs.unshift(`💵 【定期給料日】Player ${playerID} は無職のため定例給与なし（日雇いバイト代 20万円 のみ受給）`);
-        }
+        detailsText = `${statText} ＆ 大会賞金 +${space.amount || 20}万円 獲得！`;
+        G.logs.unshift(`🏃 【スポーツ躍動！】${statText} ＆ 大会賞金 +${space.amount || 20}万円 獲得！`);
         break;
       }
 
-      case 'marriage':
-        if (!p.car.spouse) {
-          p.car.spouse = true;
-          let giftFromOthers = 30;
-          let nationalBonus = 100;
-          if (p.prefecture?.passiveType === 'wedding_bonus') {
-            giftFromOthers = 50;
-            hometownPerkTriggered = { prefName: p.prefecture.name, emoji: p.prefecture.emoji, traitName: p.prefecture.traitName, effect: 'さくらんぼの寄り添いにより参列者全員からの祝儀+50万円' };
-          }
-          if (p.prefecture?.passiveType === 'izumo_marriage_bless') {
-            giftFromOthers = 50;
-            nationalBonus = 200;
-            hometownPerkTriggered = { prefName: p.prefecture.name, emoji: p.prefecture.emoji, traitName: p.prefecture.traitName, effect: '出雲大社の縁結びにより祝儀特大UP（祝儀+50万＆国祝金+200万）' };
-          }
-
-          let totalGifts = 0;
-          Object.keys(G.players).forEach((otherPid) => {
-            if (otherPid !== playerID) {
-              G.players[otherPid].money -= giftFromOthers;
-              totalGifts += giftFromOthers;
-            }
-          });
-          const totalMarriage = totalGifts + nationalBonus;
-          p.money += totalMarriage;
-          detailsText = `参加者全員からのご祝儀計 +${totalGifts}万円 ＋ 国・県からのお祝い金 +${nationalBonus}万円！（計 +${totalMarriage}万円）`;
-          G.logs.unshift(`💍 祝・結婚！Player ${playerID} に配偶者ピン追加！全員からご祝儀計 +${totalMarriage}万円！`);
-        } else {
-          detailsText = 'すでに既婚のため結婚式イベントはスキップされました';
-        }
+      case 'salary':
+      case 'payday': {
+        const pd = calculatePaydayDetails(p);
+        p.money += pd.pay;
+        if (pd.perk) hometownPerkTriggered = pd.perk;
+        detailsText = pd.detailsText;
+        G.logs.unshift(
+          pd.isUnemployed
+            ? `💵 【定期給料日】Player ${playerID} は無職のため定例給与なし（日雇いバイト代 20万円 のみ受給）`
+            : `💵 【定期給料日】Player ${playerID} が給料 ${pd.pay}万円 を受給しました！`
+        );
         break;
+      }
+
+      case 'marriage': {
+        const outcome = resolveFamilyEventOutcome(G, p, playerID, 'marriage', random, space.amount || 150);
+        detailsText = outcome.detailsText;
+        if (outcome.perk) hometownPerkTriggered = outcome.perk;
+        G.logs.unshift(outcome.logText);
+        break;
+      }
 
       case 'child':
       case 'baby': {
-        const bonusPerKid = space.amount || 50;
-        let isShotgunWedding = false;
-
-        // まだ結婚していない場合は「授かり婚・電撃結婚」として配偶者ピンも自動追加！
-        if (!p.car.spouse) {
-          p.car.spouse = true;
-          isShotgunWedding = true;
-        }
-
-        // 赤ちゃん誕生
-        p.car.kids = (p.car.kids || 0) + 1;
-        const kidNum = p.car.kids;
-
-        let babyBonus = bonusPerKid;
-        if (p.prefecture?.passiveType === 'child_bonus') {
-          babyBonus = Math.round(bonusPerKid * 1.5);
-          hometownPerkTriggered = {
-            prefName: p.prefecture.name,
-            emoji: p.prefecture.emoji,
-            traitName: p.prefecture.traitName,
-            effect: `上毛かるたの英才教育により出産祝い金が +${babyBonus}万円 に増額！`
-          };
-        }
-
-        p.money += babyBonus;
-
-        const kidTitle = kidNum === 1 ? '第1子' : (kidNum === 2 ? '第2子' : `第${kidNum}子`);
-
-        if (isShotgunWedding) {
-          detailsText = `【授かり婚＆出産！】素敵なパートナーと電撃結婚し、待望の${kidTitle}が誕生！（配偶者＋子どもピン追加、計${p.car.kids}人）出産祝い金 +${babyBonus}万円 獲得！（給料手当毎月+${p.car.kids * 15}万＆決算資産+${p.car.kids * 200}万確定）`;
-          G.logs.unshift(`👶 💍 【授かり婚＆出産！】Player ${playerID} は電撃結婚し、待望の${kidTitle}が誕生！（配偶者＆子どもピン追加、計${p.car.kids}人）出産祝い金 +${babyBonus}万円！`);
-        } else {
-          detailsText = `【祝・${kidTitle}誕生！】元気な赤ちゃんが誕生しました！（子どもピン追加、計${p.car.kids}人）出産祝い金 +${babyBonus}万円 獲得！（給料手当毎月+${p.car.kids * 15}万＆決算資産+${p.car.kids * 200}万確定）`;
-          G.logs.unshift(`👶 【祝・${kidTitle}誕生！】Player ${playerID} に${kidTitle}が誕生！（子どもピン追加、計${p.car.kids}人）出産祝い金 +${babyBonus}万円！`);
-        }
+        const outcome = resolveFamilyEventOutcome(G, p, playerID, 'baby', random, space.amount || 120);
+        detailsText = outcome.detailsText;
+        if (outcome.perk) hometownPerkTriggered = outcome.perk;
+        G.logs.unshift(outcome.logText);
         break;
       }
 
@@ -1269,6 +2199,7 @@ export const JinseiGame = {
         break;
       }
 
+      case 'house':
       case 'buy_house':
         detailsText = '物件価格: 900万〜2000万円（最終資産価値 1300万〜2400万円）';
         break;
@@ -1281,7 +2212,7 @@ export const JinseiGame = {
       }
 
       case 'branch_career':
-        detailsText = '自立・上京コース（引越し費 -20万/偏差値+2）または 地元・地方コース（定着祝い金 +30万）';
+        detailsText = '大都会・都心コース（以降マスのお金増減1.2倍＆学力+4/偏差値+2・上京費 -20万）または 地元・地方コース（定着祝い金 +30万）';
         break;
 
       case 'branch_midlife':
@@ -1345,21 +2276,24 @@ export const JinseiGame = {
         const isCovered = p.insurance?.life;
         if (p.prefecture?.passiveType === 'mikan_rescue') {
           // 愛媛: 蛇口からみかんジュース
+          const d = applyStatDeltas(p, { stamina: 4 });
           hometownPerkTriggered = {
             prefName: p.prefecture.name,
             emoji: p.prefecture.emoji,
             traitName: p.prefecture.traitName,
             effect: '愛媛みかんジュースの柑橘パワーで体調万全・健診費用0円！'
           };
-          detailsText = '愛媛の柑橘パワーで体調万全！自己負担 0円！';
-          G.logs.unshift(`🏥 【健康診断】愛媛みかんパワーで体調万全！自己負担0円でした！`);
+          detailsText = `愛媛の柑橘パワーで体調万全！自己負担 0円！${d.stamDelta ? `（体力+${d.stamDelta}）` : ''}`;
+          G.logs.unshift(`🏥 【健康診断】愛媛みかんパワーで体調万全！自己負担0円＆体力+${d.stamDelta}でした！`);
         } else if (isCovered) {
-          detailsText = '生命保険（加入済）が適用され、自己負担 0円！';
-          G.logs.unshift(`🏥 【健康診断】生命保険（${p.prefecture?.name || '加入済'}）が適用され自己負担0円でした！`);
+          const d = applyStatDeltas(p, { stamina: 3 });
+          detailsText = `生命保険（加入済）が適用され、自己負担 0円！${d.stamDelta ? `（体力+${d.stamDelta}）` : ''}`;
+          G.logs.unshift(`🏥 【健康診断】生命保険（${p.prefecture?.name || '加入済'}）が適用され自己負担0円＆体力+${d.stamDelta}でした！`);
         } else {
           p.money -= 20;
-          detailsText = '保険未加入のため、人間ドック費用 20万円 を支払いました。';
-          G.logs.unshift(`🏥 【健康診断】人間ドック精密検査費用として 20万円 を支払いました。`);
+          const d = applyStatDeltas(p, { stamina: -5 });
+          detailsText = `保険未加入のため人間ドック費用 20万円 を支払いました。（不摂生発覚: 体力${d.stamDelta}）`;
+          G.logs.unshift(`🏥 【健康診断】人間ドック費用 20万円 を支払い＆体力${d.stamDelta}…。`);
         }
         break;
       }
@@ -1624,35 +2558,111 @@ export const JinseiGame = {
         break;
       }
 
+      case 'promotion': {
+        const amt = space.amount || 0;
+        if (amt > 0) {
+          p.money += amt;
+          detailsText = `昇進・表彰祝い金 +${amt}万円 獲得！`;
+          G.logs.unshift(`🎖️ 【表彰＆昇進祝い金】Player ${playerID} が +${amt}万円 獲得！`);
+        }
+        break;
+      }
+
       default:
         break;
+    }
+
+    // study / sports 以外のマスでも設定されたパラメータ増減（サボり・遊びすぎ・体調不良・運動効果など）を反映
+    if (space.type !== 'study' && space.type !== 'sports') {
+      const extraAcad = space.academicDelta || 0;
+      const extraStam = space.staminaDelta || 0;
+      const extraHen = space.hensachiDelta || 0;
+      if (extraAcad !== 0 || extraStam !== 0 || extraHen !== 0) {
+        const d = applyStatDeltas(p, { academic: extraAcad, stamina: extraStam, hensachi: extraHen });
+        const parts = [];
+        if (d.acadDelta) parts.push(`学力${d.acadDelta >= 0 ? '+' : ''}${d.acadDelta}(現在:${p.academic})`);
+        if (d.stamDelta) parts.push(`体力${d.stamDelta >= 0 ? '+' : ''}${d.stamDelta}(現在:${p.stamina})`);
+        if (d.henDelta) parts.push(`偏差値${d.henDelta >= 0 ? '+' : ''}${d.henDelta}(現在:${p.hensachi})`);
+        if (parts.length > 0) {
+          const statSummary = parts.join(' / ');
+          detailsText = detailsText ? `${detailsText} ｜ 能力変動: ${statSummary}` : `能力変動: ${statSummary}`;
+          G.logs.unshift(`📊 【能力変動】Player ${playerID}: ${statSummary}`);
+        }
+      }
+    }
+
+    // 役職昇進判定（promotion マスまたは promoteDelta 付き功績マス）
+    let promotionData = null;
+    const promoteLevels = space.promoteDelta || (space.type === 'promotion' ? 1 : 0);
+    if (promoteLevels > 0) {
+      promotionData = promotePlayer(G, p, playerID, promoteLevels);
+      if (promotionData) {
+        if (promotionData.alreadyMax) {
+          const promoNote = `👑 最高役職「${promotionData.newRankTitle}」極み賞与 +${promotionData.maxBonus}万円`;
+          detailsText = detailsText ? `${detailsText} ｜ ${promoNote}` : promoNote;
+        } else {
+          const promoNote = `🎊 昇進！「${promotionData.oldRankTitle}」➔「${promotionData.newRankTitle}」(給料:${promotionData.oldSalary}万➔${promotionData.newSalary}万)`;
+          detailsText = detailsText ? `${detailsText} ｜ ${promoNote}` : promoNote;
+        }
+      } else if (space.type === 'promotion') {
+        const promoNote = '💼 現在無職のため昇進はスキップされました';
+        detailsText = detailsText ? `${detailsText} ｜ ${promoNote}` : promoNote;
+      }
     }
 
     if (hometownPerkTriggered) {
       G.logs.unshift(`✨ 【出身地恩恵: ${hometownPerkTriggered.emoji || ''} ${hometownPerkTriggered.prefName}「${hometownPerkTriggered.traitName}」発動！】${hometownPerkTriggered.effect}`);
     }
 
+    // 大都会コース（branchRoute === 'tokyo'）選択中はマスのお金増減を1.2倍にスケール
+    const rawDelta = p.money - beforeMoney;
+    if (p.branchRoute === 'tokyo' && rawDelta !== 0) {
+      const scaledDelta = Math.round(rawDelta * 1.2);
+      if (scaledDelta !== rawDelta) {
+        p.money = beforeMoney + scaledDelta;
+        const cityNote = `🏙️【大都会経済効果×1.2倍】${rawDelta >= 0 ? '+' : ''}${rawDelta}万 ➔ ${scaledDelta >= 0 ? '+' : ''}${scaledDelta}万`;
+        detailsText = detailsText ? `${detailsText} ｜ ${cityNote}` : cityNote;
+        G.logs.unshift(`🏙️ 【大都会効果×1.2倍】Player ${playerID}: ${rawDelta >= 0 ? '+' : ''}${rawDelta}万 ➔ ${scaledDelta >= 0 ? '+' : ''}${scaledDelta}万`);
+      }
+    }
+
     const afterMoney = p.money;
     const deltaMoney = afterMoney - beforeMoney;
 
-    // モーダル情報
+    if (space.type !== 'branch_route' && space.type !== 'house' && space.type !== 'buy_house' && space.type !== 'job_change') {
+      addLifeEvent(p, G.era, {
+        icon: space.icon || '📌',
+        title: space.title.replace(/【|】/g, ''),
+        detail: `${deltaMoney !== 0 ? `収支:${deltaMoney >= 0 ? '+' : ''}${deltaMoney}万 / ` : ''}${detailsText || space.desc}`,
+      });
+    }
+
+    // モーダル情報（'house' タイプは UI 側の 'buy_house' と揃える）
     G.currentSpaceModal = {
       spaceId: space.id,
       title: space.title,
       desc: space.desc,
-      type: space.type,
+      type: space.type === 'house' ? 'buy_house' : space.type,
       beforeMoney,
       afterMoney,
       deltaMoney,
       details: detailsText,
       hometownPerk: hometownPerkTriggered,
       travelData,
+      promotionData,
+      eligibleForFamilyRoulette: isFamilyRouletteZoneSpace(G.era, space),
     };
   },
 
   // 最終決算（ファイナルアセットジャッジ）
   calculateFinalSettlement: (G) => {
-    Object.values(G.players).forEach((p) => {
+    const allPlayers = Object.values(G.players);
+    const maxAcademic = Math.max(...allPlayers.map((pl) => pl.academic || 50));
+    const minAcademic = Math.min(...allPlayers.map((pl) => pl.academic || 50));
+    const maxStamina = Math.max(...allPlayers.map((pl) => pl.stamina || 50));
+    const minStamina = Math.min(...allPlayers.map((pl) => pl.stamina || 50));
+
+    allPlayers.forEach((p) => {
       let totalAsset = p.money;
 
       if (p.house) {
@@ -1703,10 +2713,21 @@ export const JinseiGame = {
         G.logs.unshift(`🏃 🎖️【健康バイタリティ賞！】Player ${p.id} は体力【${stam}】に到達！特別健康ボーナス +200万円！`);
       }
 
+      // 相対ランキング賞（プレイヤー間で差がついたときにトップに特別表彰）
+      if (maxAcademic > minAcademic && acad === maxAcademic) {
+        totalAsset += 300;
+        G.logs.unshift(`🎓 👑【学力ナンバーワン賞！】Player ${p.id} が全プレイヤー中トップの学力【${acad}】！特別報奨金 +300万円！`);
+      }
+      if (maxStamina > minStamina && stam === maxStamina) {
+        totalAsset += 300;
+        G.logs.unshift(`💪 👑【体力ナンバーワン賞！】Player ${p.id} が全プレイヤー中トップの体力【${stam}】！特別報奨金 +300万円！`);
+      }
+
       totalAsset -= (p.debt || 0) * 100;
       p.finalAsset = totalAsset;
     });
 
+    recordMoneySnapshots(G, 'ゴール');
     const sorted = Object.values(G.players).sort((a, b) => b.finalAsset - a.finalAsset);
     G.winner = sorted[0];
     G.ranking = sorted;

@@ -463,7 +463,7 @@ export const OnsokuBoard = ({ G, ctx, moves, playerID, matchData }) => {
             <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#fca5a5', marginBottom: '4px' }}>🗣️ 厨房の声</div>
             {G.logs.slice(0, 10).map((log, i) => (
               <div key={i} style={{ fontSize: '11px', color: i === 0 ? '#fff' : '#cbd5e1', padding: '1px 0' }}>
-                {log}
+                {log.replace(/Player (\d+)/g, (_, id) => getPlayerName(id))}
               </div>
             ))}
           </div>

@@ -22,14 +22,14 @@ export const UnifiedLobby = ({
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedUrl, setCopiedUrl] = useState(false);
 
-  // URLからmatchIDを取得
+  // URLから永続部屋コード(room優先、なければmatch)を取得
   const params = new URLSearchParams(window.location.search);
-  const matchID = params.get('match') || '';
+  const roomCode = params.get('room') || params.get('match') || '';
   const inviteUrl = window.location.href;
 
   const handleCopyCode = () => {
-    if (!matchID) return;
-    navigator.clipboard.writeText(matchID);
+    if (!roomCode) return;
+    navigator.clipboard.writeText(roomCode);
     setCopiedCode(true);
     setTimeout(() => setCopiedCode(false), 2000);
   };
@@ -155,7 +155,7 @@ export const UnifiedLobby = ({
         )}
 
         {/* 招待チケットトレイ */}
-        {matchID && (
+        {roomCode && (
           <div style={{
             background: 'linear-gradient(135deg, #ffffff, #f1f5f9)',
             padding: '12px 16px',
@@ -181,7 +181,7 @@ export const UnifiedLobby = ({
                   fontWeight: 'bold',
                   color: '#0f172a'
                 }}>
-                  {matchID}
+                  {roomCode}
                 </span>
                 <button
                   onClick={handleCopyCode}
@@ -220,7 +220,7 @@ export const UnifiedLobby = ({
               </button>
             </div>
             <div style={{ fontSize: '11px', color: '#94a3b8' }}>
-              ※ 招待リンクまたは部屋コードを友達に送って参加してもらってください。
+              ※ 招待リンクまたは部屋コードを友達に送って参加してもらってください（ゲームを変更しても部屋コードはそのまま引き継がれます）。
             </div>
           </div>
         )}

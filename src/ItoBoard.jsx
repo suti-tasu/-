@@ -30,10 +30,12 @@ export function ItoBoard({ G, ctx, moves, events, playerID, matchData }) {
       const lobbyClient = new LobbyClient({ server });
       const myName = getPlayerName(playerID);
       const { playerID: newPlayerID, playerCredentials } = await lobbyClient.joinMatch("ito", G.nextMatchId, { playerName: myName });
-      const oldMatchID = new URLSearchParams(window.location.search).get("match");
+      const urlParams = new URLSearchParams(window.location.search);
+      const oldMatchID = urlParams.get("match");
+      const roomCode = urlParams.get("room") || oldMatchID;
       if (oldMatchID) window.localStorage.removeItem("ito_match_" + oldMatchID);
       window.localStorage.setItem("ito_match_" + G.nextMatchId, JSON.stringify({ pID: newPlayerID, creds: playerCredentials, pName: myName }));
-      window.location.href = "/?game=ito&match=" + G.nextMatchId;
+      window.location.href = `/?${roomCode ? `room=${encodeURIComponent(roomCode)}&` : ''}game=ito&match=${G.nextMatchId}`;
     } catch(e) {
       alert("参加に失敗しました: " + e.message);
     }

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { UnifiedLobby } from './UnifiedLobby';
 import { PREFECTURES, REGIONS, getPrefectureById } from './data/prefecturesData';
 import { LIFE_ERAS, getEraById, getSpaceMoneyDetails } from './data/lifeErasData';
-import { BOARD_SPACES, HOUSES, OCCUPATIONS, JOB_ROULETTE_TABLE } from './JinseiGame';
+import { BOARD_SPACES, HOUSES, OCCUPATIONS, JOB_ROULETTE_TABLE, buildJobRouletteInfo, getAvailableOccupationsForPlayer, getPrefectureCompanyOcc, isFamilyRouletteZoneSpace, getOccupationRankTitle, getSalaryForRank } from './JinseiGame';
 
 export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
   const [selectedRegion, setSelectedRegion] = useState('all');
@@ -21,12 +21,33 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
 
   const [isSpinningJob, setIsSpinningJob] = useState(false);
   const [tempJobRoll, setTempJobRoll] = useState(null);
+  const [selectedChangeJobId, setSelectedChangeJobId] = useState(null);
+  const [isSpinningJobChange, setIsSpinningJobChange] = useState(false);
+  const [tempJobChangeRoll, setTempJobChangeRoll] = useState(null);
+  const [isSpinningFamily, setIsSpinningFamily] = useState(false);
+  const [tempFamilyRoll, setTempFamilyRoll] = useState(null);
   const [isSpectatorDismissed, setIsSpectatorDismissed] = useState(false);
   const [showCareerGuideModal, setShowCareerGuideModal] = useState(false);
+  const [selectedHistoryPid, setSelectedHistoryPid] = useState(null);
 
   useEffect(() => {
     setIsSpectatorDismissed(false);
+    setSelectedChangeJobId(null);
+    setIsSpinningJobChange(false);
+    setTempJobChangeRoll(null);
   }, [G.currentSpaceModal?.spaceId, G.currentSpaceModal?.type, G.turnStep]);
+
+  // メインルーレットの出目に合わせてホイールの針（12時方向）と数字をピタッと一致させる
+  useEffect(() => {
+    if (isSpinningLocal || !G.rouletteValue) return;
+    const val = Math.max(1, Math.min(10, G.rouletteValue));
+    const targetMod = (360 - ((val - 1) * 36 + 18)) % 360;
+    setSpinDegree((prev) => {
+      const currentMod = ((prev % 360) + 360) % 360;
+      const diff = (targetMod - currentMod + 360) % 360;
+      return diff === 0 ? prev : prev + diff;
+    });
+  }, [G.rouletteValue, G.turnStep, ctx.currentPlayer, isSpinningLocal]);
 
   const isSpectator = playerID === null || playerID === undefined;
   const pid = isSpectator ? '0' : playerID.toString();
@@ -43,6 +64,14 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
   const getPlayerName = (id) => {
     const p = matchData?.find((m) => m.id == id);
     return p && p.name ? p.name : `Player ${id}`;
+  };
+
+  // ログや詳細テキスト内の「Player X」「PX:」をプレイヤー名へ置換
+  const formatLogWithNames = (text) => {
+    if (typeof text !== 'string') return text;
+    return text
+      .replace(/Player (\d+)/g, (_, id) => getPlayerName(id))
+      .replace(/\bP(\d+):/g, (_, id) => `${getPlayerName(id)}:`);
   };
 
   // 通常モード：おまかせランダム（プレビュー選出）
@@ -104,18 +133,17 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
     }, 60);
   };
 
-  // ルーレット回転アニメーション
+  // ルーレット回転アニメーション（3回転後に確定出目の扇形へピタッと停止）
   const handleSpinRoulette = () => {
     if (!isMyTurn || G.turnStep !== 'spin' || isSpinningLocal || myPlayer.isGoal) return;
     setIsSpinningLocal(true);
 
-    const randomDegrees = 1440 + Math.floor(Math.random() * 360);
-    setSpinDegree((prev) => prev + randomDegrees);
+    setSpinDegree((prev) => prev + 1080);
 
     setTimeout(() => {
       moves.spinRoulette(pid);
       setIsSpinningLocal(false);
-    }, 1200);
+    }, 850);
   };
 
   // ==========================================
@@ -599,6 +627,16 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
                       <span>🎁 初期特産品: <strong>{p.souvenir.name}</strong></span>
                       <span style={{ color: '#fde047', fontWeight: 'bold' }}>+{p.souvenir.value}万</span>
                     </div>
+                    {(() => {
+                      const localComp = getPrefectureCompanyOcc(p.id);
+                      if (!localComp) return null;
+                      return (
+                        <div style={{ fontSize: '11px', color: '#93c5fd', marginTop: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span>🏢 地元企業枠: <strong>{localComp.icon} {localComp.title.split('（')[0]}</strong></span>
+                          <span style={{ color: '#60a5fa', fontWeight: 'bold' }}>{localComp.baseSalary}万</span>
+                        </div>
+                      );
+                    })()}
 
                     {otherPlayersChosen.length > 0 && (
                       <div style={{ marginTop: '6px', fontSize: '10px', color: '#a7f3d0', background: 'rgba(0,0,0,0.3)', padding: '2px 6px', borderRadius: '6px' }}>
@@ -872,6 +910,271 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
           ))}
         </div>
 
+        {/* =====================================================
+            📈 所持金推移グラフ（全プレイヤーの生涯マネー推移）
+           ===================================================== */}
+        {(() => {
+          const playersList = G.ranking || Object.values(G.players);
+          const allSeries = playersList.map((pl) => ({
+            player: pl,
+            points: (pl.moneyHistory && pl.moneyHistory.length > 0)
+              ? pl.moneyHistory
+              : [{ step: 0, era: 1, label: '開始', money: pl.money }, { step: 1, era: 5, label: '終了', money: pl.money }],
+          }));
+          const maxLen = Math.max(2, ...allSeries.map((s) => s.points.length));
+          const allMoneyVals = allSeries.flatMap((s) => s.points.map((pt) => pt.money));
+          const rawMin = Math.min(0, ...allMoneyVals);
+          const rawMax = Math.max(500, ...allMoneyVals);
+          const padRange = Math.max(100, Math.round((rawMax - rawMin) * 0.1));
+          const yMin = rawMin - (rawMin < 0 ? padRange : 0);
+          const yMax = rawMax + padRange;
+          const ySpan = Math.max(1, yMax - yMin);
+
+          const svgW = 760;
+          const svgH = 260;
+          const padL = 62;
+          const padR = 22;
+          const padT = 20;
+          const padB = 34;
+          const plotW = svgW - padL - padR;
+          const plotH = svgH - padT - padB;
+
+          const getX = (idx, len) => padL + (len <= 1 ? 0 : (idx / Math.max(1, maxLen - 1)) * plotW);
+          const getY = (val) => padT + ((yMax - val) / ySpan) * plotH;
+
+          // 時代切り替わり位置（先頭プレイヤーのデータから取得）
+          const refPts = allSeries[0]?.points || [];
+          const eraMarkers = [];
+          let lastEra = null;
+          refPts.forEach((pt, idx) => {
+            if (pt.era !== lastEra) {
+              eraMarkers.push({ idx, era: pt.era, label: pt.era === 1 ? '子ども' : pt.era === 2 ? '青年' : pt.era === 3 ? '壮年' : pt.era === 4 ? '熟年' : 'シニア' });
+              lastEra = pt.era;
+            }
+          });
+
+          const yTicks = [0, 0.25, 0.5, 0.75, 1].map((t) => Math.round(yMin + ySpan * t));
+
+          return (
+            <div style={{
+              background: 'rgba(15, 23, 42, 0.78)',
+              borderRadius: '18px',
+              border: '1px solid rgba(56, 189, 248, 0.35)',
+              padding: '18px 20px',
+              marginBottom: '22px',
+              textAlign: 'left'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
+                <h3 style={{ margin: 0, fontSize: '17px', fontWeight: '900', color: '#38bdf8' }}>
+                  📈 生涯・所持金推移グラフ（万円）
+                </h3>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', fontSize: '12px' }}>
+                  {allSeries.map(({ player: pl, points }) => {
+                    const peak = Math.max(...points.map((pt) => pt.money));
+                    return (
+                      <div key={pl.id} style={{ display: 'flex', alignItems: 'center', gap: '5px', background: 'rgba(255,255,255,0.06)', padding: '3px 9px', borderRadius: '999px' }}>
+                        <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: pl.color, display: 'inline-block' }} />
+                        <strong style={{ color: '#fff' }}>{getPlayerName(pl.id)}</strong>
+                        <span style={{ color: '#94a3b8', fontSize: '11px' }}>(最高 {peak.toLocaleString()}万)</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div style={{ width: '100%', overflowX: 'auto' }}>
+                <svg viewBox={`0 0 ${svgW} ${svgH}`} style={{ width: '100%', minWidth: '520px', height: 'auto', display: 'block' }}>
+                  {/* 時代境界線 */}
+                  {eraMarkers.map((em, i) => {
+                    const x = getX(em.idx, refPts.length);
+                    return (
+                      <g key={i}>
+                        <line x1={x} y1={padT} x2={x} y2={svgH - padB} stroke="rgba(148, 163, 184, 0.22)" strokeDasharray="4,4" />
+                        <text x={x + 4} y={svgH - 12} fill="#94a3b8" fontSize="10" fontWeight="bold">{em.label}</text>
+                      </g>
+                    );
+                  })}
+
+                  {/* Y軸グリッド・目盛り */}
+                  {yTicks.map((tv, i) => {
+                    const y = getY(tv);
+                    return (
+                      <g key={i}>
+                        <line x1={padL} y1={y} x2={svgW - padR} y2={y} stroke="rgba(255,255,255,0.08)" />
+                        <text x={padL - 8} y={y + 4} textAnchor="end" fill="#94a3b8" fontSize="10">
+                          {tv.toLocaleString()}
+                        </text>
+                      </g>
+                    );
+                  })}
+
+                  {/* 0万円ライン */}
+                  {yMin < 0 && yMax > 0 && (
+                    <line x1={padL} y1={getY(0)} x2={svgW - padR} y2={getY(0)} stroke="rgba(248, 113, 113, 0.5)" strokeWidth="1.2" strokeDasharray="3,3" />
+                  )}
+
+                  {/* 各プレイヤーの折れ線 */}
+                  {allSeries.map(({ player: pl, points }) => {
+                    const ptsAttr = points.map((pt, idx) => `${getX(idx, points.length).toFixed(1)},${getY(pt.money).toFixed(1)}`).join(' ');
+                    const lastPt = points[points.length - 1];
+                    const lx = getX(points.length - 1, points.length);
+                    const ly = getY(lastPt.money);
+                    return (
+                      <g key={pl.id}>
+                        <polyline
+                          fill="none"
+                          stroke={pl.color}
+                          strokeWidth="3"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          points={ptsAttr}
+                        />
+                        <circle cx={lx} cy={ly} r="4.5" fill={pl.color} stroke="#ffffff" strokeWidth="1.5" />
+                      </g>
+                    );
+                  })}
+                </svg>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* =====================================================
+            📜 各プレイヤーの人生史（生涯タイムライン）
+           ===================================================== */}
+        {(() => {
+          const playersList = G.ranking || Object.values(G.players);
+          const activePid = selectedHistoryPid && playersList.some((pl) => pl.id === selectedHistoryPid)
+            ? selectedHistoryPid
+            : (playersList[0]?.id || '0');
+          const targetP = playersList.find((pl) => pl.id === activePid) || playersList[0];
+          const history = targetP?.lifeHistory || [];
+
+          return (
+            <div style={{
+              background: 'rgba(15, 23, 42, 0.78)',
+              borderRadius: '18px',
+              border: '1px solid rgba(251, 191, 36, 0.35)',
+              padding: '18px 20px',
+              marginBottom: '26px',
+              textAlign: 'left'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '12px' }}>
+                <h3 style={{ margin: 0, fontSize: '17px', fontWeight: '900', color: '#fbbf24' }}>
+                  📜 人生史タイムライン（プレイバック）
+                </h3>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                  {playersList.map((pl, idx) => {
+                    const isSel = pl.id === targetP?.id;
+                    return (
+                      <button
+                        key={pl.id}
+                        onClick={() => setSelectedHistoryPid(pl.id)}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: '999px',
+                          border: isSel ? `2px solid ${pl.color}` : '1px solid rgba(255,255,255,0.2)',
+                          background: isSel ? `${pl.color}33` : 'rgba(255,255,255,0.06)',
+                          color: '#ffffff',
+                          fontWeight: isSel ? '900' : 'bold',
+                          fontSize: '12px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `${idx + 1}位`} {getPlayerName(pl.id)}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {targetP && (
+                <>
+                  {/* 人物プロフィールサマリー */}
+                  <div style={{
+                    background: 'rgba(0,0,0,0.3)',
+                    borderRadius: '12px',
+                    padding: '10px 14px',
+                    marginBottom: '12px',
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '12px',
+                    fontSize: '12px',
+                    color: '#e2e8f0',
+                    borderLeft: `4px solid ${targetP.color}`
+                  }}>
+                    <span>🗾 出身: <strong>{targetP.prefecture?.emoji} {targetP.prefecture?.name}</strong></span>
+                    <span>💼 最終職業: <strong>{targetP.occupation ? `${targetP.occupation.icon} ${targetP.occupation.title}${getOccupationRankTitle(targetP.occupation, targetP.jobRank) ? `（${getOccupationRankTitle(targetP.occupation, targetP.jobRank)}）` : ''}` : '無職'}</strong></span>
+                    <span>📚 学力: <strong>{targetP.academic ?? 50}</strong></span>
+                    <span>🏃 体力: <strong>{targetP.stamina ?? 50}</strong></span>
+                    <span>🎓 偏差値: <strong>{targetP.hensachi ?? 50}</strong></span>
+                    <span>👨‍👩‍👧‍👦 家族: <strong>{targetP.car?.spouse ? '配偶者あり' : '独身'} / 子{targetP.car?.kids || 0}人</strong></span>
+                    <span>🎁 名産品: <strong>{targetP.souvenirs?.length || 0}品</strong></span>
+                  </div>
+
+                  {/* 年表イベント一覧 */}
+                  <div style={{
+                    maxHeight: '300px',
+                    overflowY: 'auto',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px',
+                    paddingRight: '6px'
+                  }}>
+                    {history.length === 0 ? (
+                      <div style={{ fontSize: '12px', color: '#94a3b8', padding: '12px', textAlign: 'center' }}>
+                        人生史データがありません
+                      </div>
+                    ) : (
+                      history.map((ev, i) => (
+                        <div
+                          key={i}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            gap: '10px',
+                            padding: '8px 12px',
+                            borderRadius: '10px',
+                            background: 'rgba(255,255,255,0.04)',
+                            borderLeft: `3px solid ${ev.eraColor || '#38bdf8'}`
+                          }}
+                        >
+                          <span style={{ fontSize: '18px', flexShrink: 0 }}>{ev.icon}</span>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                              <div style={{ fontSize: '13px', fontWeight: '900', color: '#ffffff' }}>
+                                <span style={{
+                                  fontSize: '10px',
+                                  background: `${ev.eraColor || '#38bdf8'}33`,
+                                  color: ev.eraColor || '#7dd3fc',
+                                  padding: '1px 6px',
+                                  borderRadius: '4px',
+                                  marginRight: '6px'
+                                }}>
+                                  {ev.eraName}
+                                </span>
+                                {ev.title}
+                              </div>
+                              <div style={{ fontSize: '11px', color: '#fde047', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                                所持金: {ev.moneyAfter?.toLocaleString()}万
+                              </div>
+                            </div>
+                            {ev.detail && (
+                              <div style={{ fontSize: '11px', color: '#cbd5e1', marginTop: '3px', lineHeight: 1.4 }}>
+                                {formatLogWithNames(ev.detail)}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          );
+        })()}
+
         <button
           onClick={() => moves.restartGame()}
           style={{
@@ -1015,10 +1318,27 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
           }}>
             <span>📚学力:<strong style={{ color: '#7dd3fc' }}>{p.academic || 50}</strong></span>
             <span>🏃体力:<strong style={{ color: '#86efac' }}>{p.stamina || 50}</strong></span>
+            {p.branchRoute === 'tokyo' && <span style={{ color: '#60a5fa', fontWeight: 'bold' }}>🏙️×1.2</span>}
           </div>
         )}
-        <div style={{ fontSize: '10px', color: '#cbd5e1', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '2px' }}>
-          💼 {p.occupation ? p.occupation.title : '無職（求職中）'}
+        <div style={{ fontSize: '10px', color: '#cbd5e1', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            💼 {p.occupation ? p.occupation.title : '無職（求職中）'}
+          </span>
+          {p.occupation && p.occupation.id !== 'unemployed' && getOccupationRankTitle(p.occupation, p.jobRank) && (
+            <span style={{
+              flexShrink: 0,
+              fontSize: '9px',
+              fontWeight: 'bold',
+              padding: '1px 5px',
+              borderRadius: '4px',
+              background: (p.jobRank || 0) >= 3 ? 'rgba(250, 204, 21, 0.25)' : 'rgba(56, 189, 248, 0.2)',
+              color: (p.jobRank || 0) >= 3 ? '#fde047' : '#7dd3fc',
+              border: `1px solid ${(p.jobRank || 0) >= 3 ? 'rgba(250, 204, 21, 0.5)' : 'rgba(56, 189, 248, 0.4)'}`
+            }}>
+              {getOccupationRankTitle(p.occupation, p.jobRank)}
+            </span>
+          )}
         </div>
         {/* 時代進行ターン＆コースバッジ */}
         <div style={{
@@ -1043,6 +1363,11 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
             </span>
           ) : (
             <span style={{ color: '#94a3b8' }}>共通区間</span>
+          )}
+          {(G.era === 3 || G.era === 4 || G.era === 5) && (
+            <span style={{ color: ((p.eraTurns || 0) % 2 === 1) ? '#34d399' : '#94a3b8', fontWeight: 'bold', fontSize: '9px' }}>
+              {G.era === 5 ? '👵年金' : '💵給料'}{((p.eraTurns || 0) % 2 === 1) ? ':次回支給!' : ':2T毎'}
+            </span>
           )}
         </div>
         {/* 家族・子供ステータスバッジ */}
@@ -1380,7 +1705,7 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
             最新実況速報
           </span>
           <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#ffffff', lineHeight: 1.3 }}>
-            {G.logs[0] || 'ゲーム進行中…'}
+            {G.logs[0] ? formatLogWithNames(G.logs[0]) : 'ゲーム進行中…'}
           </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: '#cbd5e1' }}>
@@ -1499,7 +1824,7 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
               📍 {G.currentSpaceModal.title}
             </h3>
             <p style={{ fontSize: '14px', color: '#cbd5e1', lineHeight: 1.5, marginBottom: '14px' }}>
-              {G.currentSpaceModal.desc}
+              {formatLogWithNames(G.currentSpaceModal.desc)}
             </p>
 
             {/* お金の増減・所持金変動ハイライトバナー */}
@@ -1551,7 +1876,7 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
                     </div>
                     {G.currentSpaceModal.details && (
                       <div style={{ fontSize: '12px', color: '#e2e8f0', marginTop: '3px', fontWeight: '500' }}>
-                        {G.currentSpaceModal.details}
+                        {formatLogWithNames(G.currentSpaceModal.details)}
                       </div>
                     )}
                   </div>
@@ -1600,6 +1925,43 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
                 </div>
               </div>
             )}
+
+            {/* 役職昇進お祝いバナー */}
+            {G.currentSpaceModal.promotionData && (() => {
+              const pd = G.currentSpaceModal.promotionData;
+              return (
+                <div style={{
+                  margin: '10px 0 16px',
+                  padding: '14px 16px',
+                  borderRadius: '14px',
+                  background: 'linear-gradient(135deg, rgba(234, 179, 8, 0.22), rgba(249, 115, 22, 0.28))',
+                  border: '2px solid #facc15',
+                  boxShadow: '0 0 18px rgba(250, 204, 21, 0.3)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '14px'
+                }}>
+                  <span style={{ fontSize: '32px' }}>{pd.alreadyMax ? '👑' : '🎊'}</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '14px', fontWeight: '900', color: '#fde047' }}>
+                      {pd.alreadyMax
+                        ? `【最高位功労賞！】${pd.icon || '💼'} ${pd.occTitle}`
+                        : `【祝・スピード昇進！】${pd.icon || '💼'} ${pd.occTitle}`}
+                    </div>
+                    {pd.alreadyMax ? (
+                      <div style={{ fontSize: '12px', color: '#ffffff', marginTop: '4px', fontWeight: 'bold' }}>
+                        すでに最高役職「<span style={{ color: '#fde047' }}>{pd.newRankTitle}</span>」（ランク5/5）到達済み！特別功労賞与 <span style={{ color: '#34d399' }}>+{pd.maxBonus}万円</span> 獲得！
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: '12px', color: '#ffffff', marginTop: '4px', lineHeight: 1.5 }}>
+                        役職: <span style={{ color: '#cbd5e1' }}>{pd.oldRankTitle}</span> ➔ <strong style={{ color: '#fde047', fontSize: '14px' }}>{pd.newRankTitle}</strong>（ランク {pd.newRank + 1}/5）<br />
+                        給料ベース: <span style={{ color: '#cbd5e1' }}>{pd.oldSalary}万円</span> ➔ <strong style={{ color: '#34d399', fontSize: '14px' }}>{pd.newSalary}万円</strong>（<span style={{ color: '#34d399' }}>+{pd.salaryDelta}万円 UP!</span>）
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* 全国ご当地旅行＆名産品獲得カード */}
             {G.currentSpaceModal.travelData && (() => {
@@ -1671,8 +2033,12 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
             {/* 就職ルーレット（強制ストップ就職マス） */}
             {G.currentSpaceModal.type === 'choose_job' && (() => {
               const targetHensachi = turnPlayer.hensachi || 50;
+              const targetAcademic = turnPlayer.academic || 50;
               const targetStamina = turnPlayer.stamina || 50;
               const targetName = isActionPlayer ? 'あなた' : getPlayerName(turnPid);
+              const rInfo = G.currentSpaceModal.rouletteInfo || buildJobRouletteInfo(turnPlayer, G.isHardMode);
+              const slots = rInfo.slots || [];
+              const unqualifiedJobs = rInfo.unqualifiedJobs || [];
 
               return (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -1686,8 +2052,8 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
                     color: G.isHardMode ? '#fca5a5' : '#7dd3fc'
                   }}>
                     {G.isHardMode
-                      ? `💀 ハードモード採用選考フィルター：${targetName}のステータス【🎓偏差値 ${targetHensachi} / 🏃体力 ${targetStamina}】！ルーレット（1〜10）を回して運命の就職先が決まります。偏差値または体力が採用基準に満たない場合は不採用となり、就活費 -30万円＆【無職（給料0円）】で人生続行となります！（※ループなし）`
-                      : '🎡 人生の運命の分かれ道！就職ルーレット（1〜10）を回してあなたの職業と給料を決定しましょう！（強制ストップマス）'}
+                      ? `💀 ハードモード適性ルーレット（${targetName}: 🎓偏差値 ${targetHensachi} / 🏃体力 ${targetStamina}）：全${rInfo.totalRegularJobs || 18}職のうち条件を満たす【${rInfo.qualifiedCount}種】だけで10枠を構成しました！${rInfo.filledCount > 0 ? `（不足分 ${rInfo.filledCount}枠をなれる職業で穴埋め済み）` : ''}`
+                      : `🎡 パーソナライズ就職ルーレット（${targetName}: 📚学力 ${targetAcademic} / 🏃体力 ${targetStamina}）：全${rInfo.totalRegularJobs || 18}職のうち現在の能力で就ける【${rInfo.qualifiedCount}種】だけで10枠を作成しました！${rInfo.filledCount > 0 ? `（なれない職業を外し、なれる職業で ${rInfo.filledCount}枠を穴埋め済み！）` : ''}`}
                   </div>
 
                   {/* ルーレット出目と職業の対応一覧 */}
@@ -1703,21 +2069,23 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
                     borderRadius: '12px',
                     border: '1px solid rgba(255,255,255,0.08)'
                   }}>
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => {
-                      const jobId = JOB_ROULETTE_TABLE[num];
-                      const occ = OCCUPATIONS.find((o) => o.id === jobId) || OCCUPATIONS[0];
-                      const devOk = !occ.minHensachi || targetHensachi >= occ.minHensachi;
-                      const stamOk = !occ.minStamina || targetStamina >= occ.minStamina;
-                      const isQualified = !G.isHardMode || (devOk && stamOk);
-
+                    {slots.map(({ slot: num, occ, isFill }) => {
                       return (
                         <div
                           key={num}
                           style={{
                             padding: '8px 10px',
                             borderRadius: '10px',
-                            background: isQualified ? 'rgba(255,255,255,0.06)' : 'rgba(239, 68, 68, 0.12)',
-                            border: isQualified ? '1px solid rgba(255,255,255,0.12)' : '1px dashed #ef4444',
+                            background: occ.isLocalCompany
+                              ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(59, 130, 246, 0.18))'
+                              : isFill
+                              ? 'rgba(245, 158, 11, 0.12)'
+                              : 'rgba(255,255,255,0.06)',
+                            border: occ.isLocalCompany
+                              ? '1.5px solid #fbbf24'
+                              : isFill
+                              ? '1px solid rgba(251, 191, 36, 0.4)'
+                              : '1px solid rgba(255,255,255,0.12)',
                             display: 'flex',
                             alignItems: 'center',
                             gap: '8px'
@@ -1727,7 +2095,7 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
                             width: '26px',
                             height: '26px',
                             borderRadius: '50%',
-                            background: isQualified ? '#38bdf8' : '#ef4444',
+                            background: occ.isLocalCompany ? '#f59e0b' : isFill ? '#fbbf24' : '#38bdf8',
                             color: '#0f172a',
                             fontWeight: '900',
                             display: 'inline-flex',
@@ -1743,7 +2111,7 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
                             <div style={{
                               fontSize: '12px',
                               fontWeight: 'bold',
-                              color: isQualified ? '#ffffff' : '#fca5a5',
+                              color: occ.isLocalCompany ? '#fde047' : '#ffffff',
                               whiteSpace: 'nowrap',
                               overflow: 'hidden',
                               textOverflow: 'ellipsis'
@@ -1751,23 +2119,42 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
                               {occ.title}
                             </div>
                             <div style={{ fontSize: '10px', color: '#94a3b8' }}>
-                              給料: {occ.baseSalary}万 {G.isHardMode ? `• 🎓偏差値:${occ.minHensachi || '不問'} • 🏃体力:${occ.minStamina || '不問'}` : ''}
+                              給料: {occ.baseSalary}万 {G.isHardMode
+                                ? `• 偏差値:${occ.minHensachi || '不問'} • 体力:${occ.minStamina || '不問'}`
+                                : `• 学力:${occ.reqAcademic || '不問'} • 体力:${occ.reqStamina || '不問'}`}
                             </div>
                           </div>
-                          {G.isHardMode && (
-                            <span style={{
-                              fontSize: '10px',
-                              fontWeight: '900',
-                              color: isQualified ? '#4ade80' : '#f87171',
-                              flexShrink: 0
-                            }}>
-                              {isQualified ? '◯ 合格' : '✕ 不可'}
-                            </span>
-                          )}
+                          <span style={{
+                            fontSize: '10px',
+                            fontWeight: '900',
+                            color: occ.isLocalCompany ? '#fde047' : isFill ? '#fde047' : '#4ade80',
+                            flexShrink: 0
+                          }}>
+                            {occ.isLocalCompany ? '🏠 出身企業' : isFill ? '🔄 穴埋め' : '◯ 資格OK'}
+                          </span>
                         </div>
                       );
                     })}
                   </div>
+
+                  {unqualifiedJobs.length > 0 && (
+                    <div style={{
+                      padding: '8px 10px',
+                      background: 'rgba(239, 68, 68, 0.08)',
+                      border: '1px dashed rgba(239, 68, 68, 0.35)',
+                      borderRadius: '10px',
+                      fontSize: '11px',
+                      color: '#fca5a5',
+                      lineHeight: 1.5
+                    }}>
+                      <strong>🚫 条件未達のためルーレットから除外（{unqualifiedJobs.length}職）：</strong>
+                      {unqualifiedJobs.map((uj) => (
+                        <span key={uj.id} style={{ display: 'inline-block', marginRight: '8px' }}>
+                          {uj.icon}{uj.title}({G.isHardMode ? `偏${uj.minHensachi}/体${uj.minStamina}` : `学${uj.reqAcademic}/体${uj.reqStamina}`})
+                        </span>
+                      ))}
+                    </div>
+                  )}
 
                   {/* ルーレット回転ボタン（行動者） または 観戦中メッセージ */}
                   {isActionPlayer ? (
@@ -1948,13 +2335,121 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
               </div>
             )}
 
-            {/* 転職チャンス選択モーダル（学力・体力を参照して転職または現状維持） */}
+            {/* 転職ルーレット結果発表モーダル */}
+            {G.currentSpaceModal.type === 'job_change_result' && G.currentSpaceModal.changeResultData && (() => {
+              const res = G.currentSpaceModal.changeResultData;
+              const passed = res.passed;
+              const resultOcc = passed ? res.targetOcc : (res.isForced ? res.fallbackOcc : res.oldOcc);
+
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <div style={{
+                    padding: '20px',
+                    borderRadius: '16px',
+                    background: passed ? 'rgba(16, 185, 129, 0.16)' : 'rgba(239, 68, 68, 0.16)',
+                    border: passed ? '2px solid #10b981' : '2px solid #ef4444',
+                    textAlign: 'center'
+                  }}>
+                    <div style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '4px' }}>
+                      転職ルーレット出目（6〜10で成功 / 確率 50%）
+                    </div>
+                    <div style={{
+                      fontSize: '46px',
+                      fontWeight: '900',
+                      color: passed ? '#facc15' : '#f87171',
+                      lineHeight: 1,
+                      marginBottom: '12px'
+                    }}>
+                      【 {res.roll} 】
+                    </div>
+
+                    <div style={{ fontSize: '44px', marginBottom: '8px' }}>
+                      {passed ? (res.targetOcc?.icon || '🎉') : '💧'}
+                    </div>
+
+                    <div style={{ fontSize: '20px', fontWeight: '900', color: passed ? '#ffffff' : '#fca5a5', marginBottom: '6px' }}>
+                      {passed
+                        ? `転職決定！【${res.targetOcc?.title}】`
+                        : `不採用…【${res.targetOcc?.title}】への転職失敗`}
+                    </div>
+
+                    {passed ? (
+                      <div style={{ fontSize: '13px', color: '#d1fae5', lineHeight: 1.7 }}>
+                        <div>
+                          役職: <strong>{res.newRankTitle || '一般'}</strong>（引き継ぎランク { (res.carriedRank || 0) + 1 }/5）
+                        </div>
+                        <div style={{ fontSize: '16px', color: '#34d399', fontWeight: '900', marginTop: '4px' }}>
+                          給料: {res.oldSalary}万円 ➔ {res.newSalary}万円
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: '13px', color: '#fee2e2', lineHeight: 1.7 }}>
+                        {res.isForced ? (
+                          <div>
+                            現役引退に伴い、暫定キャリアとして <strong>{resultOcc?.icon} {resultOcc?.title}</strong>（給料 {res.newSalary}万円）で再出発します！
+                          </div>
+                        ) : (
+                          <div>
+                            現在の職業 <strong>{resultOcc?.icon} {resultOcc?.title}</strong>（{res.oldRankTitle ? `${res.oldRankTitle} / ` : ''}給料 {res.newSalary}万円）をそのまま継続します！
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {isActionPlayer ? (
+                    <button
+                      onClick={() => moves.endTurn(pid)}
+                      style={{
+                        width: '100%',
+                        padding: '16px',
+                        borderRadius: '16px',
+                        background: 'linear-gradient(135deg, #10b981, #059669)',
+                        color: '#fff',
+                        border: 'none',
+                        fontWeight: '900',
+                        fontSize: '16px',
+                        cursor: 'pointer',
+                        boxShadow: '0 6px 20px rgba(16, 185, 129, 0.4)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px'
+                      }}
+                    >
+                      <span>結果を確定して次へ進む（手番終了）</span>
+                      <span>👉</span>
+                    </button>
+                  ) : (
+                    <div style={{
+                      padding: '14px',
+                      borderRadius: '12px',
+                      background: 'rgba(0,0,0,0.3)',
+                      textAlign: 'center',
+                      color: '#94a3b8',
+                      fontSize: '13px'
+                    }}>
+                      👀 {getPlayerName(turnPid)} が転職ルーレット結果を確認中…
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* 転職チャンス選択モーダル（職業を選んで2分の1で成功/失敗のルーレット抽選！） */}
             {G.currentSpaceModal.type === 'job_change' && (() => {
               const modal = G.currentSpaceModal;
               const isForced = modal.isForced;
               const currentOcc = turnPlayer.occupation;
               const pAcad = turnPlayer.academic || 50;
               const pStam = turnPlayer.stamina || 50;
+              const availableOccs = getAvailableOccupationsForPlayer(turnPlayer);
+              const selectedOcc = availableOccs.find((o) => o.id === selectedChangeJobId) || null;
+              const previewRank = (currentOcc && currentOcc.id !== 'unemployed' && selectedOcc && selectedOcc.id !== 'unemployed')
+                ? Math.floor((turnPlayer.jobRank || 0) / 2)
+                : 0;
+              const previewSalary = selectedOcc ? getSalaryForRank(selectedOcc, previewRank, 0) : 0;
+              const previewRankTitle = selectedOcc ? getOccupationRankTitle(selectedOcc, previewRank) : '';
 
               return (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -2040,9 +2535,9 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
                     lineHeight: 1.5
                   }}>
                     {isForced ? (
-                      <span>⚠️ <strong>【セカンドキャリア選択】</strong> これまでの学力と体力を活かし、以下の職業の中から新しい進路を選択してクリックしてください！（現状維持は不可）</span>
+                      <span>⚠️ <strong>【セカンドキャリア選択】</strong> 資格を満たす職業から希望先を1つ選び、<strong>確率1/2（6〜10で合格）の転職ルーレット</strong>に挑戦してください！（不採用時はフリーター転身）</span>
                     ) : (
-                      <span>💡 <strong>【転職判定ルール】</strong> あなたの「学力」と「体力」が職業ごとの要求ラインを満たしていれば転職できます！給料アップを狙って転職するか、愛着のある現在の職業を維持するか選択してください。</span>
+                      <span>💡 <strong>【転職ルーレットルール】</strong> 資格（学力・体力）を満たす職業を1つ選んで <strong>確率1/2（50%：出目6〜10で成功 / 1〜5で失敗）</strong> の転職ルーレットに挑戦！（失敗時は現職継続 / 現状維持も選択可）</span>
                     )}
                   </div>
 
@@ -2051,12 +2546,13 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
                     display: 'grid',
                     gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
                     gap: '10px',
-                    maxHeight: '340px',
+                    maxHeight: '290px',
                     overflowY: 'auto',
                     paddingRight: '4px'
                   }}>
-                    {OCCUPATIONS.map((occ) => {
+                    {availableOccs.map((occ) => {
                       const isCurrent = currentOcc?.id === occ.id;
+                      const isSelected = selectedChangeJobId === occ.id;
                       const reqAcad = occ.reqAcademic || 0;
                       const reqStam = occ.reqStamina || 0;
                       const acadPass = pAcad >= reqAcad;
@@ -2070,20 +2566,25 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
                           style={{
                             padding: '12px',
                             borderRadius: '12px',
-                            background: isCurrent
+                            background: isSelected
+                              ? 'rgba(250, 204, 21, 0.22)'
+                              : isCurrent
                               ? (isForced ? 'rgba(239, 68, 68, 0.2)' : 'rgba(59, 130, 246, 0.25)')
                               : isAgeBlocked
                               ? 'rgba(15, 23, 42, 0.4)'
                               : isQualified
                               ? 'rgba(16, 185, 129, 0.14)'
                               : 'rgba(15, 23, 42, 0.65)',
-                            border: isCurrent
+                            border: isSelected
+                              ? '2px solid #facc15'
+                              : isCurrent
                               ? (isForced ? '2px dashed #ef4444' : '2px solid #3b82f6')
                               : isAgeBlocked
                               ? '1px dashed rgba(239, 68, 68, 0.3)'
                               : isQualified
                               ? '1.5px solid #10b981'
                               : '1px dashed rgba(255, 255, 255, 0.15)',
+                            boxShadow: isSelected ? '0 0 14px rgba(250, 204, 21, 0.35)' : 'none',
                             display: 'flex',
                             flexDirection: 'column',
                             gap: '6px',
@@ -2167,6 +2668,7 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
                                   </div>
                                 ) : (
                                   <button
+                                    disabled={isSpinningJobChange}
                                     onClick={() => moves.changeJob(pid, 'keep')}
                                     style={{
                                       width: '100%',
@@ -2177,7 +2679,7 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
                                       color: '#93c5fd',
                                       fontWeight: 'bold',
                                       fontSize: '11px',
-                                      cursor: 'pointer'
+                                      cursor: isSpinningJobChange ? 'not-allowed' : 'pointer'
                                     }}
                                   >
                                     現在の職業（現状維持）
@@ -2185,26 +2687,35 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
                                 )
                               ) : isQualified ? (
                                 <button
-                                  onClick={() => moves.changeJob(pid, occ.id)}
+                                  disabled={isSpinningJobChange}
+                                  onClick={() => setSelectedChangeJobId(occ.id)}
                                   style={{
                                     width: '100%',
                                     padding: '7px',
                                     borderRadius: '8px',
-                                    background: 'linear-gradient(135deg, #10b981, #059669)',
-                                    border: 'none',
+                                    background: selectedChangeJobId === occ.id
+                                      ? 'linear-gradient(135deg, #f59e0b, #d97706)'
+                                      : 'linear-gradient(135deg, #10b981, #059669)',
+                                    border: selectedChangeJobId === occ.id ? '1.5px solid #fef08a' : 'none',
                                     color: '#ffffff',
                                     fontWeight: '900',
                                     fontSize: '12px',
-                                    cursor: 'pointer',
-                                    boxShadow: '0 2px 8px rgba(16, 185, 129, 0.4)',
+                                    cursor: isSpinningJobChange ? 'not-allowed' : 'pointer',
+                                    boxShadow: selectedChangeJobId === occ.id
+                                      ? '0 2px 10px rgba(245, 158, 11, 0.5)'
+                                      : '0 2px 8px rgba(16, 185, 129, 0.4)',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
                                     gap: '4px'
                                   }}
                                 >
-                                  <span>✨</span>
-                                  <span>この職業に転職する！（給料{occ.baseSalary}万）</span>
+                                  <span>{selectedChangeJobId === occ.id ? '✅' : '🎯'}</span>
+                                  <span>
+                                    {selectedChangeJobId === occ.id
+                                      ? '選択中！（下のルーレットへ）'
+                                      : `選択する（給料${occ.baseSalary}万〜）`}
+                                  </span>
                                 </button>
                               ) : (
                                 <div style={{
@@ -2225,6 +2736,117 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
                     })}
                   </div>
 
+                  {/* 選択中の職業への 2分の1 転職ルーレットパネル */}
+                  {isActionPlayer && (
+                    <div style={{
+                      padding: '14px',
+                      borderRadius: '14px',
+                      background: selectedOcc
+                        ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.16), rgba(16, 185, 129, 0.14))'
+                        : 'rgba(15, 23, 42, 0.6)',
+                      border: selectedOcc ? '2px solid #facc15' : '1px dashed rgba(255,255,255,0.2)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '10px'
+                    }}>
+                      {selectedOcc ? (
+                        <>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                            <div style={{ fontSize: '13px', fontWeight: '900', color: '#fde047' }}>
+                              🎯 志望先: {selectedOcc.icon} {selectedOcc.title}
+                              {previewRankTitle ? `（${previewRankTitle}）` : ''}
+                            </div>
+                            <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#34d399' }}>
+                              内定時給料: {previewSalary}万円 ／ 転職確率: 50% (1/2)
+                            </div>
+                          </div>
+
+                          {/* 1〜10（1〜5失敗 / 6〜10成功）の視認用スロット */}
+                          <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(5, 1fr)',
+                            gap: '5px',
+                            background: 'rgba(0,0,0,0.3)',
+                            padding: '8px',
+                            borderRadius: '10px'
+                          }}>
+                            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => {
+                              const isWin = num >= 6;
+                              const isHighlighted = tempJobChangeRoll === num;
+                              return (
+                                <div
+                                  key={num}
+                                  style={{
+                                    padding: '5px 2px',
+                                    borderRadius: '7px',
+                                    textAlign: 'center',
+                                    background: isHighlighted
+                                      ? '#facc15'
+                                      : isWin
+                                      ? 'rgba(16, 185, 129, 0.25)'
+                                      : 'rgba(239, 68, 68, 0.18)',
+                                    border: isHighlighted
+                                      ? '2px solid #fff'
+                                      : isWin
+                                      ? '1px solid #10b981'
+                                      : '1px solid rgba(239, 68, 68, 0.45)',
+                                    color: isHighlighted ? '#0f172a' : (isWin ? '#6ee7b7' : '#fca5a5'),
+                                    fontWeight: '900',
+                                    fontSize: '11px'
+                                  }}
+                                >
+                                  <div>{num}</div>
+                                  <div style={{ fontSize: '9px' }}>{isWin ? '🎉成功' : '💧失敗'}</div>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          <button
+                            disabled={isSpinningJobChange}
+                            onClick={() => {
+                              if (isSpinningJobChange || !selectedOcc) return;
+                              setIsSpinningJobChange(true);
+                              let ticks = 0;
+                              const timer = setInterval(() => {
+                                ticks++;
+                                setTempJobChangeRoll(Math.floor(Math.random() * 10) + 1);
+                                if (ticks >= 12) {
+                                  clearInterval(timer);
+                                  setIsSpinningJobChange(false);
+                                  setTempJobChangeRoll(null);
+                                  moves.changeJob(pid, selectedOcc.id);
+                                }
+                              }, 70);
+                            }}
+                            style={{
+                              width: '100%',
+                              padding: '14px',
+                              borderRadius: '12px',
+                              background: isSpinningJobChange
+                                ? 'linear-gradient(135deg, #475569, #334155)'
+                                : 'linear-gradient(135deg, #f59e0b, #ea580c)',
+                              border: 'none',
+                              color: '#ffffff',
+                              fontWeight: '900',
+                              fontSize: '15px',
+                              cursor: isSpinningJobChange ? 'wait' : 'pointer',
+                              boxShadow: isSpinningJobChange ? 'none' : '0 4px 16px rgba(245, 158, 11, 0.45)'
+                            }}
+                          >
+                            {isSpinningJobChange
+                              ? `🎡 転職ルーレット抽選中… 【 出目: ${tempJobChangeRoll || 1} 】`
+                              : `🎡 【${selectedOcc.title}】への転職ルーレットを回す！（成功率 1/2）`}
+                          </button>
+                        </>
+                      ) : (
+                        <div style={{ fontSize: '12px', color: '#94a3b8', textAlign: 'center', fontWeight: 'bold' }}>
+                          ⬆️ 上の一覧から挑戦したい職業を選んで「選択する」を押すと、1/2の転職ルーレットが回せます！
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* 現状維持ボタン or 観戦メッセージ */}
                   {isActionPlayer ? (
                     isForced ? (
@@ -2238,10 +2860,11 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
                         fontSize: '13px',
                         fontWeight: 'bold'
                       }}>
-                        ⚠️ 卒業・引退のため「現状維持」は選択できません。上記から資格を満たす職業を選択してください。
+                        ⚠️ 卒業・引退のため「現状維持」は選択できません。上記から資格を満たす職業を選択してルーレットに挑戦してください。
                       </div>
                     ) : (
                       <button
+                        disabled={isSpinningJobChange}
                         onClick={() => moves.changeJob(pid, 'keep')}
                         style={{
                           width: '100%',
@@ -2439,8 +3062,8 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
                         }}
                       >
                         {isTokyo
-                          ? '🗼 都心エリート・都内自立コース（偏差値+2 / 自立生活費 -20万円）'
-                          : '🏙️ 大都会コースに進む（偏差値+2 / 上京費用 -20万円）'}
+                          ? '🗼 都心エリート・都内自立コース（マスのお金増減1.2倍 / 学力+4・偏差値+2 / 自立費 -20万円）'
+                          : '🏙️ 大都会コースに進む（マスのお金増減1.2倍 / 学力+4・偏差値+2 / 上京費 -20万円）'}
                       </button>
                       <button
                         onClick={() => moves.chooseRoute(pid, 'local')}
@@ -2782,8 +3405,161 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
               );
             })()}
 
+            {/* 適齢期区間（第3時代 #1〜#60）：結婚・出産ルーレット */}
+            {G.currentSpaceModal.type === 'family_roulette' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{
+                  padding: '10px 14px',
+                  borderRadius: '12px',
+                  background: 'linear-gradient(135deg, rgba(244, 63, 94, 0.16), rgba(236, 72, 153, 0.16))',
+                  border: '1px solid rgba(244, 63, 94, 0.45)',
+                  fontSize: '12px',
+                  lineHeight: 1.6,
+                  color: '#fbcfe8'
+                }}>
+                  <div>🎯 <strong>確率 1/10（出目10）</strong>で <strong>{turnPlayer?.car?.spouse ? '👶 出産' : '💍 結婚 または 👶 出産'}</strong> イベントが発生！</div>
+                  <div>💘 未婚時の結婚・出産当選時は <strong>2割（20%）でできちゃった婚</strong>！</div>
+                  <div>👶👶 出産発生時は <strong>1%の確率で双子誕生</strong>（祝い金も2倍徴収）！</div>
+                </div>
+
+                {/* 1〜10 スロット一覧 */}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(5, 1fr)',
+                  gap: '6px',
+                  background: 'rgba(0,0,0,0.28)',
+                  padding: '10px',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(255,255,255,0.08)'
+                }}>
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => {
+                    const isWin = num === 10;
+                    const isHighlighted = tempFamilyRoll === num;
+                    return (
+                      <div
+                        key={num}
+                        style={{
+                          padding: '8px 4px',
+                          borderRadius: '8px',
+                          textAlign: 'center',
+                          background: isHighlighted
+                            ? '#facc15'
+                            : isWin
+                            ? 'linear-gradient(135deg, rgba(244, 63, 94, 0.4), rgba(236, 72, 153, 0.4))'
+                            : 'rgba(255,255,255,0.05)',
+                          border: isHighlighted
+                            ? '2px solid #fff'
+                            : isWin
+                            ? '1.5px solid #f43f5e'
+                            : '1px solid rgba(255,255,255,0.1)',
+                          color: isHighlighted ? '#0f172a' : (isWin ? '#fde047' : '#94a3b8'),
+                          fontWeight: '900',
+                          fontSize: '11px'
+                        }}
+                      >
+                        <div style={{ fontSize: '14px' }}>{num}</div>
+                        <div style={{ fontSize: '9px' }}>{isWin ? '💍👶 当たり' : '🌿 日常'}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {isActionPlayer ? (
+                  <button
+                    disabled={isSpinningFamily}
+                    onClick={() => {
+                      if (isSpinningFamily) return;
+                      setIsSpinningFamily(true);
+                      let ticks = 0;
+                      const timer = setInterval(() => {
+                        ticks++;
+                        setTempFamilyRoll(Math.floor(Math.random() * 10) + 1);
+                        if (ticks >= 12) {
+                          clearInterval(timer);
+                          setIsSpinningFamily(false);
+                          setTempFamilyRoll(null);
+                          moves.spinFamilyRoulette(pid);
+                        }
+                      }, 70);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '15px',
+                      borderRadius: '14px',
+                      background: isSpinningFamily
+                        ? 'linear-gradient(135deg, #475569, #334155)'
+                        : 'linear-gradient(135deg, #ec4899, #f43f5e)',
+                      color: '#fff',
+                      border: 'none',
+                      fontWeight: '900',
+                      fontSize: '16px',
+                      cursor: isSpinningFamily ? 'wait' : 'pointer',
+                      boxShadow: isSpinningFamily ? 'none' : '0 6px 20px rgba(244, 63, 94, 0.4)'
+                    }}
+                  >
+                    {isSpinningFamily
+                      ? `🎡 ライフイベント抽選中… 【 ${tempFamilyRoll || 1} 】`
+                      : '🎡 結婚・出産ルーレットを回す！（1/10）'}
+                  </button>
+                ) : (
+                  <div style={{
+                    padding: '14px',
+                    borderRadius: '12px',
+                    background: 'rgba(0,0,0,0.3)',
+                    textAlign: 'center',
+                    color: '#fbcfe8',
+                    fontSize: '13px',
+                    fontWeight: 'bold'
+                  }}>
+                    🎡 {getPlayerName(turnPid)} が結婚・出産ルーレットを回しています…
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 結婚・出産ルーレット結果 */}
+            {G.currentSpaceModal.type === 'family_roulette_result' && (
+              <div style={{
+                padding: '14px',
+                borderRadius: '14px',
+                textAlign: 'center',
+                background: G.currentSpaceModal.hit
+                  ? 'linear-gradient(135deg, rgba(244, 63, 94, 0.2), rgba(245, 158, 11, 0.2))'
+                  : 'rgba(255,255,255,0.05)',
+                border: G.currentSpaceModal.hit ? '2px solid #f43f5e' : '1px solid rgba(255,255,255,0.12)',
+                marginBottom: '6px'
+              }}>
+                <div style={{ fontSize: '12px', color: '#94a3b8' }}>ルーレット出目</div>
+                <div style={{
+                  fontSize: '36px',
+                  fontWeight: '900',
+                  color: G.currentSpaceModal.hit ? '#fde047' : '#cbd5e1',
+                  lineHeight: 1.1,
+                  margin: '4px 0 8px'
+                }}>
+                  【 {G.currentSpaceModal.roll10} 】
+                </div>
+                {G.currentSpaceModal.outcome?.isShotgun && (
+                  <span style={{
+                    display: 'inline-block', background: '#f43f5e', color: '#fff',
+                    padding: '2px 10px', borderRadius: '999px', fontSize: '11px', fontWeight: '900', marginRight: '6px'
+                  }}>
+                    💘 できちゃった婚 (2割)!
+                  </span>
+                )}
+                {G.currentSpaceModal.outcome?.isTwins && (
+                  <span style={{
+                    display: 'inline-block', background: '#f59e0b', color: '#0f172a',
+                    padding: '2px 10px', borderRadius: '999px', fontSize: '11px', fontWeight: '900'
+                  }}>
+                    👶👶 双子誕生 (1%)!!
+                  </span>
+                )}
+              </div>
+            )}
+
             {/* 通常イベントマス（了解して次へ進む） */}
-            {!['branch_route', 'branch_career', 'branch_midlife', 'buy_house', 'choose_job', 'job_result', 'era_milestone', 'job_change', 'choose_travel'].includes(G.currentSpaceModal.type) && (
+            {!['branch_route', 'branch_career', 'branch_midlife', 'buy_house', 'choose_job', 'job_result', 'job_change_result', 'era_milestone', 'job_change', 'choose_travel', 'family_roulette'].includes(G.currentSpaceModal.type) && (
               isActionPlayer ? (
                 <button
                   onClick={() => moves.endTurn(pid)}
@@ -2791,7 +3567,9 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
                     width: '100%',
                     padding: '16px',
                     borderRadius: '16px',
-                    background: 'linear-gradient(135deg, #10b981, #059669)',
+                    background: G.currentSpaceModal.eligibleForFamilyRoulette
+                      ? 'linear-gradient(135deg, #ec4899, #db2777)'
+                      : 'linear-gradient(135deg, #10b981, #059669)',
                     color: '#fff',
                     border: 'none',
                     fontWeight: '900',
@@ -2804,8 +3582,12 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
                     gap: '8px'
                   }}
                 >
-                  <span>👉</span>
-                  <span>了解して次のプレイヤーへ進む（ターン終了）</span>
+                  <span>{G.currentSpaceModal.eligibleForFamilyRoulette ? '💍👶' : '👉'}</span>
+                  <span>
+                    {G.currentSpaceModal.eligibleForFamilyRoulette
+                      ? '結婚・出産ルーレットへ進む（適齢期ゾーン！）'
+                      : '了解して次のプレイヤーへ進む（ターン終了）'}
+                  </span>
                 </button>
               ) : (
                 <div style={{
@@ -2945,10 +3727,10 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
               border: '1px solid rgba(255,255,255,0.08)'
             }}>
               <span style={{ color: '#38bdf8', fontWeight: 'bold' }}>💡 パラメータ育成のヒント:</span>
-              <span>📖 <strong>勉強マス</strong>: 学力+6</span>
-              <span>🏃 <strong>運動マス</strong>: 体力+6</span>
-              <span>✈️ <strong>旅行マス</strong>: 学力+2 & 体力+2</span>
-              <span>🛤️ <strong>コース分岐</strong>: Aコース(学力+5) / Bコース(体力+5)</span>
+              <span>📖 <strong>勉強マス</strong>: 学力+6〜14 & 偏差値+2〜6</span>
+              <span>🏃 <strong>運動マス</strong>: 体力+6〜14</span>
+              <span>🏠 <strong>出身県企業</strong>: 出身都道府県ごとの名門企業にも就職可能！</span>
+              <span>🛤️ <strong>コース分岐</strong>: Aコース(学力大幅UP) / Bコース(体力・資金UP)</span>
               <span>💼 <strong>転職チャンスマス</strong>: 壮年期・熟年期で止まると資格を満たした職業へ転職可能！</span>
             </div>
 
@@ -2961,7 +3743,7 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
               overflowY: 'auto',
               paddingRight: '6px'
             }}>
-              {OCCUPATIONS.map((occ) => {
+              {getAvailableOccupationsForPlayer(myPlayer).map((occ) => {
                 const myAcad = myPlayer?.academic || 50;
                 const myStam = myPlayer?.stamina || 50;
                 const reqAcad = occ.reqAcademic || 0;
@@ -3152,51 +3934,130 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              <div style={{ position: 'relative', width: '80px', height: '80px', flexShrink: 0 }}>
+              <div style={{ position: 'relative', width: '136px', height: '136px', flexShrink: 0 }}>
                 <div style={{
                   width: '100%',
                   height: '100%',
                   borderRadius: '50%',
-                  background: 'conic-gradient(#ef4444 0% 10%, #f97316 10% 20%, #f59e0b 20% 30%, #10b981 30% 40%, #06b6d4 40% 50%, #3b82f6 50% 60%, #6366f1 60% 70%, #8b5cf6 70% 80%, #ec4899 80% 90%, #f43f5e 90% 100%)',
                   border: '4px solid #ffffff',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+                  boxShadow: '0 6px 18px rgba(0,0,0,0.55)',
                   transform: `rotate(${spinDegree}deg)`,
-                  transition: isSpinningLocal ? 'transform 1.2s cubic-bezier(0.15, 0.9, 0.25, 1)' : 'none',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
+                  transition: isSpinningLocal
+                    ? 'transform 0.85s linear'
+                    : 'transform 0.55s cubic-bezier(0.15, 0.9, 0.25, 1)',
+                  overflow: 'hidden',
+                  background: '#0f172a'
                 }}>
-                  <div style={{
-                    width: '32px',
-                    height: '32px',
-                    borderRadius: '50%',
-                    background: '#ffffff',
-                    boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontWeight: '900',
-                    fontSize: '16px',
-                    color: '#1f2937'
-                  }}>
-                    {G.rouletteValue !== null ? G.rouletteValue : '🎡'}
-                  </div>
+                  <svg viewBox="0 0 120 120" width="100%" height="100%" style={{ display: 'block' }}>
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num, idx) => {
+                      const colors = ['#ef4444', '#f97316', '#eab308', '#10b981', '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', '#ec4899', '#f43f5e'];
+                      const startRad = (idx * 36 * Math.PI) / 180;
+                      const endRad = ((idx + 1) * 36 * Math.PI) / 180;
+                      const midDeg = idx * 36 + 18;
+                      const midRad = (midDeg * Math.PI) / 180;
+                      const x1 = 60 + 60 * Math.sin(startRad);
+                      const y1 = 60 - 60 * Math.cos(startRad);
+                      const x2 = 60 + 60 * Math.sin(endRad);
+                      const y2 = 60 - 60 * Math.cos(endRad);
+                      const tx = 60 + 42 * Math.sin(midRad);
+                      const ty = 60 - 42 * Math.cos(midRad);
+                      const isHit = !isSpinningLocal && G.rouletteValue === num;
+                      return (
+                        <g key={num}>
+                          <path
+                            d={`M 60 60 L ${x1.toFixed(2)} ${y1.toFixed(2)} A 60 60 0 0 1 ${x2.toFixed(2)} ${y2.toFixed(2)} Z`}
+                            fill={colors[idx]}
+                            stroke="rgba(255,255,255,0.65)"
+                            strokeWidth="1"
+                          />
+                          <text
+                            x={tx.toFixed(2)}
+                            y={ty.toFixed(2)}
+                            fill={isHit ? '#fef08a' : '#ffffff'}
+                            stroke="#0f172a"
+                            strokeWidth="2.6"
+                            paintOrder="stroke"
+                            fontSize={isHit ? '14' : '12'}
+                            fontWeight="900"
+                            textAnchor="middle"
+                            dominantBaseline="central"
+                            transform={`rotate(${midDeg}, ${tx.toFixed(2)}, ${ty.toFixed(2)})`}
+                          >
+                            {num}
+                          </text>
+                        </g>
+                      );
+                    })}
+                  </svg>
                 </div>
+
+                {/* 中央の固定出目バッジ（回転せず常に水平表示） */}
                 <div style={{
                   position: 'absolute',
-                  top: '-8px',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  width: '46px',
+                  height: '46px',
+                  borderRadius: '50%',
+                  background: '#ffffff',
+                  border: '2px solid #fbbf24',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.45)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  lineHeight: 1
+                }}>
+                  {isSpinningLocal ? (
+                    <span style={{ fontSize: '18px' }}>🌀</span>
+                  ) : G.rouletteValue !== null ? (
+                    <>
+                      <span style={{ fontWeight: '900', fontSize: '18px', color: '#0f172a' }}>{G.rouletteValue}</span>
+                      <span style={{ fontWeight: '900', fontSize: '9px', color: '#d97706' }}>マス</span>
+                    </>
+                  ) : (
+                    <>
+                      <span style={{ fontWeight: '900', fontSize: '11px', color: '#0f172a' }}>1〜10</span>
+                      <span style={{ fontWeight: 'bold', fontSize: '8px', color: '#64748b' }}>マス</span>
+                    </>
+                  )}
+                </div>
+
+                {/* 12時の判定針 */}
+                <div style={{
+                  position: 'absolute',
+                  top: '-10px',
                   left: '50%',
                   transform: 'translateX(-50%)',
                   width: 0,
                   height: 0,
-                  borderLeft: '8px solid transparent',
-                  borderRight: '8px solid transparent',
-                  borderTop: '14px solid #fbbf24',
-                  filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.5))'
+                  borderLeft: '10px solid transparent',
+                  borderRight: '10px solid transparent',
+                  borderTop: '18px solid #fbbf24',
+                  filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.7))',
+                  zIndex: 2
                 }} />
               </div>
 
-              <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{
+                  fontSize: '12px',
+                  fontWeight: 'bold',
+                  padding: '6px 10px',
+                  borderRadius: '8px',
+                  background: 'rgba(15, 23, 42, 0.65)',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  color: G.rouletteValue !== null && !isSpinningLocal ? '#fde047' : '#cbd5e1',
+                  textAlign: 'center'
+                }}>
+                  {isSpinningLocal
+                    ? '🌀 1〜10マスを抽選中…'
+                    : G.rouletteValue !== null
+                    ? `🚀 出目【 ${G.rouletteValue} 】→ ${G.rouletteValue}マス進みました！`
+                    : '🎯 1〜10マス進むルーレット'}
+                </div>
+
                 {isMyTurn && G.turnStep === 'spin' && (
                   <button
                     onClick={handleSpinRoulette}
@@ -3319,11 +4180,11 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
             </div>
 
             {playersOnSpace.length > 0 && (
-              <div style={{ marginTop: '6px', display: 'flex', gap: '4px', alignItems: 'center', fontSize: '10px', color: '#94a3b8' }}>
+              <div style={{ marginTop: '6px', display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap', fontSize: '10px', color: '#94a3b8' }}>
                 <span>現在地:</span>
                 {playersOnSpace.map((pl) => (
-                  <span key={pl.id} style={{ background: pl.color, color: '#fff', padding: '1px 6px', borderRadius: '6px', fontWeight: 'bold' }}>
-                    🚗 P{pl.id}
+                  <span key={pl.id} style={{ background: pl.color, color: '#fff', padding: '1px 7px', borderRadius: '6px', fontWeight: 'bold', border: pl.id === pid ? '1px solid #fde047' : 'none' }}>
+                    🚗 {getPlayerName(pl.id)}
                   </span>
                 ))}
               </div>
@@ -3577,6 +4438,9 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '9px', color: '#94a3b8' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
                         <span style={{ fontWeight: 'bold' }}>#{space.id}</span>
+                        {isFamilyRouletteZoneSpace(viewingEra.id, space) && (
+                          <span title="結婚・出産ルーレット判定区間(1/10)" style={{ fontSize: '9px' }}>💍👶</span>
+                        )}
                         {isEraGoal && (
                           <span style={{
                             background: '#eab308',
@@ -3695,42 +4559,51 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
 
                   {playersHere.length > 0 && (
                     <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap', marginTop: '4px' }}>
-                      {playersHere.map((p) => (
-                        <div
-                          key={p.id}
-                          style={{
-                            background: p.color,
-                            borderRadius: '4px',
-                            padding: '2px 5px',
-                            fontSize: '9px',
-                            fontWeight: 'bold',
-                            color: '#fff',
-                            animation: 'carBounce 2s infinite ease-in-out',
-                            boxShadow: '0 2px 4px rgba(0,0,0,0.4)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '3px'
-                          }}
-                          title={`プレイヤー${p.id} (${p.name || ''}) - ${p.car?.spouse ? '配偶者あり' : '独身'}, 子供: ${p.car?.kids || 0}人`}
-                        >
-                          <span>🚗 P{p.id}</span>
-                          {p.car?.spouse && <span title="配偶者同乗">👫</span>}
-                          {p.car?.kids > 0 && (
-                            <span
-                              style={{
-                                background: 'rgba(255,255,255,0.3)',
-                                borderRadius: '3px',
-                                padding: '0 3px',
-                                fontSize: '8px',
-                                border: '1px solid rgba(255,255,255,0.4)'
-                              }}
-                              title={`子供 ${p.car.kids}人`}
-                            >
-                              👶x{p.car.kids}
+                      {playersHere.map((p) => {
+                        const playerDisplayName = getPlayerName(p.id);
+                        return (
+                          <div
+                            key={p.id}
+                            style={{
+                              background: p.color,
+                              borderRadius: '6px',
+                              padding: '2px 6px',
+                              fontSize: '10px',
+                              fontWeight: '900',
+                              color: '#fff',
+                              animation: 'carBounce 2s infinite ease-in-out',
+                              boxShadow: '0 2px 5px rgba(0,0,0,0.5)',
+                              border: p.id === pid ? '1.5px solid #fde047' : '1px solid rgba(255,255,255,0.45)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '3px',
+                              maxWidth: '100%'
+                            }}
+                            title={`${playerDisplayName} - ${p.car?.spouse ? '配偶者あり' : '独身'}, 子供: ${p.car?.kids || 0}人`}
+                          >
+                            <span>🚗</span>
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '88px' }}>
+                              {playerDisplayName}
                             </span>
-                          )}
-                        </div>
-                      ))}
+                            {p.car?.spouse && <span title="配偶者同乗">👫</span>}
+                            {p.car?.kids > 0 && (
+                              <span
+                                style={{
+                                  background: 'rgba(255,255,255,0.3)',
+                                  borderRadius: '3px',
+                                  padding: '0 3px',
+                                  fontSize: '8px',
+                                  border: '1px solid rgba(255,255,255,0.4)',
+                                  flexShrink: 0
+                                }}
+                                title={`子供 ${p.car.kids}人`}
+                              >
+                                👶x{p.car.kids}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -3754,7 +4627,7 @@ export const JinseiBoard = ({ G, ctx, moves, playerID, matchData }) => {
             📜 人生イベントログ:
           </div>
           {G.logs.map((log, idx) => (
-            <div key={idx} style={{ marginBottom: '2px', lineHeight: 1.3 }}>{log}</div>
+            <div key={idx} style={{ marginBottom: '2px', lineHeight: 1.3 }}>{formatLogWithNames(log)}</div>
           ))}
         </div>
       </div>
